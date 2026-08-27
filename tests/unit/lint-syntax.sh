@@ -15,7 +15,14 @@ REPO_ROOT="${SCRIPT_DIR}/../.."
 
 violations=0
 
-for f in $(find "$REPO_ROOT" -name '*.sh' -not -path '*/node_modules/*' -not -path '*/.terraform/*' 2>/dev/null); do
+# policy/vendored-rules/ (docs/adr/0020) carries upstream Semgrep-rule test
+# fixtures under its own tree -- deliberately incomplete/invalid-as-standalone
+# code snippets (e.g. a bare `await` outside an async function) used by the
+# rule authors' own test harness, not this project's code. This project has
+# no control over their contents and they are not meant to independently
+# parse as complete programs -- excluded from both loops below, same as
+# node_modules/.terraform already are for the same "not ours to lint" reason.
+for f in $(find "$REPO_ROOT" -name '*.sh' -not -path '*/node_modules/*' -not -path '*/.terraform/*' -not -path '*/policy/vendored-rules/*' 2>/dev/null); do
   if ! sh -n "$f" 2>/tmp/lint-syntax-err.$$; then
     echo "FAIL: $f"
     sed 's/^/    /' /tmp/lint-syntax-err.$$
@@ -24,7 +31,7 @@ for f in $(find "$REPO_ROOT" -name '*.sh' -not -path '*/node_modules/*' -not -pa
   rm -f /tmp/lint-syntax-err.$$
 done
 
-for f in $(find "$REPO_ROOT" -name '*.py' -not -path '*/node_modules/*' -not -path '*/.terraform/*' 2>/dev/null); do
+for f in $(find "$REPO_ROOT" -name '*.py' -not -path '*/node_modules/*' -not -path '*/.terraform/*' -not -path '*/policy/vendored-rules/*' 2>/dev/null); do
   if ! python3 -m py_compile "$f" 2>/tmp/lint-syntax-err.$$; then
     echo "FAIL: $f"
     sed 's/^/    /' /tmp/lint-syntax-err.$$

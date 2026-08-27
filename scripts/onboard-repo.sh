@@ -139,6 +139,43 @@ commit_file "${SCRIPT_DIR}/../normalise/gitleaks_adapter.py" "normalise/gitleaks
 commit_file "${SCRIPT_DIR}/../normalise/semgrep_adapter.py" "normalise/semgrep_adapter.py"
 commit_file "${SCRIPT_DIR}/../normalise/trivy_adapter.py" "normalise/trivy_adapter.py"
 commit_file "${SCRIPT_DIR}/../policy/severity.rego" "policy/severity.rego"
+
+# commit_directory <local_dir> <remote_dir>
+# docs/adr/0020: policy/vendored-rules/ is 594 files -- commit_file's
+# one-API-call-per-file Contents API approach does not scale to that (594
+# sequential HTTP round-trips per onboarding run). A real git clone/push
+# is faster and simpler for a whole tree. Idempotent: a re-run with no
+# actual content change produces an empty `git commit`, which this
+# function treats as success, not an error, matching commit_file's own
+# "already up to date" tolerance.
+commit_directory() {
+  local_dir="$1"
+  remote_dir="$2"
+  work_dir=$(mktemp -d)
+  git clone -q "${GITEA_URL}/${OWNER}/${REPO}.git" "${work_dir}" 2>/dev/null || {
+    echo "    ERROR: could not clone ${OWNER}/${REPO} to commit ${remote_dir}" >&2
+    rm -rf "${work_dir}"
+    exit 1
+  }
+  mkdir -p "${work_dir}/${remote_dir}"
+  cp -r "${local_dir}/." "${work_dir}/${remote_dir}/"
+  (
+    cd "${work_dir}"
+    git config user.email "platform@ssdlc.local"
+    git config user.name "ssdlc-platform-onboarding"
+    git add "${remote_dir}"
+    if git diff --cached --quiet; then
+      echo "    ${remote_dir} already up to date, nothing to commit"
+    else
+      git commit -q -m "ssdlc: sync ${remote_dir} (onboard-repo.sh)"
+      git -c http.extraHeader="Authorization: token ${GITEA_ADMIN_TOKEN}" push -q origin HEAD:main
+      echo "    committed ${remote_dir} ($(find "${local_dir}" -type f | wc -l | tr -d ' ') files)"
+    fi
+  )
+  rm -rf "${work_dir}"
+}
+
+commit_directory "${SCRIPT_DIR}/../policy/vendored-rules" "policy/vendored-rules"
 echo "    all pipeline dependencies committed"
 
 echo "--> [3/4] Adding the gate bot as a collaborator"

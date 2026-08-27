@@ -300,7 +300,7 @@ Gitea (MIT) · Woodpecker CI (Apache-2.0) · [Semgrep OSS](https://github.com/se
 | **[Trivy Operator](https://github.com/aquasecurity/trivy-operator)** | In-cluster continuous rescanning — framework §5.2. |
 | **[Continue](https://github.com/continuedev/continue) + [Ollama](https://github.com/ollama/ollama)** | The DEVELOP diagram says "Continue + Ollama" and framework §4 **mandates internal-first LLM review** before code reaches any external AI assistant. Omitted from the earlier draft; now first-class. |
 | **[OWASP CRS](https://github.com/coreruleset/coreruleset)** | WAF ruleset for MANAGE. |
-| **[Opengrep](https://github.com/opengrep/opengrep)** | Continuity plan, given the Semgrep Registry's licensing history. Watch, don't adopt yet. |
+| **[Opengrep](https://github.com/opengrep/opengrep)** | Adopted sooner than planned, for its **rules** specifically — SADR-0020 found live that Semgrep's own Registry rules cannot legally be vendored into this repo (Semgrep Rules License prohibits redistribution/service use). `policy/vendored-rules/` sources from `opengrep/opengrep-rules` (LGPL-2.1 + Commons Clause; internal-use reading not yet reviewed by counsel — see that directory's README). The Semgrep OSS **engine** is still what runs the fast gate; only the rule *source* changed. |
 | **[Nuclei](https://github.com/projectdiscovery/nuclei)** | Fast, template-based CVE/misconfiguration scanning — genuinely complementary to ZAP's deeper crawl-based active/passive scanning, not a duplicate of it. External research (2026-08-24) independently converged on the same DAST pairing. Add alongside ZAP in the scheduled DAST leg, not the fast gate. |
 
 ### External integrations (menu — see review pack §11)

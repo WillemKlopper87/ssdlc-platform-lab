@@ -83,6 +83,13 @@ DEFAULT_GATE_MANAGED_PATHS = (
     "normalise/trivy_adapter.py",
     "policy/severity.rego",
 )
+# NOT included, deliberately flagged rather than silently omitted: docs/adr/0020's
+# policy/vendored-rules/ (594 files). This list is compared one Contents-API
+# blob-SHA request per path (gate_contract_matches_base below); doing that for
+# every file in a 594-file tree, on every poll cycle, does not scale. A PR
+# could currently weaken the vendored Semgrep ruleset without the bot's
+# protected-base check catching it. Needs a tree-level (single Git Trees API
+# call) comparison instead of per-file, not yet built -- tracked in docs/TODO.md.
 
 
 def api(base_url, headers, method, path, body=None, allow_404=False):

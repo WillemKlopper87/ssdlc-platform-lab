@@ -154,9 +154,21 @@ than trusting it indefinitely.
 - [ ] Persist a shared Trivy DB volume + scheduled out-of-band refresh job, then re-add
       `--skip-db-update` to the `dependencies` step — every run currently re-downloads ~109MB, which
       will not stay under the fast gate's 3-minute budget at real scale. — SADR-0005
-- [ ] Vendor Semgrep rulesets into the policy repo instead of pulling live from the registry at scan
-      time — an upstream rule change can currently block every PR in the estate with no review and
-      no rollback. — DESIGN.md, Policy model / Rule-set updates
+- [x] ~~Vendor Semgrep rulesets into the policy repo instead of pulling live from the registry at
+      scan time~~ Done, with a real detour — `policy/vendored-rules/` (594 files, secrets + core
+      per-language security rules), live-tested through a real onboarded repo and PR (a real AWS key
+      correctly blocked the merge). **Found live that Semgrep's own Registry rules cannot legally be
+      vendored**: the Semgrep Rules License explicitly prohibits distributing them or making them
+      available to others as a service, which this platform's whole purpose (serving every onboarded
+      team) falls under. Sourced from `opengrep/opengrep-rules` instead (LGPL-2.1 + a Commons Clause
+      restriction on reselling, not reviewed by counsel for this exact internal-use case — see
+      `policy/vendored-rules/README.md`). `onboard-repo.sh` gained a `commit_directory` helper (a real
+      git clone/push, not 594 Contents-API calls) to actually get this into onboarded repos. — SADR-0020
+- [ ] `policy/vendored-rules/` is not yet covered by `bot-approver.py`'s protected-base
+      byte-comparison (`GATE_CONTRACT_ENFORCE`) — that mechanism does one Contents-API call per path,
+      which doesn't scale to 594 files. A PR could currently weaken the vendored ruleset without the
+      bot's check catching it. Needs a tree-level (single Git Trees API call) comparison instead of
+      per-file. — SADR-0020, follow-up to SADR-0017
 - [ ] `onboard-repo.sh`'s push-whitelist gives whoever holds `GITEA_ADMIN_TOKEN` a standing PR-review
       bypass on every onboarded repo. Needs a narrower-scoped automation identity — likely resolved
       once Milestone 3's sidecar exists and this doesn't have to be a full admin token. — SADR-0005

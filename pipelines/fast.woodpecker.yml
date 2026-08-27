@@ -37,11 +37,18 @@ steps:
     # JSON run below) -- same centralization as the secrets step above.
     image: semgrep/semgrep:1.174.0
     commands:
-      # p/security-audit + p/secrets: the same combination validated in
-      # docs/adr/0005-sca-dast-automation.md's live Semgrep demo.
-      # Vendor/pin the ruleset in a follow-up (DESIGN.md's rule-set-update
-      # guidance) rather than pulling live from the registry every run —
-      # tracked, not yet done as of this pipeline's first version.
+      # policy/vendored-rules/ replaces the live p/security-audit +
+      # p/secrets registry pull (docs/adr/0020) -- DESIGN.md's rule-set-
+      # update guidance ("rule changes go through the same gate as code")
+      # plus a real licensing constraint found doing this: Semgrep's own
+      # Registry rules carry a license that does not permit copying them
+      # into a repo that serves multiple teams (see
+      # policy/vendored-rules/README.md). The vendored set is sourced from
+      # opengrep/opengrep-rules instead, a cleanly-licensed fork, pinned to
+      # one commit and reviewed like any other policy change -- not the
+      # exact same 272 rules the live pull resolved, by design (a curated,
+      # framework-agnostic slice: secrets + core-language security per
+      # major language, not every framework-specific integration).
       #
       # Also emits SARIF, alongside the existing JSON, purely for the
       # inline-comments step below: reviewdog's real built-in parsers are
@@ -77,8 +84,8 @@ steps:
       # gate on these tools' output. Every onboarded repo's own paved-road
       # files carry these same report filenames, so excluding by name
       # here is sufficient without needing a per-repo ignore file.
-      - semgrep --config=p/security-audit --config=p/secrets --sarif --output=semgrep-report.sarif --exclude=gitleaks-report.json . || true
-      - semgrep --config=p/security-audit --config=p/secrets --json --output=semgrep-report.json --exclude=gitleaks-report.json --exclude=semgrep-report.sarif .
+      - semgrep --config=policy/vendored-rules --sarif --output=semgrep-report.sarif --exclude=gitleaks-report.json . || true
+      - semgrep --config=policy/vendored-rules --json --output=semgrep-report.json --exclude=gitleaks-report.json --exclude=semgrep-report.sarif .
     when:
       - event: [push, pull_request]
 
