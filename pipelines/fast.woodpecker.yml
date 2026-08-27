@@ -181,17 +181,20 @@ steps:
       # uniformly across all three scanners by policy-eval-findings
       # below, not by this tool's own flag alone.
       #
-      # NOT using --skip-db-update here, deliberately, even though
-      # DESIGN.md's target design caches Trivy's DB on a persistent volume
-      # and refreshes it out-of-band. That infrastructure doesn't exist in
-      # this profile yet -- found live: --skip-db-update on a step
-      # container with no prior DB fails outright ("cannot skip
-      # downloading DB" on the first run), and every step container here
-      # IS a first run, being freshly created per pipeline. Re-add
-      # --skip-db-update once a shared, persisted Trivy cache exists
-      # (tracked as Milestone-1+ follow-up work, not done as of this
-      # template's current version) -- until then this downloads the DB
-      # fresh every run, which is correct, just not yet fast.
+      # docs/adr/0021: /root/.cache/trivy (Trivy's own default cache
+      # path) is now a persistent volume, shared across every pipeline
+      # step on this agent -- see WOODPECKER_BACKEND_DOCKER_VOLUMES in
+      # compose/minimal/docker-compose.yml, an agent-level setting no PR
+      # can influence. --skip-db-update is unconditional once a DB is
+      # present -- found live (Milestone 1) that it fails outright
+      # ("cannot skip downloading DB") against an EMPTY cache, which every
+      # step container was, before this volume existed. The self-check
+      # below primes an empty cache with one real download rather than
+      # assuming a separate refresh job has always already run; DESIGN.md's
+      # target design still wants a scheduled out-of-band refresh
+      # (pipelines/trivy-db-refresh.woodpecker.yml) so this priming path is
+      # the exception, not the normal case, once that cron job exists.
+      - 'test -f /root/.cache/trivy/db/metadata.json && SKIP_DB="--skip-db-update" || SKIP_DB=""'
       # No --severity filter either, deliberately: previously scoped to
       # CRITICAL,HIGH only, since those were the only severities this
       # step's own --exit-code cared about. policy-eval-findings needs
@@ -202,7 +205,7 @@ steps:
       # --exclude fixes (docs/adr/0018) -- trivy fs's default scanners
       # include its own secret detector, and by this point the workspace
       # already holds the secrets and sast steps' report files.
-      - trivy fs --exit-code=0 --format=json --output=trivy-report.json --skip-files=gitleaks-report.json,semgrep-report.sarif,semgrep-report.json .
+      - trivy fs $SKIP_DB --exit-code=0 --format=json --output=trivy-report.json --skip-files=gitleaks-report.json,semgrep-report.sarif,semgrep-report.json .
     when:
       - event: [push, pull_request]
 

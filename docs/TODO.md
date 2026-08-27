@@ -151,9 +151,21 @@ than trusting it indefinitely.
       then confirmed `success` on the same PR once remediated. Found and
       fixed a live self-contamination bug along the way (Semgrep and Trivy
       flagging the platform's own prior-step report files). — SADR-0018
-- [ ] Persist a shared Trivy DB volume + scheduled out-of-band refresh job, then re-add
-      `--skip-db-update` to the `dependencies` step — every run currently re-downloads ~109MB, which
-      will not stay under the fast gate's 3-minute budget at real scale. — SADR-0005
+- [x] ~~Persist a shared Trivy DB volume + scheduled out-of-band refresh job, then re-add
+      `--skip-db-update` to the `dependencies` step~~ Done -- a Terraform-managed volume
+      (`ssdlc-<profile>-trivy-db-cache`) mounted at Trivy's own default cache path
+      (`/root/.cache/trivy`) into **every** step container on the agent via
+      `WOODPECKER_BACKEND_DOCKER_VOLUMES` (confirmed against Woodpecker's own source that this list
+      is agent-level and applied unconditionally, not something a PR can influence). The
+      `dependencies` step self-heals: `--skip-db-update` only when a cached DB is already present, so
+      a fresh/empty volume still primes itself on its own first real use rather than requiring the
+      refresh job to have already run. `pipelines/trivy-db-refresh.woodpecker.yml` added as the
+      scheduled (`event: cron`) refresh job DESIGN.md calls for, matching `dast-scheduled.woodpecker.yml`'s
+      precedent -- written and its own command live-tested standalone, but not yet registered as an
+      actual Woodpecker cron job (that's a manual registration step, same as self-verify's own cron
+      job needed in SADR-0016). Live-tested end to end through two real pipeline runs on an onboarded
+      repo: confirmed via step logs that a primed cache produces zero DB-download network activity
+      on both a push and a PR event. -- SADR-0021
 - [x] ~~Vendor Semgrep rulesets into the policy repo instead of pulling live from the registry at
       scan time~~ Done, with a real detour — `policy/vendored-rules/` (594 files, secrets + core
       per-language security rules), live-tested through a real onboarded repo and PR (a real AWS key

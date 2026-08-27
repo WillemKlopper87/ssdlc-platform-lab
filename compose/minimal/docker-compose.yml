@@ -198,6 +198,14 @@ services:
       # switched this profile's network to the one Terraform provisions
       # (terraform/local/main.tf), matching the name declared there.
       - WOODPECKER_BACKEND_DOCKER_NETWORK=ssdlc-minimal
+      # docs/adr/0021: mounted into EVERY step container the agent creates
+      # (confirmed against Woodpecker's own source -- pipeline/backend/
+      # docker/docker.go applies this list unconditionally, not opt-in per
+      # step), not just the dependencies/Trivy step. A PR cannot add to or
+      # influence this list; it is agent-level configuration only. Trivy's
+      # own default cache path (confirmed via `trivy --help`) is
+      # /root/.cache/trivy -- no --cache-dir override needed in the pipeline.
+      - WOODPECKER_BACKEND_DOCKER_VOLUMES=ssdlc-minimal-trivy-db-cache:/root/.cache/trivy
     volumes:
       # DESIGN.md's own hardening note: the agent needs the Docker socket to
       # run pipeline steps, which is root-equivalent on the host. Acceptable

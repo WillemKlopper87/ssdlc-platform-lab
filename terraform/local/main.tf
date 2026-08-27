@@ -70,3 +70,24 @@ resource "docker_volume" "woodpecker_server_data" {
     value = "woodpecker-server"
   }
 }
+
+resource "docker_volume" "trivy_db_cache" {
+  # docs/adr/0021: shared across every pipeline step on this agent, not
+  # per-repo -- the Trivy vulnerability DB is identical regardless of which
+  # onboarded repo's step downloads it. Mounted into every step container
+  # via WOODPECKER_BACKEND_DOCKER_VOLUMES (compose/minimal/docker-compose.yml),
+  # an agent-wide setting a PR cannot influence -- confirmed against
+  # Woodpecker's own source (pipeline/backend/docker/docker.go) that this
+  # list is applied unconditionally to every container the agent creates,
+  # not opt-in per pipeline.
+  name = "ssdlc-${var.profile}-trivy-db-cache"
+
+  labels {
+    label = "ssdlc.profile"
+    value = var.profile
+  }
+  labels {
+    label = "ssdlc.component"
+    value = "trivy-db-cache"
+  }
+}

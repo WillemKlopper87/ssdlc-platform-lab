@@ -1,0 +1,33 @@
+# SSDLC-Platform-Lab — scheduled Trivy DB refresh
+#
+# docs/adr/0021. Keeps the shared, persistent Trivy vulnerability DB
+# (compose/minimal/docker-compose.yml's WOODPECKER_BACKEND_DOCKER_VOLUMES,
+# mounted at /root/.cache/trivy in every step container on this agent) fresh
+# on a schedule, independent of any onboarded repo's own pipeline run.
+#
+# Why this exists rather than letting the fast gate's own --skip-db-update
+# self-heal forever: DESIGN.md's Rule-set-updates guidance applies the same
+# reasoning to Trivy's DB as to Semgrep's rules -- "CI runs --skip-db-update
+# so a bad upstream DB cannot break every build at once." Once a cache is
+# primed, the fast gate never touches the network for it again; this job is
+# the ONLY thing that does, on a predictable schedule, not implicitly during
+# a PR's own merge-decision evaluation.
+#
+# Registered as a Woodpecker cron job on this platform's own repo (matching
+# SADR-0016's self-verify.woodpecker.yml precedent) -- not tied to any
+# particular onboarded pilot repo, since the DB itself is shared platform
+# infrastructure, not repo-specific content. Register via Woodpecker's own
+# cron API/UI once this file is committed; not wired automatically by any
+# script in this repo, same as self-verify's own cron registration.
+
+steps:
+  refresh-trivy-db:
+    image: aquasec/trivy:0.74.0
+    commands:
+      # --download-db-only: refreshes the cache without also running a scan.
+      # No --skip-db-update here -- this step's entire job IS the download.
+      - trivy image --download-db-only
+      - 'echo "=== Trivy DB refresh complete ==="'
+      - 'test -f /root/.cache/trivy/db/metadata.json && cat /root/.cache/trivy/db/metadata.json || echo "no metadata.json written"'
+    when:
+      - event: cron
