@@ -23,17 +23,31 @@ starting if you change it.
 
 ## Rules learned from live incidents
 
-Never write a literal dollar-brace template pattern anywhere in a
-`.woodpecker.yml`, including comments, unless Woodpecker should substitute it:
-Woodpecker expands those patterns before YAML parsing.
+Three rules, paid for in real debugging time across several SADRs. Keep this section verbatim rather
+than re-paraphrasing it — it has already drifted once and cost time to rediscover.
 
-Host-side calls that must trigger Gitea webhooks need a Host header Gitea can
-route internally. The regression helper handles its local-test header;
-production automation needs an environment-appropriate hostname, not that
-hard-coded test value.
+**Never write a literal `${...}`-shaped string anywhere in a `.woodpecker.yml`, including comments,
+unless it's a value Woodpecker is meant to substitute.** Woodpecker's server-side template
+substitution consumes dollar-brace patterns file-wide, before real YAML parsing — including inside
+comments describing the syntax. (SADR-0007; hit again and re-confirmed in SADR-0016 when this
+project's own pipeline header comment violated the rule it was describing.)
 
-For Woodpecker automation, use a durable personal access token from the normal
-login flow. Do not read or reconstruct CSRF secrets from the database.
+**Every host-side call that can trigger a Gitea webhook — pushes *and* PR creation, not pushes
+alone — needs an explicit `Host: gitea:3500` header.** Gitea derives `clone_url` and webhook routing
+from the triggering request's `Host` header, not solely from `ROOT_URL`. This has cost real time three
+separate times (SADR-0008, re-confirmed and extended in SADR-0011 after forgetting it and hitting the
+same bug again). `tests/regression/lib.sh` now shadows `curl` itself so no call site targeting Gitea's
+port has to remember it; `git_push_origin` sets it unconditionally too, since git's own HTTP calls
+don't go through the shadowed `curl`. That shadow is scoped to the test suite only — any *production*
+script that talks to Gitea from outside its own Docker network (`onboard-repo.sh`, a future
+bootstrap script) needs the same header applied deliberately, with an environment-appropriate
+hostname, not the test suite's hard-coded value.
+
+**To script Woodpecker's API, use `GET /web-config.js` with a session cookie for a legitimately-issued
+CSRF token, then `POST /api/user/token` once for a durable PAT — never read the CSRF secret from the
+database.** (SADR-0004 decision item 3, closed for real in SADR-0011.) The durable PAT this produces
+is what every automation script (`onboard-repo.sh`, `bot-approver.py`) should hold — this login dance
+is a one-time interactive step, not something to re-derive on every run.
 
 ## Trusted-runner pilot (do not enable prematurely)
 

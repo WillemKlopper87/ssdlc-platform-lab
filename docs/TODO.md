@@ -150,20 +150,20 @@ than trusting it indefinitely.
 
 ## Documentation debt
 
-DESIGN.md's own repository structure names these; none exist yet:
+DESIGN.md's own repository structure names these. All eleven now exist:
 
-- [ ] `docs/ARCHITECTURE.md`, `GATE_CONTRACT.md`, `POLICY.md`, `EXCEPTIONS.md`, `ONBOARDING.md`,
+- [x] ~~`docs/ARCHITECTURE.md`, `GATE_CONTRACT.md`, `POLICY.md`, `EXCEPTIONS.md`, `ONBOARDING.md`,
       `DEVELOPER_SETUP.md`, `AI_ASSISTANT_POLICY.md`, `OPERATIONS.md`, `SELF_DEFENCE.md`,
-      `COMPLIANCE.md`, `THREAT_MODEL.md`
-- [ ] `OPERATIONS.md` specifically needs, verbatim, three rules already paid for in debugging time:
-      "never write a literal `${...}`-shaped string anywhere in a `.woodpecker.yml`, including
-      comments, unless it's a value Woodpecker is meant to substitute" (SADR-0007); "every
-      host-side call that can trigger a Gitea webhook — pushes **and** PR creation, not pushes
-      alone — needs an explicit `Host: gitea:3500` header" (SADR-0008, re-confirmed and extended in
-      SADR-0011 after forgetting it and hitting the same bug again); and "to script Woodpecker's
-      API, use `GET /web-config.js` with a session cookie for a legitimately-issued CSRF token, then
-      `POST /api/user/token` once for a durable PAT — never read the CSRF secret from the database"
-      (SADR-0004 decision item 3, closed for real in SADR-0011).
+      `COMPLIANCE.md`, `THREAT_MODEL.md`~~ Written, each grounded directly in the current code and
+      SADRs rather than restating DESIGN.md's target design — `ARCHITECTURE.md`, `GATE_CONTRACT.md`,
+      and `THREAT_MODEL.md` distinguish live/tested mechanisms from built-not-deployed and
+      not-yet-built ones explicitly (e.g. the trusted-runner attestation path, baseline gating,
+      Prometheus metrics); `EXCEPTIONS.md` and `COMPLIANCE.md` are honest that most of their subject
+      matter is designed, not built. Re-check each against `ARCHITECTURE.md`'s current-state table at
+      the next milestone boundary — this list decays like PINNED_VERSIONS.md does.
+- [x] ~~`OPERATIONS.md` specifically needs, verbatim, three rules already paid for in debugging
+      time~~ Done — its "Rules learned from live incidents" section now states all three in full,
+      each tied to its originating SADR(s).
 
 ## Operator experience / persistence (flagged critical in the build-ledger review)
 

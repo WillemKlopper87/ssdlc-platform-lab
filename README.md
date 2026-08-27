@@ -35,7 +35,7 @@ that no open-source project currently ships.
 
 | Path | Contents |
 |---|---|
-| `docs/` | Design doc, ADRs/SADRs, operational runbooks (populated per milestone) |
+| `docs/` | Design doc, ADRs/SADRs, operational runbooks. Start with [`DESIGN.md`](docs/DESIGN.md) for the target design, [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) for what's actually live, and [`docs/TODO.md`](docs/TODO.md) for current status |
 | `policy/` | Rego policy, unit-tested, versioned like code |
 | `normalise/` | Per-tool severity-normalisation adapters + fixtures |
 | `sidecar/` | The stateless reporting service (not in the merge-decision trust path) |
