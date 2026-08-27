@@ -1,0 +1,298 @@
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.74.0"
+  },
+  "ReportID": "01a03fa2-5e61-762b-a51a-91373f110220",
+  "CreatedAt": "2026-08-26T19:53:20.7374481Z",
+  "ArtifactID": "sha256:b3d79ad8b9c173eab90861d199d82fda8b77571c36ba56a7fd770430c6ba6d6c",
+  "ArtifactName": "/src",
+  "ArtifactType": "repository",
+  "Metadata": {
+    "Branch": "master",
+    "Commit": "ffcca2b7bc89261f121db000327004fbdcf9d5e1",
+    "CommitMsg": "add vulnerable dependency",
+    "Author": "a \u003ca@b.c\u003e",
+    "Committer": "a \u003ca@b.c\u003e"
+  },
+  "Results": [
+    {
+      "Target": "requirements.txt",
+      "Class": "lang-pkgs",
+      "Type": "pip",
+      "Packages": [
+        {
+          "Name": "pyyaml",
+          "Identifier": {
+            "PURL": "pkg:pypi/pyyaml@5.3.1",
+            "UID": "1edaadf6f568a222"
+          },
+          "Version": "5.3.1",
+          "Locations": [
+            {
+              "StartLine": 1,
+              "EndLine": 1
+            }
+          ],
+          "AnalyzedBy": "pip"
+        }
+      ],
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2020-14343",
+          "VendorIDs": [
+            "GHSA-8q59-q68h-6hv4"
+          ],
+          "PkgName": "pyyaml",
+          "PkgIdentifier": {
+            "PURL": "pkg:pypi/pyyaml@5.3.1",
+            "UID": "1edaadf6f568a222"
+          },
+          "InstalledVersion": "5.3.1",
+          "FixedVersion": "5.4",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2020-14343",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory pip",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Apip"
+          },
+          "Fingerprint": "sha256:2d709bcaf30791cd1418fc0acf4edb3b00f725f0a568e4f0d48bf331fdfd6bd5",
+          "Title": "PyYAML: incomplete fix for CVE-2020-1747",
+          "Description": "A vulnerability was discovered in the PyYAML library in versions before 5.4, where it is susceptible to arbitrary code execution when it processes untrusted YAML files through the full_load method or with the FullLoader loader. Applications that use the library to process untrusted input may be vulnerable to this flaw. This flaw allows an attacker to execute arbitrary code on the system by abusing the python/object/new constructor. This flaw is due to an incomplete fix for CVE-2020-1747.",
+          "Severity": "CRITICAL",
+          "CweIDs": [
+            "CWE-20"
+          ],
+          "VendorSeverity": {
+            "alma": 2,
+            "cbl-mariner": 4,
+            "ghsa": 4,
+            "nvd": 4,
+            "oracle-oval": 2,
+            "photon": 4,
+            "redhat": 2,
+            "rocky": 2,
+            "ubuntu": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N",
+              "V3Score": 9.8,
+              "V40Score": 9.3
+            },
+            "nvd": {
+              "V2Vector": "AV:N/AC:L/Au:N/C:C/I:C/A:C",
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V2Score": 10,
+              "V3Score": 9.8
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V3Score": 9.8
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2020-14343",
+            "https://bugzilla.redhat.com/show_bug.cgi?id=1860466",
+            "https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-14343",
+            "https://errata.almalinux.org/8/ALSA-2021-2583.html",
+            "https://errata.rockylinux.org/RLSA-2021:2583",
+            "https://github.com/SeldonIO/seldon-core/issues/2252",
+            "https://github.com/advisories/GHSA-8q59-q68h-6hv4",
+            "https://github.com/pypa/advisory-database/tree/main/vulns/pyyaml/PYSEC-2021-142.yaml",
+            "https://github.com/yaml/pyyaml",
+            "https://github.com/yaml/pyyaml/commit/a001f2782501ad2d24986959f0239a354675f9dc",
+            "https://github.com/yaml/pyyaml/issues/420",
+            "https://github.com/yaml/pyyaml/issues/420#issuecomment-663673966",
+            "https://github.com/yaml/pyyaml/wiki/PyYAML-yaml.load%28input%29-Deprecation",
+            "https://linux.oracle.com/cve/CVE-2020-14343.html",
+            "https://linux.oracle.com/errata/ELSA-2021-2583.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2020-14343",
+            "https://pypi.org/project/PyYAML",
+            "https://ubuntu.com/security/notices/USN-4940-1",
+            "https://www.cve.org/CVERecord?id=CVE-2020-14343",
+            "https://www.oracle.com/security-alerts/cpuapr2022.html",
+            "https://www.oracle.com/security-alerts/cpujul2022.html"
+          ],
+          "PublishedDate": "2021-02-09T21:15:12.707Z",
+          "LastModifiedDate": "2026-06-17T02:54:34.453Z"
+        }
+      ]
+    },
+    {
+      "Target": "app.py",
+      "Class": "secret",
+      "Secrets": [
+        {
+          "RuleID": "aws-access-key-id",
+          "Category": "AWS",
+          "Severity": "CRITICAL",
+          "Title": "AWS Access Key ID",
+          "StartLine": 10,
+          "EndLine": 10,
+          "Code": {
+            "Lines": [
+              {
+                "Number": 8,
+                "Content": "    return pickle.loads(data)",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "    return pickle.loads(data)",
+                "FirstCause": false,
+                "LastCause": false
+              },
+              {
+                "Number": 9,
+                "Content": "",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "FirstCause": false,
+                "LastCause": false
+              },
+              {
+                "Number": 10,
+                "Content": "AWS_KEY = \"********************\"",
+                "IsCause": true,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "AWS_KEY = \"********************\"",
+                "FirstCause": true,
+                "LastCause": true
+              },
+              {
+                "Number": 11,
+                "Content": "",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "FirstCause": false,
+                "LastCause": false
+              }
+            ]
+          },
+          "Match": "AWS_KEY = \"********************\"",
+          "Offset": 143
+        }
+      ]
+    },
+    {
+      "Target": "gitleaks.json",
+      "Class": "secret",
+      "Secrets": [
+        {
+          "RuleID": "aws-access-key-id",
+          "Category": "AWS",
+          "Severity": "CRITICAL",
+          "Title": "AWS Access Key ID",
+          "StartLine": 9,
+          "EndLine": 9,
+          "Code": {
+            "Lines": [
+              {
+                "Number": 7,
+                "Content": "  \"StartColumn\": 13,",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "  \"StartColumn\": 13,",
+                "FirstCause": false,
+                "LastCause": false
+              },
+              {
+                "Number": 8,
+                "Content": "  \"EndColumn\": 32,",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "  \"EndColumn\": 32,",
+                "FirstCause": false,
+                "LastCause": false
+              },
+              {
+                "Number": 9,
+                "Content": "  \"Match\": \"********************\",",
+                "IsCause": true,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "  \"Match\": \"********************\",",
+                "FirstCause": true,
+                "LastCause": true
+              },
+              {
+                "Number": 10,
+                "Content": "  \"Secret\": \"********************\",",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "  \"Secret\": \"********************\",",
+                "FirstCause": false,
+                "LastCause": false
+              }
+            ]
+          },
+          "Match": "  \"Match\": \"********************\",",
+          "Offset": 280
+        },
+        {
+          "RuleID": "aws-access-key-id",
+          "Category": "AWS",
+          "Severity": "CRITICAL",
+          "Title": "AWS Access Key ID",
+          "StartLine": 10,
+          "EndLine": 10,
+          "Code": {
+            "Lines": [
+              {
+                "Number": 8,
+                "Content": "  \"EndColumn\": 32,",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "  \"EndColumn\": 32,",
+                "FirstCause": false,
+                "LastCause": false
+              },
+              {
+                "Number": 9,
+                "Content": "  \"Match\": \"********************\",",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "  \"Match\": \"********************\",",
+                "FirstCause": false,
+                "LastCause": false
+              },
+              {
+                "Number": 10,
+                "Content": "  \"Secret\": \"********************\",",
+                "IsCause": true,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "  \"Secret\": \"********************\",",
+                "FirstCause": true,
+                "LastCause": true
+              },
+              {
+                "Number": 11,
+                "Content": "  \"File\": \"app.py\",",
+                "IsCause": false,
+                "Annotation": "",
+                "Truncated": false,
+                "Highlighted": "  \"File\": \"app.py\",",
+                "FirstCause": false,
+                "LastCause": false
+              }
+            ]
+          },
+          "Match": "  \"Secret\": \"********************\",",
+          "Offset": 316
+        }
+      ]
+    }
+  ]
+}

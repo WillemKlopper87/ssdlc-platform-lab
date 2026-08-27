@@ -1,0 +1,94 @@
+# 00-base — host prerequisites and secret generation for compose/minimal.
+#
+# Scoped to the `minimal` profile specifically, not parameterized across
+# profiles: compose/minimal/docker-compose.yml uses literal container_name
+# values (ssdlc-minimal-postgres, ssdlc-minimal-gitea, ...), so a genuinely
+# profile-generic playbook set would first need that file templated to
+# accept a profile variable -- not done here, to avoid editing an
+# already-tested compose file as a side effect of unrelated Ansible work.
+# Tracked as a follow-up if/when a second profile (`full`) needs the same
+# automation.
+#
+# Idempotent: re-running against an already-configured host writes nothing
+# new (the .env generation step is skipped once .env exists).
+
+- name: Base host prep for the minimal profile
+  hosts: ssdlc_platform
+  gather_facts: false
+  vars:
+    compose_dir: "{{ playbook_dir }}/../../compose/minimal"
+
+  tasks:
+    - name: Confirm docker is available
+      ansible.builtin.command: docker version --format '{% raw %}{{.Server.Version}}{% endraw %}'
+      register: docker_version
+      changed_when: false
+
+    - name: Confirm the docker compose plugin is available
+      ansible.builtin.command: docker compose version
+      register: compose_version
+      changed_when: false
+
+    - name: Report versions found
+      ansible.builtin.debug:
+        msg: "docker server {{ docker_version.stdout }} / {{ compose_version.stdout }}"
+
+    - name: Check whether .env already exists
+      ansible.builtin.stat:
+        path: "{{ compose_dir }}/.env"
+      register: env_file
+
+    - name: Generate and write .env, only if it does not already exist
+      when: not env_file.stat.exists
+      block:
+        # Same three secrets compose/minimal/.env.example asks for, plus
+        # GITEA_ADMIN_PASSWORD -- an Ansible-only operational secret, not
+        # consumed by docker-compose.yml itself, read back by 20-gitea.yml
+        # to create the platform admin account. GITEA_OAUTH_CLIENT_ID/
+        # SECRET are written as placeholders here; 30-oauth.yml overwrites
+        # them once the real values exist (chicken-and-egg: the OAuth app
+        # can only be registered after Gitea itself is up).
+        #
+        # DESIGN.md's target design for the minimal profile is sops +
+        # age-encrypted secrets, decrypted at deploy time by Ansible.
+        # Plain generation into a gitignored .env is what this step
+        # actually does -- sops/age is not wired up here (no age keys or
+        # sops config exist anywhere in this repo yet), and pretending
+        # otherwise would be worse than stating the gap plainly. Tracked,
+        # not done.
+        - name: Generate POSTGRES_PASSWORD
+          ansible.builtin.command: openssl rand -hex 16
+          register: postgres_password
+          changed_when: false
+
+        - name: Generate WOODPECKER_AGENT_SECRET
+          ansible.builtin.command: openssl rand -hex 32
+          register: woodpecker_agent_secret
+          changed_when: false
+
+        - name: Generate WOODPECKER_GRPC_SECRET
+          # SADR-0004 found this one the hard way: left to auto-generate,
+          # Woodpecker creates a new one on every restart and silently
+          # invalidates every session. Must be generated once and persisted.
+          ansible.builtin.command: openssl rand -hex 32
+          register: woodpecker_grpc_secret
+          changed_when: false
+
+        - name: Generate GITEA_ADMIN_PASSWORD
+          ansible.builtin.command: openssl rand -hex 16
+          register: gitea_admin_password_gen
+          changed_when: false
+          no_log: true
+
+        - name: Write .env
+          ansible.builtin.copy:
+            dest: "{{ compose_dir }}/.env"
+            mode: "0600"
+            content: |
+              POSTGRES_PASSWORD={{ postgres_password.stdout }}
+              WOODPECKER_AGENT_SECRET={{ woodpecker_agent_secret.stdout }}
+              WOODPECKER_GRPC_SECRET={{ woodpecker_grpc_secret.stdout }}
+              GITEA_ADMIN_PASSWORD={{ gitea_admin_password_gen.stdout }}
+              GITEA_OAUTH_CLIENT_ID=pending-set-by-30-oauth.yml
+              GITEA_OAUTH_CLIENT_SECRET=pending-set-by-30-oauth.yml
+          no_log: true

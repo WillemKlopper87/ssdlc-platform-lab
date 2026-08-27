@@ -1,0 +1,38 @@
+"""Small, dependency-free signed gate-attestation format.
+
+The key is held only by the future trusted runner and the bot sidecar. HMAC is
+used for this pilot transition because it is easy to operate locally; the
+durable design in SADR-0017 replaces it with a separately managed signing key
+and verified release provenance.
+"""
+import hashlib
+import hmac
+import json
+
+
+def canonical_bytes(document):
+    """Return stable JSON bytes, excluding the detached signature field."""
+    unsigned = {key: value for key, value in document.items() if key != "signature"}
+    return json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def contract_digest(contract):
+    return "sha256:" + hashlib.sha256(
+        json.dumps(contract, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def sign(document, key):
+    signed = dict(document)
+    signed["signature"] = "hmac-sha256:" + hmac.new(
+        key.encode("utf-8"), canonical_bytes(document), hashlib.sha256
+    ).hexdigest()
+    return signed
+
+
+def signature_is_valid(document, key):
+    signature = document.get("signature", "")
+    if not isinstance(signature, str) or not signature.startswith("hmac-sha256:"):
+        return False
+    expected = sign(document, key)["signature"]
+    return hmac.compare_digest(signature, expected)

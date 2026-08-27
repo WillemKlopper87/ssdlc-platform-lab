@@ -1,0 +1,25 @@
+# Local experiment state — never commit live Gitea/DB data
+compose/forgery-test/data/
+compose/*/data/
+compose/*/volumes/
+
+# Secrets
+.env
+*.env
+!.env.example
+sops-encrypted-keys/
+.gitea_admin_token
+
+# Standard
+.DS_Store
+*.log
+__pycache__/
+node_modules/
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Local scratch / generated output — never commit
+.tmp-gate-output/
+tests/unit/testdata-scratch/
+chat-export-*.json

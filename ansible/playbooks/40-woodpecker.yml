@@ -1,0 +1,44 @@
+# 40-woodpecker — bring up woodpecker-server and woodpecker-agent, now
+# that .env has real OAuth credentials (30-oauth.yml) instead of
+# placeholders.
+#
+# Health-check shape confirmed directly from Woodpecker's own source this
+# session (server/router/router.go: `base.GET("/healthz", api.Health)`;
+# server/api/z.go: returns 204 on success by pinging its DB, 500 with a
+# body on failure) -- not assumed from documentation, which does not
+# surface this endpoint clearly.
+
+- name: Bring up Woodpecker server and agent
+  hosts: ssdlc_platform
+  gather_facts: false
+  vars:
+    compose_dir: "{{ playbook_dir }}/../../compose/minimal"
+    # woodpecker-server shares gitea's network namespace (SADR-0004's
+    # fix for github.com/woodpecker-ci/woodpecker#1560) and has no ports
+    # of its own to publish -- its HTTP port is exposed via gitea's own
+    # `ports:` block instead, hence 127.0.0.1 here rather than a
+    # woodpecker-server-specific host.
+    woodpecker_url: "http://127.0.0.1:8000"
+
+  tasks:
+    - name: Guard against running before .env has real OAuth credentials
+      ansible.builtin.command: >
+        grep -q '^GITEA_OAUTH_CLIENT_ID=pending' {{ compose_dir }}/.env
+      register: oauth_still_pending
+      failed_when: oauth_still_pending.rc == 0
+      changed_when: false
+
+    - name: docker compose up -d woodpecker-server woodpecker-agent
+      ansible.builtin.command: docker compose up -d woodpecker-server woodpecker-agent
+      args:
+        chdir: "{{ compose_dir }}"
+      changed_when: true
+
+    - name: Wait for Woodpecker's /healthz to return 204
+      ansible.builtin.uri:
+        url: "{{ woodpecker_url }}/healthz"
+        status_code: 204
+      register: woodpecker_health
+      until: woodpecker_health.status == 204
+      retries: 30
+      delay: 2

@@ -1,0 +1,27 @@
+# 10-postgres — bring up the shared Postgres instance and wait for it to
+# be genuinely ready, not merely "container started". Both Gitea and
+# Woodpecker's databases live in this one instance (init-multi-db.sh
+# creates both on first boot) — nothing downstream can succeed until this
+# is healthy.
+
+- name: Bring up postgres and wait for health
+  hosts: ssdlc_platform
+  gather_facts: false
+  vars:
+    compose_dir: "{{ playbook_dir }}/../../compose/minimal"
+
+  tasks:
+    - name: docker compose up -d postgres
+      ansible.builtin.command: docker compose up -d postgres
+      args:
+        chdir: "{{ compose_dir }}"
+      changed_when: true
+
+    - name: Wait for postgres's own healthcheck (pg_isready, per docker-compose.yml)
+      ansible.builtin.command: >
+        docker inspect --format '{% raw %}{{.State.Health.Status}}{% endraw %}' ssdlc-minimal-postgres
+      register: pg_health
+      until: pg_health.stdout == "healthy"
+      retries: 20
+      delay: 3
+      changed_when: false

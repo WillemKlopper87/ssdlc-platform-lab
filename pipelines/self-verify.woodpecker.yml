@@ -1,0 +1,25 @@
+# SSDLC-Platform-Lab — self-verification pipeline (docs/adr/0016, Tier 1).
+#
+# Runs against THIS repo's own commits, not committed into onboarded
+# repos the way pipelines/fast.woodpecker.yml is. Deliberately scoped to
+# checks that need no Docker beyond this step's own container, no
+# Docker-in-Docker, no elevated agent privilege: syntax checks, the
+# docs/adr/0007 dollar-brace lint (deliberately not written literally in
+# this comment -- see why below), and policy-eval's decision logic
+# against a stub Gitea (tests/unit/). Safe on the ordinary agent, on
+# every push.
+#
+# What this does NOT run: tests/regression/'s live-integration suite,
+# which spins up its own real Gitea+Woodpecker via docker compose. That
+# needs Docker-in-Docker, a real privilege escalation this pipeline
+# deliberately does not carry -- see docs/adr/0016's Tier 2 for why that
+# stays a separate, isolated-runner concern rather than folded in here.
+
+steps:
+  self-verify:
+    image: python:3.12-alpine
+    commands:
+      - 'apk add --no-cache bash findutils grep >/dev/null 2>&1'
+      - 'sh tests/unit/run-unit-tests.sh'
+    when:
+      - event: [push, pull_request]

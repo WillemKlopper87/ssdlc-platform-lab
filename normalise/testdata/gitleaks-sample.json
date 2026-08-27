@@ -1,0 +1,22 @@
+[
+ {
+  "RuleID": "aws-access-token",
+  "Description": "Identified a pattern that may indicate AWS credentials, risking unauthorized cloud resource access and data breaches on AWS platforms.",
+  "StartLine": 10,
+  "EndLine": 10,
+  "StartColumn": 13,
+  "EndColumn": 32,
+  "Match": "AKIAABCDEFGHIJKLMNOP",
+  "Secret": "AKIAABCDEFGHIJKLMNOP",
+  "File": "app.py",
+  "SymlinkFile": "",
+  "Commit": "5818070a62343d2fba2a6f5ae8c835b54178a8cd",
+  "Entropy": 3.8841836,
+  "Author": "a",
+  "Email": "a@b.c",
+  "Date": "2026-08-26T19:46:08Z",
+  "Message": "add fake secret",
+  "Tags": [],
+  "Fingerprint": "5818070a62343d2fba2a6f5ae8c835b54178a8cd:app.py:aws-access-token:10"
+ }
+]

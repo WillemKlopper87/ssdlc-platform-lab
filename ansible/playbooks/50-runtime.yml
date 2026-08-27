@@ -1,0 +1,29 @@
+# 50-runtime — the remaining standing services in compose/minimal.
+#
+# As of this writing, that is only `staging-target` (the deliberately
+# vulnerable Juice Shop instance the scheduled DAST pipeline scans per
+# docs/adr/0006/0007). DESIGN.md's minimal profile also names Prometheus
+# and Grafana, but neither exists in compose/minimal/docker-compose.yml
+# yet -- this playbook does not pretend to bring up services that are not
+# actually defined. Extend it once they're added to the compose file, not
+# before.
+
+- name: Bring up the remaining standing services
+  hosts: ssdlc_platform
+  gather_facts: false
+  vars:
+    compose_dir: "{{ playbook_dir }}/../../compose/minimal"
+
+  tasks:
+    - name: docker compose up -d staging-target
+      ansible.builtin.command: docker compose up -d staging-target
+      args:
+        chdir: "{{ compose_dir }}"
+      changed_when: true
+
+    - name: Report the profile is up
+      ansible.builtin.debug:
+        msg: >-
+          minimal profile is up. Gitea: http://127.0.0.1:3500,
+          Woodpecker: http://127.0.0.1:8000,
+          staging-target (Juice Shop): check `docker port ssdlc-minimal-staging-target`.

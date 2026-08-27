@@ -1,0 +1,16 @@
+# Versioned pilot rules. Expand through reviewed platform-bundle releases;
+# never fetch a floating registry ruleset during a merge decision.
+rules:
+  - id: python-subprocess-shell-true
+    languages: [python]
+    severity: ERROR
+    message: Avoid shell=True; it can turn untrusted input into command execution.
+    patterns:
+      - pattern: subprocess.$FUNC(..., shell=True, ...)
+  - id: python-pickle-loads
+    languages: [python]
+    severity: WARNING
+    message: Do not deserialize untrusted data with pickle.
+    pattern-either:
+      - pattern: pickle.load(...)
+      - pattern: pickle.loads(...)

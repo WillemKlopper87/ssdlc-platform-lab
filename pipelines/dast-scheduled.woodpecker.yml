@@ -1,0 +1,88 @@
+# SSDLC-Platform-Lab — scheduled DAST pipeline
+#
+# Runs OWASP ZAP's baseline scan against a staging target on a Woodpecker
+# cron trigger, not on every push/PR. This is deliberate, per framework
+# §3.2 and DESIGN.md's Deployment profiles section: DAST is a warn-mode,
+# pre-prod-staging signal, not something that blocks a developer's PR —
+# a full baseline scan takes minutes, far outside the fast gate's ~3-minute
+# budget, and the framework explicitly places it here.
+#
+# Registered as a Woodpecker cron job (not triggered by push/pull_request —
+# see the `when` block), targeting whichever branch the cron job specifies.
+#
+# The scan target is a literal string in the command, not a variable of
+# any kind. Two indirection attempts were tried and abandoned live, in
+# order, each documented so a future session doesn't repeat them blind
+# (deliberately spelling out the syntax below with a NO-BREAK marker
+# rather than the real bracketed form -- Woodpecker text-substitutes
+# dollar-brace patterns across the WHOLE file, comments included, before
+# real YAML parsing, and writing the literal pattern here broke the
+# parse outright: "unable to parse variable name". Found the hard way):
+#
+#   1. Woodpecker secret + `from_secret` — the secret's own gating logic
+#      (server/pipeline/items.go, pipeline/frontend/yaml/compiler/
+#      compiler.go) looked correct for this secret's config, and the
+#      environment/from_secret YAML syntax matched Woodpecker's own e2e
+#      test fixture (e2e/scenarios/restart_test.go) verbatim -- yet the
+#      variable arrived empty in the running container. Root cause not
+#      isolated. Also arguably the wrong tool regardless: a local
+#      container hostname isn't credential-sensitive content.
+#   2. A plain environment-block value, referenced in the command via
+#      the standard dollar-brace form and via the Drone-style doubled
+#      form. Both arrived empty too -- the step's own bash trace showed
+#      the substitution had ALREADY happened to an empty string before
+#      bash ever ran, meaning Woodpecker's own compiler consumes that
+#      syntax server-side in this version regardless of escaping, not
+#      leaving it for shell-runtime expansion.
+#
+# Neither is fully explained. Given this profile only ever targets one
+# known local service, chasing a general parameterization mechanism
+# further wasn't worth it -- a literal value is what SADR-0006's manual
+# test already used successfully. Revisit if a real multi-environment
+# deployment actually needs this to vary without editing the file --
+# and avoid writing the dollar-brace pattern anywhere in this file,
+# including comments, when doing so.
+#
+# Live-tested against bkimminich/juice-shop — see docs/adr/0006 (manual
+# scan) and docs/adr/0007 (this scheduled/automated form).
+
+steps:
+  dast-baseline:
+    image: zaproxy/zap-stable:latest
+    commands:
+      - 'echo "Scanning target: http://staging-target:3000"'
+      # No -J/-r file-output flags. Found live: zap-baseline.py's own
+      # entrypoint checks whether /zap/wrk is a genuine host bind mount
+      # before it will honour file-based output options, and refuses
+      # with "A file based option has been specified but the directory
+      # is not mounted" otherwise -- printing usage/help instead of
+      # scanning. Woodpecker's per-step workspace is a real shared mount,
+      # just not at that specific hardcoded path, so the check fails in
+      # every Woodpecker-orchestrated run regardless. Dropping file
+      # output sidesteps the check entirely: ZAP writes its summary to
+      # stdout, which Woodpecker already captures natively, and that is
+      # the exact console format SADR-0006's first standalone run parsed
+      # successfully (PASS/WARN-NEW/FAIL-NEW lines, then a totals line).
+      - 'zap-baseline.py -t http://staging-target:3000 > zap-console.txt 2>&1 || true'
+      # zap-baseline.py exits non-zero on WARN findings by default, which
+      # would fail this pipeline the same way a fast-gate step does. That
+      # is wrong for THIS step specifically: DESIGN.md's placement is
+      # warn-mode, not blocking, so the exit code is deliberately
+      # swallowed (`|| true`) and the summary step below is what a human
+      # actually reads. A future milestone's threshold-based promotion
+      # from warn to block (once false-positive behaviour is understood,
+      # per framework §3.2) changes this line, not the design intent.
+    when:
+      - event: cron
+
+  summary:
+    image: alpine:3
+    commands:
+      - 'echo "=== SSDLC Scheduled DAST Summary ==="'
+      # WARN-NEW/FAIL-NEW lines are per-finding; the final line (also
+      # matched by this prefix) is the totals row. PASS lines run into
+      # the dozens on a real target and add nothing a human needs here.
+      - 'test -f zap-console.txt && grep -E "^(WARN-NEW|FAIL-NEW):" zap-console.txt || echo "no console output captured"'
+    when:
+      - event: cron
+        status: [success, failure]

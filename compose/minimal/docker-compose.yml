@@ -1,0 +1,231 @@
+# SSDLC-Platform-Lab — minimal deployment profile (Milestone 1)
+#
+# Gitea + Woodpecker CI + Postgres. This is the smallest slice that proves
+# the D1 mechanism live: a pipeline step's exit code becomes a Gitea commit
+# status via Woodpecker's native forge integration, with no custom service
+# in the trust path. policy-eval, the sidecar, and DefectDojo/Dependency-Track
+# arrive in later milestones — this profile is deliberately just the CI loop.
+#
+# Versions pinned per ../../docs/PINNED_VERSIONS.md (checked 2026-08-23).
+# Postgres pinned to 16-alpine because it was already cached on this machine
+# during a period of severe disk pressure (see Milestone 1 notes in
+# DESIGN.md) — re-pin explicitly when disk headroom allows re-verification.
+#
+# Networking note (SADR-0004): woodpecker-server shares gitea's network
+# namespace (`network_mode: service:gitea`) rather than talking to it over
+# the bridge network as "gitea:3000". This is the fix for a known, still-
+# open Woodpecker/Gitea limitation where using a different internal vs.
+# external URL for the same forge instance breaks forge-token verification
+# on same-host Docker deployments (github.com/woodpecker-ci/woodpecker
+# issue #1560). Sharing the namespace means "localhost:3500" resolves
+# identically whether the caller is the host, Woodpecker, or a browser —
+# so Gitea's HTTP_PORT is set to 3500 directly (not the usual 3000→3500
+# mapping) to make that literally true, not just port-forwarded true.
+# Consequence: Woodpecker's own ports (8000 HTTP, 9000 gRPC) are published
+# from the gitea service block, because a container in `network_mode:
+# service:X` has no independent network stack of its own to publish from.
+#
+# Volume note: state directories use Docker-managed named volumes, not
+# host bind mounts (./data/...). Observed directly during Milestone 1
+# testing: bind-mounting Postgres data through the Windows NTFS -> WSL2
+# boundary produced a genuine crash-and-recover cycle followed by a file
+# permission error mid-query ("could not open file ... Permission denied")
+# -- filesystem-layer corruption from the cross-boundary translation, not
+# anything Postgres or this config did wrong. Named volumes stay inside
+# Docker's own Linux-native storage and sidestep that boundary entirely.
+# This matters on any Windows host, not just this one.
+#
+# Network and volumes note (SADR-0014): these are now provisioned by
+# Terraform (terraform/local/), not created implicitly by compose --
+# `external: true` below. Run `terraform apply` in terraform/local/
+# BEFORE `docker compose up` here; the names must match exactly what
+# main.tf declares (ssdlc-minimal / ssdlc-minimal-*-data). This is what
+# makes D6's "the platform's own Compose/IaC" dogfooding claim actually
+# mean something for these resources, versus the implicit compose-created
+# ones SADR-0010 found Checkov has no policies for anyway -- the review-
+# ability, not a scan result, is the point here.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ssdlc-minimal-postgres
+    environment:
+      - POSTGRES_USER=ssdlc
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set in .env}
+      - POSTGRES_MULTIPLE_DATABASES=gitea,woodpecker
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-multi-db.sh:/docker-entrypoint-initdb.d/init-multi-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ssdlc"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  gitea:
+    image: gitea/gitea:1.27.2
+    container_name: ssdlc-minimal-gitea
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - GITEA__database__DB_TYPE=postgres
+      - GITEA__database__HOST=postgres:5432
+      - GITEA__database__NAME=gitea
+      - GITEA__database__USER=ssdlc
+      - GITEA__database__PASSWD=${POSTGRES_PASSWORD:?set in .env}
+      # ROOT_URL uses the container's own service name, not 127.0.0.1.
+      # Found the hard way: Gitea embeds ROOT_URL into every clone_url and
+      # webhook payload it generates, and pipeline step containers (on
+      # minimal_default via WOODPECKER_BACKEND_DOCKER_NETWORK) can never
+      # reach 127.0.0.1 -- that address is only ever self-referential, no
+      # network attachment changes what it means. "gitea" resolves
+      # correctly for step containers (same compose network) and for
+      # woodpecker-server (shares this container's netns, and Docker's
+      # embedded DNS resolves a container's own service name to itself).
+      # Host-side access (git clone from a developer's actual laptop, or
+      # this profile's own test scripts) goes through :3500 published on
+      # this container -- reachable as gitea:3500 from any container on
+      # minimal_default, or via a real external hostname/reverse proxy in
+      # a deployment that isn't purely local. This is the "put both
+      # services behind one consistent hostname" fix SADR-0004 recommended
+      # from the start; the earlier 127.0.0.1 approach solved the OAuth/
+      # API path but not this one.
+      - GITEA__server__DOMAIN=gitea
+      - GITEA__server__ROOT_URL=http://gitea:3500/
+      - GITEA__server__HTTP_PORT=3500
+      # D6: explicit trusted-proxy scoping, not the wildcard that CVE-2026-20896 exploited
+      - GITEA__security__REVERSE_PROXY_TRUSTED_PROXIES=127.0.0.1/32
+      # local dev/test only: Gitea blocks webhooks to localhost by default
+      # (a real SSRF-prevention control worth keeping in production, scoped
+      # to real internal service ranges, not loopback)
+      - GITEA__security__ALLOWED_HOST_LIST=loopback,private
+      - GITEA__security__INSTALL_LOCK=true
+      - GITEA__service__DISABLE_REGISTRATION=true
+      # D6: no external markup renderers — closes CVE-2026-73539 / CVE-2026-59774's precondition
+    ports:
+      # gitea itself, plus woodpecker-server's ports (see networking note
+      # above — woodpecker-server has no independent network stack to
+      # publish from once it shares this container's namespace)
+      - "3500:3500"
+      # Keep this value in sync with WOODPECKER_SERVER_ADDR below.  Gitea
+      # delivers its webhook from this shared network namespace, so changing
+      # only the host mapping would make the UI reachable but silently stop
+      # webhook delivery (SADR-0016).
+      - "${WOODPECKER_PORT:-8000}:${WOODPECKER_PORT:-8000}"
+      - "9000:9000"
+    volumes:
+      - gitea-data:/data
+
+  woodpecker-server:
+    image: woodpeckerci/woodpecker-server:v3.17.0
+    container_name: ssdlc-minimal-woodpecker-server
+    network_mode: "service:gitea"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gitea:
+        condition: service_started
+    environment:
+      - WOODPECKER_OPEN=false
+      - WOODPECKER_ADMIN=gateadmin
+      - WOODPECKER_HOST=http://127.0.0.1:${WOODPECKER_PORT:-8000}
+      - WOODPECKER_SERVER_ADDR=:${WOODPECKER_PORT:-8000}
+      - WOODPECKER_GRPC_ADDR=:9000
+      - WOODPECKER_GRPC_SECRET=${WOODPECKER_GRPC_SECRET:?set in .env}
+      - WOODPECKER_AGENT_SECRET=${WOODPECKER_AGENT_SECRET:?set in .env}
+      - WOODPECKER_DATABASE_DRIVER=postgres
+      - WOODPECKER_DATABASE_DATASOURCE=postgres://ssdlc:${POSTGRES_PASSWORD:?set in .env}@postgres:5432/woodpecker?sslmode=disable
+      - WOODPECKER_GITEA=true
+      # Container-name form, not 127.0.0.1. Docker's embedded DNS resolves
+      # "gitea" correctly both from woodpecker-server (which shares gitea's
+      # own network namespace, so this is a self-lookup) and from pipeline
+      # step containers once they're attached to the same compose network
+      # via WOODPECKER_BACKEND_DOCKER_NETWORK below -- unlike 127.0.0.1,
+      # which is only ever self-referential and cannot reach another
+      # container no matter what network something is attached to. Found
+      # this distinction only after WOODPECKER_GITEA_URL=127.0.0.1 (the
+      # SADR-0004 fix) turned out to work for the OAuth/API path but broke
+      # pipeline step clones, which run in separate ephemeral containers.
+      - WOODPECKER_GITEA_URL=http://gitea:3500
+      - WOODPECKER_GITEA_CLIENT=${GITEA_OAUTH_CLIENT_ID:?set in .env after registering the OAuth app}
+      - WOODPECKER_GITEA_SECRET=${GITEA_OAUTH_CLIENT_SECRET:?set in .env after registering the OAuth app}
+      # D1: the SADR-0001 status context, set here rather than hoped for —
+      # confirmed in DESIGN.md D1 that this is a server-config template value
+      - WOODPECKER_STATUS_CONTEXT=ssdlc/security-gate
+    volumes:
+      - woodpecker-server-data:/var/lib/woodpecker
+
+  staging-target:
+    # A standing, deliberately-vulnerable target for the scheduled DAST
+    # pipeline to scan (SADR-0006/0007) — plays the role DESIGN.md assigns
+    # to "pre-prod staging" in this local profile. Real deployments point
+    # the scheduled scan at an actual staging environment instead; this
+    # container exists so the automation can be proven without one.
+    image: bkimminich/juice-shop:v20.2.0
+    container_name: ssdlc-minimal-staging-target
+    restart: unless-stopped
+
+  woodpecker-agent:
+    image: woodpeckerci/woodpecker-agent:v3.17.0
+    container_name: ssdlc-minimal-woodpecker-agent
+    # The agent's own retry budget on first boot is short (a handful of
+    # attempts, seconds apart) and it exits fatally rather than retrying
+    # forever if woodpecker-server's gRPC port isn't listening yet at that
+    # exact moment -- observed directly during Milestone 1 testing.
+    # depends_on ordering alone doesn't guarantee the server is *ready*,
+    # only *started*, so let Docker bring it back up rather than requiring
+    # a manual restart every time this profile comes up from cold.
+    restart: unless-stopped
+    depends_on:
+      - woodpecker-server
+    environment:
+      # woodpecker-server has no service-name DNS entry of its own once it
+      # shares gitea's network namespace — reach it via gitea's, where the
+      # gRPC port actually lives now
+      - WOODPECKER_SERVER=gitea:9000
+      - WOODPECKER_AGENT_SECRET=${WOODPECKER_AGENT_SECRET:?set in .env}
+      - WOODPECKER_MAX_WORKFLOWS=2
+      # Without this, the agent's ephemeral per-step containers land on
+      # Woodpecker's own auto-created, isolated pipeline network and
+      # cannot reach Gitea at all -- found live: the clone step itself
+      # failed ("Could not connect to server") even though the OAuth/API
+      # path worked fine, because that path runs inside woodpecker-server
+      # (netns-shared with gitea) while clone runs in a fresh container the
+      # agent spins up per pipeline, with no such sharing.
+      #
+      # "ssdlc-minimal", not the old "minimal_default" -- SADR-0014
+      # switched this profile's network to the one Terraform provisions
+      # (terraform/local/main.tf), matching the name declared there.
+      - WOODPECKER_BACKEND_DOCKER_NETWORK=ssdlc-minimal
+    volumes:
+      # DESIGN.md's own hardening note: the agent needs the Docker socket to
+      # run pipeline steps, which is root-equivalent on the host. Acceptable
+      # for this local Milestone-1 spike; the "run rootless / separate agent
+      # VM" hardening from D6/D2 is a Milestone-3+ production requirement,
+      # not re-litigated here since this profile never leaves localhost.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  # external: true -- these must already exist (terraform apply in
+  # terraform/local/) before `docker compose up` here; compose will
+  # refuse to start otherwise rather than silently creating its own.
+  postgres-data:
+    external: true
+    name: ssdlc-minimal-postgres-data
+  gitea-data:
+    external: true
+    name: ssdlc-minimal-gitea-data
+  woodpecker-server-data:
+    external: true
+    name: ssdlc-minimal-woodpecker-server-data
+
+networks:
+  # Overriding the implicit "default" network every service below
+  # attaches to (none of them declare `networks:` explicitly) rather
+  # than adding that key to each service individually -- one place to
+  # read, one place that can drift from terraform/local/main.tf's
+  # docker_network.minimal resource.
+  default:
+    external: true
+    name: ssdlc-minimal

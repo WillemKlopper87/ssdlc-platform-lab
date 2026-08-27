@@ -1,0 +1,40 @@
+# SSDLC-Platform-Lab — top-level entry point for the `minimal` profile.
+#
+# Replaces the manual bring-up sequence proven by hand in docs/adr/0004
+# (and re-proven piece by piece in docs/adr/0008, 0009) with a single,
+# idempotent run: `ansible-playbook -i inventory/localhost.ini site.yml`.
+#
+# ============================================================================
+# NOT YET LIVE-TESTED. Read this before trusting anything below un-reviewed.
+# ============================================================================
+# ansible-playbook cannot run as a control node on native Windows, the
+# environment this repo has been developed in so far. Confirmed directly,
+# not assumed: `ansible-playbook --version` raises
+#   OSError: [WinError 87] The parameter is incorrect
+# from ansible/cli/__init__.py's check_blocking_io(), which calls
+# os.get_blocking() on a file descriptor -- unsupported on Windows. This is
+# Ansible's own control-node platform requirement, not a missing package
+# (pip installs it fine; it simply cannot execute). See
+# docs/PINNED_VERSIONS.md's Ansible row and docs/adr/0010 for the full
+# finding.
+#
+# Every individual task below is grounded in a command already proven live
+# in this project -- the OAuth2 app registration call and both Gitea/
+# Woodpecker health-check shapes come straight from docs/adr/0004 and a
+# direct source read of woodpecker-ci/woodpecker's server/router/router.go
+# and server/api/z.go (GET /healthz -> 204 on success, checked 2026-08-24);
+# the admin-account bootstrap mirrors the `gitea admin user create` /
+# `gitea admin user list` calls used live against the forgery-test harness
+# in docs/adr/0009. What has NOT been tested is this playbook set running
+# as an integrated whole. Run it from a real POSIX control node (WSL2 with
+# a real distro, a Linux CI runner, or macOS), fix whatever breaks, and
+# update docs/adr/0010's decision section with the result before anything
+# downstream depends on it.
+# ============================================================================
+
+- import_playbook: playbooks/00-base.yml
+- import_playbook: playbooks/10-postgres.yml
+- import_playbook: playbooks/20-gitea.yml
+- import_playbook: playbooks/30-oauth.yml
+- import_playbook: playbooks/40-woodpecker.yml
+- import_playbook: playbooks/50-runtime.yml

@@ -1,0 +1,95 @@
+# 30-oauth — register the Gitea OAuth2 application Woodpecker needs, and
+# write its client_id/secret into .env. This is the chicken-and-egg step:
+# docker-compose.yml requires GITEA_OAUTH_CLIENT_ID/SECRET to already be in
+# .env before woodpecker-server can start (they're read at container
+# start), but the OAuth app can only be registered once Gitea itself is up
+# -- hence this runs as its own playbook, strictly after 20-gitea.yml and
+# strictly before 40-woodpecker.yml.
+#
+# The registration call itself (POST /user/applications/oauth2,
+# confidential_client: true) is exactly what docs/adr/0004 proved live.
+# The idempotency check below (GET the same endpoint, look for an app
+# already named "woodpecker") follows Gitea's standard REST list-endpoint
+# shape but has NOT been independently re-confirmed against this specific
+# endpoint this session -- flagged here deliberately, distinct from the
+# registration call itself, which has been proven.
+
+- name: Register the Woodpecker OAuth2 application
+  hosts: ssdlc_platform
+  gather_facts: false
+  vars:
+    compose_dir: "{{ playbook_dir }}/../../compose/minimal"
+    gitea_url: "http://127.0.0.1:3500"
+    oauth_app_name: woodpecker
+    # SADR-0004 bug 3: use 127.0.0.1, never localhost -- Gitea resolves
+    # "localhost" to IPv6 ::1 first, and Woodpecker's listeners are
+    # IPv4-only, so an IPv6 redirect_uri produces a real, confusing
+    # connection-refused failure down the line, not an auth error at this
+    # step.
+    woodpecker_redirect_uri: "http://127.0.0.1:8000/authorize"
+
+  tasks:
+    - name: Read the admin token minted by 20-gitea.yml
+      ansible.builtin.slurp:
+        src: "{{ compose_dir }}/.gitea_admin_token"
+      register: admin_token_raw
+      no_log: true
+
+    - name: Set fact
+      ansible.builtin.set_fact:
+        admin_token: "{{ admin_token_raw.content | b64decode }}"
+      no_log: true
+
+    - name: List existing OAuth2 applications (idempotency check -- see header note)
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/user/applications/oauth2"
+        method: GET
+        headers:
+          Authorization: "token {{ admin_token }}"
+        status_code: 200
+        return_content: true
+      register: oauth_apps
+      no_log: true
+
+    - name: Register the OAuth2 application, only if it doesn't already exist
+      when: oauth_app_name not in (oauth_apps.json | map(attribute='name') | list)
+      ansible.builtin.uri:
+        url: "{{ gitea_url }}/api/v1/user/applications/oauth2"
+        method: POST
+        headers:
+          Authorization: "token {{ admin_token }}"
+        body_format: json
+        body:
+          name: "{{ oauth_app_name }}"
+          redirect_uris: ["{{ woodpecker_redirect_uri }}"]
+          confidential_client: true
+        status_code: 201
+      register: oauth_app_created
+      no_log: true
+
+    - name: Fail loudly if the app already existed and this run cannot recover its secret
+      # Gitea returns the client_secret only once, at creation time -- a
+      # genuine limitation, not an oversight here. If the app already
+      # exists but .env still has the placeholder value, there is no API
+      # call that recovers the original secret; the only fix is deleting
+      # the stale OAuth2 app in Gitea and re-running this playbook. Fail
+      # closed with a clear message rather than silently leaving .env
+      # broken.
+      when:
+        - oauth_app_name in (oauth_apps.json | map(attribute='name') | list)
+      ansible.builtin.command: >
+        grep -q '^GITEA_OAUTH_CLIENT_ID=pending' {{ compose_dir }}/.env
+      register: still_pending
+      failed_when: still_pending.rc == 0
+      changed_when: false
+
+    - name: Write the OAuth client_id/secret into .env
+      when: oauth_app_created is not skipped
+      ansible.builtin.lineinfile:
+        path: "{{ compose_dir }}/.env"
+        regexp: "^{{ item.key }}="
+        line: "{{ item.key }}={{ item.value }}"
+      loop:
+        - { key: "GITEA_OAUTH_CLIENT_ID", value: "{{ oauth_app_created.json.client_id }}" }
+        - { key: "GITEA_OAUTH_CLIENT_SECRET", value: "{{ oauth_app_created.json.client_secret }}" }
+      no_log: true

@@ -1,0 +1,23 @@
+# Milestone 0 experiment harness — NOT a deployment profile.
+# Answers one question: can a repo-write collaborator forge the gate's
+# commit status and defeat branch protection? See docs/adr/0001-*.md.
+#
+# Throwaway: sqlite backend, no persistence intended beyond the test run.
+# Data volume is gitignored; tear down with `docker compose down -v`.
+
+services:
+  gitea:
+    image: gitea/gitea:1.27.2
+    container_name: forgery-test-gitea
+    environment:
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__server__DOMAIN=localhost
+      - GITEA__server__ROOT_URL=http://localhost:3500/
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__security__INSTALL_LOCK=true
+      - GITEA__service__DISABLE_REGISTRATION=true
+      - GITEA__log__LEVEL=Warn
+    ports:
+      - "3500:3000"
+    volumes:
+      - ./data:/data

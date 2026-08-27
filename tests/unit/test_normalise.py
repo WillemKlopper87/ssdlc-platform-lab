@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""
+tests/unit/test_normalise.py — normalise/*_adapter.py against real,
+recorded tool output (normalise/testdata/), not invented JSON. Every
+fixture here is the actual output of a real scanner run against a real
+fixture during this session (docs/adr/0018) -- gitleaks v8.30.1,
+semgrep 1.174.0, trivy 0.74.0, the exact versions pinned in
+docs/PINNED_VERSIONS.md.
+"""
+import json
+import os
+import sys
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+NORMALISE_DIR = os.path.join(SCRIPT_DIR, "..", "..", "normalise")
+TESTDATA_DIR = os.path.join(NORMALISE_DIR, "testdata")
+sys.path.insert(0, NORMALISE_DIR)
+
+import gitleaks_adapter  # noqa: E402
+import semgrep_adapter  # noqa: E402
+import trivy_adapter  # noqa: E402
+
+PASS_COUNT = 0
+FAIL_COUNT = 0
+
+
+def assert_eq(actual, expected, description):
+    global PASS_COUNT, FAIL_COUNT
+    if actual == expected:
+        print(f"  PASS: {description} (got: {actual!r})")
+        PASS_COUNT += 1
+    else:
+        print(f"  FAIL: {description} -- expected {expected!r}, got {actual!r}", file=sys.stderr)
+        FAIL_COUNT += 1
+
+
+def load(name):
+    with open(os.path.join(TESTDATA_DIR, name)) as fh:
+        return json.load(fh)
+
+
+def test_gitleaks_secret_is_always_critical():
+    print("=== gitleaks: every secret is unconditionally critical (no severity field exists to read) ===")
+    findings = gitleaks_adapter.normalize(load("gitleaks-sample.json"))
+    assert_eq(len(findings), 1, "one finding normalized from the recorded fixture")
+    assert_eq(findings[0]["severity"], "critical", "the finding is critical")
+    assert_eq(findings[0]["tool"], "gitleaks", "tool is correctly labeled")
+    assert_eq(findings[0]["fingerprint"], "5818070a62343d2fba2a6f5ae8c835b54178a8cd:app.py:aws-access-token:10",
+              "Gitleaks' own native fingerprint is used directly, not reconstructed")
+
+
+def test_semgrep_severity_mapping():
+    print("=== semgrep: ERROR/WARNING map to high/medium, and no rule can ever reach critical ===")
+    data = load("semgrep-sample.json")
+    findings = semgrep_adapter.normalize(data["results"])
+    assert_eq(len(findings), 2, "two findings normalized from the recorded fixture")
+    severities = sorted(f["severity"] for f in findings)
+    assert_eq(severities, ["high", "medium"], "ERROR -> high, WARNING -> medium")
+    assert_eq(any(f["severity"] == "critical" for f in findings), False,
+               "no finding reaches critical -- Semgrep's own scale has no tier above ERROR")
+
+
+def test_semgrep_fingerprint_is_constructed_not_trusted():
+    print("=== semgrep: the native 'fingerprint' field is unusable (gated behind registry login) ===")
+    data = load("semgrep-sample.json")
+    raw_fingerprint = data["results"][0]["extra"]["fingerprint"]
+    assert_eq(raw_fingerprint, "requires login", "confirms why this adapter builds its own fingerprint")
+    findings = semgrep_adapter.normalize(data["results"])
+    assert_eq(findings[0]["fingerprint"] != "requires login", True,
+               "the adapter's own fingerprint is a real identifier, not the unusable native one")
+
+
+def test_trivy_severity_passthrough():
+    print("=== trivy: CRITICAL passes straight through, no mapping ambiguity ===")
+    data = load("trivy-sample.json")
+    findings = trivy_adapter.normalize(data["Results"])
+    assert_eq(len(findings), 1, "one vulnerability normalized from the recorded fixture")
+    assert_eq(findings[0]["severity"], "critical", "CRITICAL maps to critical")
+    assert_eq(findings[0]["rule_id"], "CVE-2020-14343", "the real CVE id is preserved")
+    assert_eq(findings[0]["fingerprint"].startswith("sha256:"), True,
+               "Trivy's own native fingerprint (a real hash) is used directly")
+
+
+def test_trivy_dependency_findings_have_no_line_number():
+    print("=== trivy: dependency findings carry no line number, by design ===")
+    data = load("trivy-sample.json")
+    findings = trivy_adapter.normalize(data["Results"])
+    assert_eq(findings[0]["line"], None, "line is null for a manifest-level finding, not fabricated")
+
+
+def test_missing_report_files_are_not_errors():
+    print("=== all adapters: absence of a report file means 'nothing found', not a crash ===")
+    assert_eq(gitleaks_adapter.normalize([]), [], "gitleaks normalize([]) is an empty list")
+    assert_eq(semgrep_adapter.normalize([]), [], "semgrep normalize([]) is an empty list")
+    assert_eq(trivy_adapter.normalize(None), [], "trivy normalize(None) is an empty list, not a crash")
+
+
+def main():
+    test_gitleaks_secret_is_always_critical()
+    test_semgrep_severity_mapping()
+    test_semgrep_fingerprint_is_constructed_not_trusted()
+    test_trivy_severity_passthrough()
+    test_trivy_dependency_findings_have_no_line_number()
+    test_missing_report_files_are_not_errors()
+
+    print(f"\n=== normalise unit summary: {PASS_COUNT} passed, {FAIL_COUNT} failed ===")
+    return 0 if FAIL_COUNT == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

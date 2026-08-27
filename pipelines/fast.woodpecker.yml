@@ -1,0 +1,256 @@
+# SSDLC-Platform-Lab — fast gate pipeline template
+#
+# This file is committed INTO every onboarded repo automatically by
+# scripts/onboard-repo.sh. Developers never write or edit this file as
+# part of their normal workflow — it is paved-road infrastructure
+# (framework SSDLC_Framework(1).docx §1.3), not something to configure
+# per repo. A developer's entire interaction with this pipeline is:
+# push code, read the PR comment / commit status Woodpecker produces.
+#
+# Runs on every push and PR. Target: under 3 minutes (framework §3.1's
+# fast-gate latency budget). Each step's non-zero exit becomes this
+# commit's Gitea status via Woodpecker's native reporting (proven live,
+# see docs/adr/0004-woodpecker-live-spike.md) — no custom code in the
+# trust path for this milestone's scope.
+#
+# Versions pinned per docs/PINNED_VERSIONS.md — bump there first, then here.
+
+steps:
+  secrets:
+    # docs/adr/0018: no longer self-blocking (--exit-code=1 removed).
+    # This step's job is now only to produce gitleaks-report.json; the
+    # actual block/pass decision is centralized in policy-eval-findings
+    # below, evaluated against ONE reviewable Rego policy instead of
+    # scattered per-tool exit-code flags with no unified severity
+    # handling across tools. Every secret is still unconditionally
+    # Critical there -- Gitleaks findings carry no severity field to
+    # begin with (confirmed live), so normalise/gitleaks_adapter.py maps
+    # all of them to "critical" regardless.
+    image: zricethezav/gitleaks:v8.30.1
+    commands:
+      - gitleaks detect --source=. --report-format=json --report-path=gitleaks-report.json --exit-code=0 --no-banner
+    when:
+      - event: [push, pull_request]
+
+  sast:
+    # docs/adr/0018: no longer self-blocking (--error removed from the
+    # JSON run below) -- same centralization as the secrets step above.
+    image: semgrep/semgrep:1.174.0
+    commands:
+      # p/security-audit + p/secrets: the same combination validated in
+      # docs/adr/0005-sca-dast-automation.md's live Semgrep demo.
+      # Vendor/pin the ruleset in a follow-up (DESIGN.md's rule-set-update
+      # guidance) rather than pulling live from the registry every run —
+      # tracked, not yet done as of this pipeline's first version.
+      #
+      # Also emits SARIF, alongside the existing JSON, purely for the
+      # inline-comments step below: reviewdog's real built-in parsers are
+      # checkstyle/rdjson/rdjsonl/sarif (confirmed from reviewdog's own
+      # source, parser/ directory — there is no dedicated "semgrep"
+      # parser despite what some third-party blog posts imply), and
+      # Semgrep supports --sarif natively.
+      #
+      # Two separate invocations, not one with both format flags: found
+      # live that Semgrep's --output cannot be specified twice in a
+      # single run ("option '--output' cannot be repeated"), even across
+      # different format flags.
+      #
+      # Order matters and is deliberate: the SARIF run goes FIRST, with
+      # its exit code swallowed (`|| true`) -- otherwise, since Woodpecker
+      # stops a step's command list at the first failure, an `--error`
+      # run placed first would exit the step before the SARIF file was
+      # ever written on exactly the runs that matter (the ones with
+      # findings). Found live: the very first version of this fix put
+      # them in the opposite order, and inline-comments downstream
+      # reported "no SARIF input" on every failing sast run -- the only
+      # runs reviewdog actually needs to see.
+      #
+      # --exclude on both runs: found live (docs/adr/0018) that scanning
+      # "." picks up this platform's OWN prior-step and prior-invocation
+      # report files sitting in the same shared workspace -- the secrets
+      # step's gitleaks-report.json exists before either semgrep
+      # invocation runs, and the SARIF file exists before the JSON run.
+      # p/secrets then matched content inside the SARIF file itself
+      # (a self-referential false "detected-facebook-oauth" HIGH) on
+      # every single run, regardless of the scanned code -- a permanent,
+      # code-independent block once policy-eval-findings centralizes the
+      # gate on these tools' output. Every onboarded repo's own paved-road
+      # files carry these same report filenames, so excluding by name
+      # here is sufficient without needing a per-repo ignore file.
+      - semgrep --config=p/security-audit --config=p/secrets --sarif --output=semgrep-report.sarif --exclude=gitleaks-report.json . || true
+      - semgrep --config=p/security-audit --config=p/secrets --json --output=semgrep-report.json --exclude=gitleaks-report.json --exclude=semgrep-report.sarif .
+    when:
+      - event: [push, pull_request]
+
+  inline-comments:
+    # Milestone 2 (DESIGN.md roadmap): findings surfaced as inline PR
+    # comments via reviewdog, deliberately NOT gating merge yet — the
+    # point of this milestone is measuring the false-positive rate
+    # before anything enforces on it. This step's own exit code is
+    # always swallowed; `sast`/`dependencies`/`secrets` above remain the
+    # actual (separate) gate for now, per Milestone 1's existing design.
+    image: alpine:3
+    environment:
+      # A local-profile literal, same as staging-target's hostname in
+      # the DAST pipeline -- not sensitive content.
+      GITEA_ADDRESS: "http://gitea:3500"
+      REVIEWDOG_GITEA_API_TOKEN:
+        from_secret: reviewdog_gitea_token
+    commands:
+      - 'apk add --no-cache curl'
+      - 'curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b /usr/local/bin v0.21.0'
+      # Woodpecker's own built-in CI_* variable names (CI_REPO_OWNER,
+      # CI_REPO_NAME, CI_COMMIT_SHA, CI_COMMIT_PULL_REQUEST -- confirmed
+      # from Woodpecker's own docs) are close to, but not identical to,
+      # what reviewdog's manual-override docs expect (CI_REPO_OWNER,
+      # CI_REPO_NAME, CI_COMMIT, CI_PULL_REQUEST) -- mapped explicitly
+      # below via plain shell `export`, never Woodpecker's own bracketed
+      # substitution syntax anywhere in this file (see pipelines/
+      # dast-scheduled.woodpecker.yml and docs/adr/0007 for exactly why
+      # that syntax is unsafe here, including inside comments).
+      - export CI_PULL_REQUEST="$CI_COMMIT_PULL_REQUEST"
+      - export CI_COMMIT="$CI_COMMIT_SHA"
+      - 'test -f semgrep-report.sarif && reviewdog -f=sarif -reporter=gitea-pr-review -fail-level=none < semgrep-report.sarif || echo "reviewdog: no SARIF input, skipping"'
+    when:
+      # status: [success, failure] is required here, the same as the
+      # summary step below -- without it, Woodpecker skips this step by
+      # default once `sast` fails (which is the ENTIRE point: findings
+      # exist precisely when sast fails, so this step must run then).
+      # Missed on the first version of this file; caught live when
+      # inline-comments showed "skipped" on a PR that sast correctly
+      # failed against.
+      - event: pull_request
+        status: [success, failure]
+
+  approval-check:
+    # Closes docs/adr/0003 decision item 2. Gitea does not recalculate a
+    # review's `official` flag when a PR is retargeted (GHSA-w5pg-649r-p6gg
+    # / CVE-2026-58439) -- live-confirmed exploitable: an approval given
+    # while a PR targets an unprotected branch survives a retarget to a
+    # protected one, unchanged, and `dismiss_stale_approvals` does not
+    # help (it reacts to new commits, not the base changing). This step
+    # independently re-derives, from the PR's own timeline and review
+    # history, whether each approval actually predates the CURRENT base --
+    # see policy-eval/verify-approvals.py for the full method and its
+    # deliberately narrow scope.
+    #
+    # POLICY_EVAL_GITEA_TOKEN is READ-ONLY (read:repository, read:issue,
+    # read:organization -- the last one only exercised if a repo's branch
+    # protection actually sets approvals_whitelist_teams, docs/adr/0013,
+    # but must be granted up front, not added reactively, since a token
+    # missing it fails the whole evaluation loudly rather than silently
+    # under-counting), on an account with admin permission on the repo --
+    # live-confirmed that reading branch_protections requires repo-admin
+    # permission, a plain write collaborator gets 403. This is NOT the
+    # gate bot's approve/merge token: DESIGN.md is explicit that token
+    # never enters a
+    # build container. This one only reads; it cannot approve, merge, or
+    # push anything.
+    #
+    # CI_REPO_OWNER / CI_REPO_NAME / CI_COMMIT_PULL_REQUEST are
+    # Woodpecker's own built-in vars, already relied on the same way by
+    # inline-comments above -- read directly by the script, no mapping
+    # needed since it's Python reading os.environ, not shell substitution.
+    image: python:3.12-alpine
+    environment:
+      GITEA_URL: "http://gitea:3500"
+      # Sprint 01: require a current-head gate-bot approval and a separate
+      # non-author human approval. A numeric count alone cannot prove roles.
+      GATE_BOT_LOGIN: "gate-bot"
+      POLICY_EVAL_GITEA_TOKEN:
+        from_secret: policy_eval_gitea_token
+    commands:
+      - python3 policy-eval/verify-approvals.py
+    when:
+      - event: pull_request
+
+  dependencies:
+    image: aquasec/trivy:0.74.0
+    commands:
+      # Filesystem scan of manifests (requirements.txt, package.json,
+      # go.mod, etc.) — the SCA leg. docs/adr/0018: no longer
+      # self-blocking (--exit-code removed) -- the Critical/High-only
+      # threshold from framework §2.4's SLA table is now enforced
+      # uniformly across all three scanners by policy-eval-findings
+      # below, not by this tool's own flag alone.
+      #
+      # NOT using --skip-db-update here, deliberately, even though
+      # DESIGN.md's target design caches Trivy's DB on a persistent volume
+      # and refreshes it out-of-band. That infrastructure doesn't exist in
+      # this profile yet -- found live: --skip-db-update on a step
+      # container with no prior DB fails outright ("cannot skip
+      # downloading DB" on the first run), and every step container here
+      # IS a first run, being freshly created per pipeline. Re-add
+      # --skip-db-update once a shared, persisted Trivy cache exists
+      # (tracked as Milestone-1+ follow-up work, not done as of this
+      # template's current version) -- until then this downloads the DB
+      # fresh every run, which is correct, just not yet fast.
+      # No --severity filter either, deliberately: previously scoped to
+      # CRITICAL,HIGH only, since those were the only severities this
+      # step's own --exit-code cared about. policy-eval-findings needs
+      # Medium/Low findings too, to warn/track them per the severity
+      # table rather than silently discard them before they're ever seen.
+      #
+      # --skip-files: same self-contamination class the sast step's
+      # --exclude fixes (docs/adr/0018) -- trivy fs's default scanners
+      # include its own secret detector, and by this point the workspace
+      # already holds the secrets and sast steps' report files.
+      - trivy fs --exit-code=0 --format=json --output=trivy-report.json --skip-files=gitleaks-report.json,semgrep-report.sarif,semgrep-report.json .
+    when:
+      - event: [push, pull_request]
+
+  policy-eval-findings:
+    # docs/adr/0018. THE gate for scanning findings, per DESIGN.md's own
+    # architecture diagram ("policy-eval > Rego + baseline + exceptions
+    # repo -- THE EXIT CODE IS THE GATE") -- replaces the three separate,
+    # inconsistent per-tool --exit-code/--error flags secrets/sast/
+    # dependencies used before this existed. One reviewable Rego policy
+    # (policy/severity.rego) instead of severity handling scattered
+    # across three tools' own flag choices.
+    #
+    # Deliberately NOT baseline/differential gating -- every finding is
+    # judged on its own merits regardless of whether it's newly
+    # introduced or pre-existing in an onboarded legacy repo. That
+    # depends on the exceptions-repo infrastructure (Milestone 4, not
+    # built) -- tracked honestly in docs/TODO.md, not silently assumed
+    # solved by this step's existence.
+    image: python:3.12-alpine
+    commands:
+      # conftest is a real Go binary, not something apk has -- installed
+      # the same way reviewdog is above (download, extract, no package
+      # manager needed). Pinned per docs/PINNED_VERSIONS.md.
+      - 'apk add --no-cache curl >/dev/null 2>&1'
+      - 'curl -sL -o /tmp/conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v0.69.0/conftest_0.69.0_Linux_x86_64.tar.gz'
+      - 'tar xzf /tmp/conftest.tar.gz -C /usr/local/bin conftest'
+      - python3 policy-eval/evaluate-findings.py
+    when:
+      # status: [success, failure], matching inline-comments above -- if
+      # an upstream scanner step genuinely crashes (not just finds
+      # things, which no longer fails a step), this still runs and
+      # produces a clear FATAL/exit(2) signal rather than being silently
+      # skipped, per D4's fail-closed philosophy.
+      - event: [push, pull_request]
+        status: [success, failure]
+
+  summary:
+    image: alpine:3
+    commands:
+      # Temporary reporting mechanism: this step always runs and prints a
+      # human-readable summary to the Woodpecker log, which is one click
+      # away from the Gitea commit status link. This is the "developers
+      # get reports without configuring anything" bar for THIS milestone.
+      # Superseded by the sidecar's sticky PR comment (DESIGN.md D1/D5)
+      # once that's built — not yet, as of this pipeline's first version.
+      # NOTE: every command below is wrapped in single-quoted YAML scalars.
+      # An unquoted list item containing `word:` (a colon followed by
+      # whitespace) is misread by YAML as a nested mapping key, not a
+      # shell command -- hit twice now (see docs/adr/0004, "fix the yaml
+      # quoting"). Quote every step command that contains a colon, full stop.
+      - 'apk add --no-cache jq > /dev/null 2>&1'
+      - 'echo "=== SSDLC Fast Gate Summary ==="'
+      - 'test -f gitleaks-report.json && echo "secrets findings" && jq "length" gitleaks-report.json || echo "secrets clean"'
+      - 'test -f semgrep-report.json && echo "SAST findings" && jq ".results | length" semgrep-report.json || echo "SAST clean"'
+      - 'test -f trivy-report.json && echo "dependency findings" && jq "[.Results[]?.Vulnerabilities[]?] | length" trivy-report.json || echo "dependencies clean"'
+    when:
+      - event: [push, pull_request]
+        status: [success, failure]
