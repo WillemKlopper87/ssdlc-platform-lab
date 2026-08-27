@@ -152,7 +152,10 @@ commit_directory() {
   local_dir="$1"
   remote_dir="$2"
   work_dir=$(mktemp -d)
-  git clone -q "${GITEA_URL}/${OWNER}/${REPO}.git" "${work_dir}" 2>/dev/null || {
+  # The platform onboards private repositories too. Supplying the token as an
+  # HTTP header avoids embedding it in a clone URL (and therefore in .git/
+  # config or process output), matching the authenticated push below.
+  git -c http.extraHeader="Authorization: token ${GITEA_ADMIN_TOKEN}" clone -q "${GITEA_URL}/${OWNER}/${REPO}.git" "${work_dir}" 2>/dev/null || {
     echo "    ERROR: could not clone ${OWNER}/${REPO} to commit ${remote_dir}" >&2
     rm -rf "${work_dir}"
     exit 1

@@ -76,16 +76,25 @@ sequential HTTP round-trips per onboarding run. Added `commit_directory`: a real
 produces an empty commit, treated as success). Live-tested through a real onboarded throwaway repo:
 1298 files committed in one push (594 rule files plus each rule's own co-located test fixtures).
 
-## A gap this creates, named rather than hidden
+## Protected-tree follow-up (implemented and live-tested)
 
-`bot-approver.py`'s `GATE_CONTRACT_ENFORCE` protected-base comparison (SADR-0017) is **not** extended
-to `policy/vendored-rules/` — its mechanism is one Contents-API blob-SHA request per configured path,
-and doing that 594 times per PR evaluation, every poll cycle, does not scale. A PR could currently
-weaken the vendored ruleset (delete a rule, add an always-pass rule) without the bot's file-tamper
-check catching it. Flagged directly in `bot-approver.py`'s own `DEFAULT_GATE_MANAGED_PATHS` comment
-and in `docs/TODO.md`, not silently left uncovered. The real fix is a tree-level comparison (one Git
-Trees API call for the whole subtree's SHA, not 594 individual blob lookups) — not built here, since
-it's a distinct piece of work from vendoring the rules themselves.
+The original per-file Contents-API mechanism could not scale to this 594-file
+tree. It is now extended through Gitea's recursive Git Trees API: the bot
+obtains one base and one head tree, filters each to `policy/vendored-rules/`,
+and compares the complete path-to-blob-SHA maps. A missing, malformed, or
+truncated tree response fails closed. This prevents a PR from deleting,
+weakening, or replacing vendored rules before seeking bot approval.
+
+Unit-tested (`test_changed_or_truncated_vendored_tree_is_rejected`) and now
+live-tested too: `tests/regression/07-gate-contract-bypass.sh`'s scenario A
+was rewritten to alter a vendored rule specifically (previously it altered
+`.woodpecker.yml`), and rerun against a real Gitea+Woodpecker stack —
+confirmed the PR's own pipeline reported `success` genuinely (ruling out "it
+failed for an unrelated reason"), then confirmed zero bot votes and the
+bot's log naming the protected vendored-rules tree specifically. 12/12
+assertions passed, including scenarios B and C, confirming the tree-level
+addition did not regress the existing single-file and approval-freshness
+checks.
 
 ## Also found and fixed: lint scope
 
@@ -118,5 +127,5 @@ programs. Excluded `policy/vendored-rules/` from the syntax lint, same treatment
   272 resolved registry rules, different selection criteria — not a strict superset or subset).
   Acceptable for a pilot; framework-specific coverage (Django, Flask, Angular, etc.) can be added
   deliberately, per framework, once a real onboarded repo needs it.
-- The new `bot-approver.py` gate-managed-paths gap (tree-level comparison not built) is real and
-  tracked, not a regression introduced silently.
+- The large-tree protected-base gap is closed in code; the required live
+  bypass proof remains tracked in `docs/TODO.md`.

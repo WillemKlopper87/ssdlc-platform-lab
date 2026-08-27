@@ -83,13 +83,10 @@ DEFAULT_GATE_MANAGED_PATHS = (
     "normalise/trivy_adapter.py",
     "policy/severity.rego",
 )
-# NOT included, deliberately flagged rather than silently omitted: docs/adr/0020's
-# policy/vendored-rules/ (594 files). This list is compared one Contents-API
-# blob-SHA request per path (gate_contract_matches_base below); doing that for
-# every file in a 594-file tree, on every poll cycle, does not scale. A PR
-# could currently weaken the vendored Semgrep ruleset without the bot's
-# protected-base check catching it. Needs a tree-level (single Git Trees API
-# call) comparison instead of per-file, not yet built -- tracked in docs/TODO.md.
+# Large platform-owned trees are compared through Gitea's recursive Git Trees
+# API, once per base/head, rather than one Contents API call for every file.
+# This makes the vendored Semgrep rules part of the protected gate contract.
+DEFAULT_GATE_MANAGED_TREE_PREFIXES = ("policy/vendored-rules/",)
 
 
 def api(base_url, headers, method, path, body=None, allow_404=False):
@@ -149,6 +146,39 @@ def file_at_ref(owner, repo, path, ref):
     )
 
 
+def tree_at_ref(owner, repo, ref):
+    return gitea(
+        f"/repos/{owner}/{repo}/git/trees/{urllib.parse.quote(ref, safe='')}?recursive=true",
+        allow_404=True,
+    )
+
+
+def managed_tree_at_ref(owner, repo, ref, prefix):
+    """Return a deterministic path-to-blob map for one protected tree.
+
+    Gitea marks an oversized recursive response as truncated. Treat that as a
+    failure, rather than comparing an incomplete list and granting approval.
+    """
+    response = tree_at_ref(owner, repo, ref)
+    if not isinstance(response, dict) or response.get("truncated"):
+        return None
+    entries = response.get("tree")
+    if not isinstance(entries, list):
+        return None
+    result = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            return None
+        path, blob_sha = entry.get("path"), entry.get("sha")
+        if isinstance(path, str) and path.startswith(prefix):
+            if entry.get("type") != "blob" or not isinstance(blob_sha, str):
+                return None
+            result[path] = blob_sha
+    # The platform-owned tree must exist at both revisions. An empty/missing
+    # rules directory is not equivalent to the approved security policy.
+    return result or None
+
+
 def gate_contract_matches_base(owner, repo, pr):
     """Return true only when the PR kept all platform-owned gate files
     byte-identical to its target-base revision.
@@ -169,6 +199,15 @@ def gate_contract_matches_base(owner, repo, pr):
         if not base_file or not head_file or base_file.get("sha") != head_file.get("sha"):
             print(
                 f"gate-contract: managed file differs from protected base: {path} -- bot will not approve",
+                file=sys.stderr,
+            )
+            return False
+    for prefix in DEFAULT_GATE_MANAGED_TREE_PREFIXES:
+        base_tree = managed_tree_at_ref(owner, repo, base_sha, prefix)
+        head_tree = managed_tree_at_ref(owner, repo, head_sha, prefix)
+        if base_tree is None or head_tree is None or base_tree != head_tree:
+            print(
+                f"gate-contract: managed tree differs from protected base: {prefix} -- bot will not approve",
                 file=sys.stderr,
             )
             return False

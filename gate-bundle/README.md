@@ -1,9 +1,9 @@
 # Pilot gate bundle
 
 Build this directory only from the SSDLC Platform repository root. The image
-contains pinned scanner binaries, versioned Semgrep rules, normalisers, and the
-Rego severity policy. It is the command authority for the trusted runner; an
-application PR cannot change it.
+contains pinned scanner binaries, the same vendored Semgrep rules used by the
+fast gate, normalisers, and the Rego severity policy. It is the command
+authority for the trusted runner; an application PR cannot change it.
 
 ```sh
 docker build -f gate-bundle/Dockerfile -t ssdlc-gate:pilot-2026-08-26 .
@@ -22,7 +22,6 @@ Rebuild and test a new bundle release on the platform's patch cadence to update
 that database; do not give a merge-decision container Internet access merely to
 refresh it.
 
-The pilot Semgrep rules are deliberately small and versioned. Add rules only
-through a reviewed bundle release, then update `gate-contract/contract.json`,
-record its new digest, and test it against a pilot repository before enforcing
-it.
+Add or update rules only through a reviewed bundle release, then update
+`gate-contract/contract.json`, record its new digest, and test it against a
+pilot repository before enforcing it.

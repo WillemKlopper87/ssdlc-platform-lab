@@ -53,6 +53,10 @@ echo "=== test_gate_bundle ==="
 python3 "${SCRIPT_DIR}/test_gate_bundle.py" || FAILED=1
 
 echo ""
+echo "=== test_onboarding_source ==="
+python3 "${SCRIPT_DIR}/test_onboarding_source.py" || FAILED=1
+
+echo ""
 echo "=== conftest verify (policy/severity_test.rego) ==="
 if command -v conftest >/dev/null 2>&1; then
   conftest verify --policy "${SCRIPT_DIR}/../../policy" || FAILED=1

@@ -37,7 +37,7 @@ def main():
     # runner-provided output mount rather than weakening container isolation.
     os.environ["SEMGREP_SETTINGS_FILE"] = str(output / "semgrep-settings.yml")
     run(["gitleaks", "detect", "--source", str(workspace), "--report-format=json", "--report-path", str(reports["gitleaks"]), "--exit-code=0", "--no-banner"], "secrets scan")
-    run(["semgrep", "--disable-version-check", "--metrics=off", "--config=/opt/ssdlc/gate-bundle/semgrep-rules.yml", "--json", "--output", str(reports["semgrep"]), str(workspace)], "SAST scan")
+    run(["semgrep", "--disable-version-check", "--metrics=off", "--config=/opt/ssdlc/policy/vendored-rules", "--json", "--output", str(reports["semgrep"]), str(workspace)], "SAST scan")
     run(["trivy", "fs", "--cache-dir=/opt/ssdlc/trivy-cache", "--skip-db-update", "--exit-code=0", "--format=json", "--output", str(reports["trivy"]), str(workspace)], "dependency scan")
     policy = subprocess.run([
         "python3", "/opt/ssdlc/policy-eval/evaluate-findings.py",

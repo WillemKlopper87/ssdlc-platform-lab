@@ -8,12 +8,10 @@
 # one with a live regression test; this file closes that gap for SADR-0017
 # specifically). Three scenarios:
 #
-#   A. A PR that alters a gate-managed file (.woodpecker.yml) relative to
-#      its protected base gets ZERO bot votes, even when its own
-#      (self-controlled, therefore untrustworthy) pipeline reports every
-#      step green -- GATE_CONTRACT_ENFORCE=1, the real default, not the
-#      opt-out this suite's own 05-bot-approver.sh deliberately uses for an
-#      unrelated reason (see that file's comment on GATE_CONTRACT_ENFORCE=0).
+#   A. A PR that alters a vendored Semgrep rule relative to its protected base
+#      gets ZERO bot votes, even when the unchanged pipeline reports every step
+#      green. This proves the tree-level comparison, not just the older
+#      single-file comparison.
 #   B. A human approval survives neither Gitea's own dismiss_stale_approvals
 #      NOR (independently, per SADR-0003's lesson that Gitea's own state
 #      cannot be trusted alone) verify-approvals.py's own commit_id check,
@@ -57,8 +55,8 @@ test_gate_contract_bypass() {
   test_start "SADR-0017: Gate Contract bypass attempts"
 
   # ---------------------------------------------------------------------
-  # Scenario A: altered .woodpecker.yml is rejected by GATE_CONTRACT_ENFORCE,
-  # regardless of how green the PR's own (self-controlled) pipeline reports.
+  # Scenario A: an altered vendored rule is rejected by GATE_CONTRACT_ENFORCE,
+  # regardless of how green the PR's pipeline reports.
   # ---------------------------------------------------------------------
   gitea_create_user "$GITEA" "$FORGERY_CONTAINER" gate-bot-07a GateBot123Pw! gate-bot-07a@example.com
   gitea_create_user "$GITEA" "$FORGERY_CONTAINER" alice-07a AlicePw123! alice-07a@example.com
@@ -83,6 +81,11 @@ test_gate_contract_bypass() {
   curl -sf -X POST "${GITEA}/api/v1/repos/gateadmin/gate-bypass-07a/contents/.woodpecker.yml" \
     -H "Authorization: token ${GITEA_ADMIN_TOKEN}" -H "Content-Type: application/json" \
     -d "{\"content\":\"${base_content_b64}\",\"message\":\"platform: baseline gate file\",\"branch\":\"main\"}" >/dev/null
+  local base_rule_b64
+  base_rule_b64=$(printf '%s\n' 'rules: []' | base64 -w0 2>/dev/null || printf '%s\n' 'rules: []' | base64 | tr -d '\n')
+  curl -sf -X POST "${GITEA}/api/v1/repos/gateadmin/gate-bypass-07a/contents/policy/vendored-rules/pilot.yml" \
+    -H "Authorization: token ${GITEA_ADMIN_TOKEN}" -H "Content-Type: application/json" \
+    -d "{\"content\":\"${base_rule_b64}\",\"message\":\"platform: baseline vendored rule\",\"branch\":\"main\"}" >/dev/null
 
   # Two clear steps, not nested -- a nested command substitution here
   # silently swallowed a failure the first time this test was run live
@@ -100,15 +103,9 @@ test_gate_contract_bypass() {
     -H "Content-Type: application/json" \
     -d "{\"name\":\"policy_eval_gitea_token\",\"value\":\"$(gitea_mint_token "$GITEA" gateadmin 'Gateadmin123!' policy-eval-readonly-07a '["read:repository","read:issue"]')\",\"events\":[\"push\",\"pull_request\"]}" >/dev/null
 
-  # The attack: a PR that ALTERS .woodpecker.yml relative to the protected
-  # base, but keeps it reporting green -- exactly the class of self-approval
-  # SADR-0017 exists to prevent. A weakened evaluator (e.g. an
-  # approval-check that always exits 0) would be the realistic attack;
-  # a harmless-looking whitespace change is enough to prove the byte
-  # comparison itself fires, without needing to also prove the weakened
-  # step behaves as intended -- that composition is exactly what makes this
-  # class of attack dangerous, and it's the file DIFFERING at all that must
-  # be caught, not the specific way it's weakened.
+  # The attack changes only a platform-owned vendored rule. The pipeline stays
+  # byte-identical to the protected base, so a green run cannot be mistaken for
+  # proof that the approved ruleset was used.
   local work_dir_a
   work_dir_a=$(mktemp -d)
   git clone -q "${GITEA}/gateadmin/gate-bypass-07a.git" "$work_dir_a"
@@ -117,11 +114,10 @@ test_gate_contract_bypass() {
     git config user.email alice-07a@example.com
     git config user.name alice-07a
     git checkout -q -b feature/altered-gate
-    _gate_bypass_working_pipeline > .woodpecker.yml
-    printf '\n# innocuous-looking but the byte comparison must still catch this\n' >> .woodpecker.yml
+    printf '%s\n' '# attacker disables the pilot rule' 'rules: []' > policy/vendored-rules/pilot.yml
     echo "alice's change" > notes.txt
     git add .
-    git commit -q -m "alice: change + ALTERED .woodpecker.yml"
+    git commit -q -m "alice: change + ALTERED vendored Semgrep rule"
   )
   git_push_origin "$work_dir_a" "$alice_token_a" feature/altered-gate
   rm -rf "$work_dir_a"
@@ -129,7 +125,7 @@ test_gate_contract_bypass() {
   local pra_json pra_num pra_head_sha
   pra_json=$(curl -s -X POST "${GITEA}/api/v1/repos/gateadmin/gate-bypass-07a/pulls" \
     -H "Authorization: token ${alice_token_a}" -H "Content-Type: application/json" \
-    -d '{"title":"alice altered gate","head":"feature/altered-gate","base":"main"}')
+    -d '{"title":"alice altered vendored rule","head":"feature/altered-gate","base":"main"}')
   pra_num=$(echo "$pra_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['number'])")
   pra_head_sha=$(echo "$pra_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['head']['sha'])")
 
@@ -151,6 +147,9 @@ test_gate_contract_bypass() {
   export WOODPECKER_TOKEN="$WOODPECKER_PAT"
   export WOODPECKER_REPO_ID="$wp_repo_id_a"
   export RUN_ONCE=1
+  # The minimal live fixture seeds only this file plus the vendor tree. Keep
+  # the file contract narrow, while DEFAULT_GATE_MANAGED_TREE_PREFIXES still
+  # protects policy/vendored-rules without any test-only override.
   export GATE_MANAGED_PATHS=".woodpecker.yml"
   unset GATE_CONTRACT_ENFORCE   # explicitly rely on the real default (enforced), not an override
   python3 "${SCRIPT_DIR}/../../scripts/bot-approver.py" >/tmp/gate-bypass-a-output.txt 2>&1
@@ -162,9 +161,9 @@ import json, sys
 reviews = json.load(sys.stdin)
 print(sum(1 for r in reviews if r['user']['login'] == 'gate-bot-07a'))
 ")
-  assert_eq "$bot_votes_a" "0" "scenario A: bot casts NO vote on a PR that altered a gate-managed file, despite a green pipeline"
-  grep_rc_a=0; grep -q "managed file differs from protected base" /tmp/gate-bypass-a-output.txt || grep_rc_a=$?
-  assert_eq "$grep_rc_a" "0" "scenario A: bot's own log names the specific altered file, not a generic refusal"
+  assert_eq "$bot_votes_a" "0" "scenario A: bot casts NO vote on a PR that altered a vendored rule, despite a green pipeline"
+  grep_rc_a=0; grep -q "managed tree differs from protected base" /tmp/gate-bypass-a-output.txt || grep_rc_a=$?
+  assert_eq "$grep_rc_a" "0" "scenario A: bot's own log identifies the protected vendored-rules tree"
   rm -f /tmp/gate-bypass-a-output.txt
 
   # ---------------------------------------------------------------------

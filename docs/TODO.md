@@ -8,6 +8,47 @@ reconciled. Sprint 01 takes priority over feature expansion because it closes th
 trust-boundary gaps before a real developer team is onboarded. Genuinely outstanding, in priority
 order:
 
+## Review update — 2026-08-27
+
+The working tree was clean at review time (HEAD `259292f`); 58 local unit
+checks, Python compilation, `git diff --check`, and minimal Compose
+configuration validation passed. These are the review findings that must take
+priority over new features:
+
+- [x] ~~Live-prove the vendored-Semgrep-rules protection before onboarding a
+      pilot.~~ Done — `tests/regression/07-gate-contract-bypass.sh`'s scenario A
+      now alters a vendored rule specifically (not `.woodpecker.yml`) and reran
+      clean against a real Gitea+Woodpecker stack: 12/12 assertions, including
+      confirming the PR's own pipeline genuinely reported `success` (so the
+      rejection is provably the tree comparison firing, not an unrelated
+      failure) and zero bot votes with the log naming the protected tree.
+      — SADR-0017, SADR-0020
+- [ ] **Live-test onboarding for private repositories.** `commit_directory`
+      now authenticates its clone and push with Git's `http.extraHeader`; prove
+      one private repository and an idempotent re-onboarding run.
+      — `scripts/onboard-repo.sh`
+- [ ] **Align the trusted gate bundle with the approved fast-gate policy
+      before enabling it.** Partially done — `gate-bundle/Dockerfile` and
+      `run-pilot-bundle.py` now use `policy/vendored-rules` (the same ruleset
+      the fast gate uses) instead of the old two-rule pilot file; local image
+      build confirmed working (`ssdlc-gate:pilot-2026-08-27`). Still open:
+      `gate-contract/contract.json`'s digest was not updated to reflect this
+      change, and nothing in the attestation path yet verifies the bundle's
+      rules/policy digest specifically — a bundle rebuild today would go
+      undetected by `bot-approver.py`'s attestation check. — SADR-0017
+- [ ] **Deploy and live-test the isolated trusted runner**, then enable
+      `GATE_ATTESTATION_REQUIRED=1` only for the selected pilot repository.
+      Prove normal merge, altered pipeline/policy rejection, missing
+      attestation rejection, and a signed failing decision retained as audit
+      evidence. The existing HMAC is a pilot bridge; replace it with an
+      independently managed signing identity before production. — SADR-0017
+- [ ] **Register and evidence the Trivy DB refresh cron.** The shared cache
+      and refresh pipeline are implemented, but the Woodpecker cron job still
+      requires deliberate registration and an owner/review cadence. — SADR-0021
+- [ ] **Obtain licensing review for the OpenGrep-derived vendored rules**
+      before broad rollout. Their internal-use position is documented but not
+      legally approved. — SADR-0020
+
 - [ ] **Replace PR-controlled gate files with a platform-controlled gate bundle/image** (the durable
       SADR-0017 design), or at minimum make `GATE_ATTESTATION_REQUIRED=1` the default rather than the
       transitional `GATE_CONTRACT_ENFORCE` byte-comparison. `scripts/trusted-gate-runner.py` and
@@ -176,11 +217,12 @@ than trusting it indefinitely.
       restriction on reselling, not reviewed by counsel for this exact internal-use case — see
       `policy/vendored-rules/README.md`). `onboard-repo.sh` gained a `commit_directory` helper (a real
       git clone/push, not 594 Contents-API calls) to actually get this into onboarded repos. — SADR-0020
-- [ ] `policy/vendored-rules/` is not yet covered by `bot-approver.py`'s protected-base
-      byte-comparison (`GATE_CONTRACT_ENFORCE`) — that mechanism does one Contents-API call per path,
-      which doesn't scale to 594 files. A PR could currently weaken the vendored ruleset without the
-      bot's check catching it. Needs a tree-level (single Git Trees API call) comparison instead of
-      per-file. — SADR-0020, follow-up to SADR-0017
+- [x] ~~Protect `policy/vendored-rules/` in the bot's protected-base comparison.~~
+      `bot-approver.py` now compares one recursive Git Trees API result for
+      each base/head revision, filtered to the vendor directory, and fails
+      closed on a missing/truncated tree or any path/blob-SHA difference. Unit
+      tests cover changed and truncated trees. The required live bypass proof
+      remains at the top of this TODO. — SADR-0020, follow-up to SADR-0017
 - [ ] `onboard-repo.sh`'s push-whitelist gives whoever holds `GITEA_ADMIN_TOKEN` a standing PR-review
       bypass on every onboarded repo. Needs a narrower-scoped automation identity — likely resolved
       once Milestone 3's sidecar exists and this doesn't have to be a full admin token. — SADR-0005

@@ -21,7 +21,6 @@ COPY normalise/ ./normalise/
 COPY policy/ ./policy/
 COPY policy-eval/evaluate-findings.py ./policy-eval/evaluate-findings.py
 COPY gate-bundle/run-pilot-bundle.py ./gate-bundle/run-pilot-bundle.py
-COPY gate-bundle/semgrep-rules.yml ./gate-bundle/semgrep-rules.yml
 
 RUN chmod -R a-w /opt/ssdlc/trivy-cache && chmod 0555 gate-bundle/run-pilot-bundle.py
 ENTRYPOINT ["python3", "/opt/ssdlc/gate-bundle/run-pilot-bundle.py"]

@@ -25,23 +25,38 @@ def with_files(files):
     return fake_file_at_ref
 
 
+def with_trees(trees):
+    def fake_tree_at_ref(_owner, _repo, ref):
+        return trees.get(ref)
+
+    return fake_tree_at_ref
+
+
+MATCHING_TREES = {
+    "base-sha": {"tree": [{"path": "policy/vendored-rules/python/a.yml", "type": "blob", "sha": "rule-a"}]},
+    "head-sha": {"tree": [{"path": "policy/vendored-rules/python/a.yml", "type": "blob", "sha": "rule-a"}]},
+}
+
+
 def test_equal_files_are_accepted():
     paths = (".woodpecker.yml", "policy/severity.rego")
     files = {(path, ref): f"{path}-{ref}" for path in paths for ref in ("base-sha", "head-sha")}
     for path in paths:
         files[(path, "head-sha")] = files[(path, "base-sha")]
-    original_paths, original_file_at_ref = BOT.gate_managed_paths, BOT.file_at_ref
+    original_paths, original_file_at_ref, original_tree_at_ref = BOT.gate_managed_paths, BOT.file_at_ref, BOT.tree_at_ref
     BOT.gate_managed_paths = lambda: paths
     BOT.file_at_ref = with_files(files)
+    BOT.tree_at_ref = with_trees(MATCHING_TREES)
     try:
         assert BOT.gate_contract_matches_base("owner", "repo", PR)
     finally:
-        BOT.gate_managed_paths, BOT.file_at_ref = original_paths, original_file_at_ref
+        BOT.gate_managed_paths, BOT.file_at_ref, BOT.tree_at_ref = original_paths, original_file_at_ref, original_tree_at_ref
 
 
 def test_changed_or_missing_file_is_rejected():
-    original_paths, original_file_at_ref = BOT.gate_managed_paths, BOT.file_at_ref
+    original_paths, original_file_at_ref, original_tree_at_ref = BOT.gate_managed_paths, BOT.file_at_ref, BOT.tree_at_ref
     BOT.gate_managed_paths = lambda: (".woodpecker.yml",)
+    BOT.tree_at_ref = with_trees(MATCHING_TREES)
     try:
         BOT.file_at_ref = with_files({(".woodpecker.yml", "base-sha"): "base", (".woodpecker.yml", "head-sha"): "head"})
         assert not BOT.gate_contract_matches_base("owner", "repo", PR)
@@ -49,7 +64,25 @@ def test_changed_or_missing_file_is_rejected():
         BOT.file_at_ref = with_files({(".woodpecker.yml", "base-sha"): "base"})
         assert not BOT.gate_contract_matches_base("owner", "repo", PR)
     finally:
-        BOT.gate_managed_paths, BOT.file_at_ref = original_paths, original_file_at_ref
+        BOT.gate_managed_paths, BOT.file_at_ref, BOT.tree_at_ref = original_paths, original_file_at_ref, original_tree_at_ref
+
+
+def test_changed_or_truncated_vendored_tree_is_rejected():
+    original_paths, original_file_at_ref, original_tree_at_ref = BOT.gate_managed_paths, BOT.file_at_ref, BOT.tree_at_ref
+    BOT.gate_managed_paths = lambda: ()
+    BOT.file_at_ref = with_files({})
+    try:
+        changed = dict(MATCHING_TREES)
+        changed["head-sha"] = {"tree": [{"path": "policy/vendored-rules/python/a.yml", "type": "blob", "sha": "attacker-rule"}]}
+        BOT.tree_at_ref = with_trees(changed)
+        assert not BOT.gate_contract_matches_base("owner", "repo", PR)
+
+        truncated = dict(MATCHING_TREES)
+        truncated["head-sha"] = {"truncated": True, "tree": []}
+        BOT.tree_at_ref = with_trees(truncated)
+        assert not BOT.gate_contract_matches_base("owner", "repo", PR)
+    finally:
+        BOT.gate_managed_paths, BOT.file_at_ref, BOT.tree_at_ref = original_paths, original_file_at_ref, original_tree_at_ref
 
 
 def test_missing_pr_commit_metadata_is_rejected():
@@ -71,6 +104,7 @@ def test_configured_paths_trim_blank_entries():
 TESTS = [
     test_equal_files_are_accepted,
     test_changed_or_missing_file_is_rejected,
+    test_changed_or_truncated_vendored_tree_is_rejected,
     test_missing_pr_commit_metadata_is_rejected,
     test_configured_paths_trim_blank_entries,
 ]
