@@ -142,28 +142,51 @@ woodpecker_get_pat() {
   qs="${location#*\?}"
   rm -f "$authz_headers"
 
-  grant_page=$(mktemp)
-  curl -s -c "$cookies" -b "$cookies" "${gitea_host_url}/login/oauth/authorize?${qs}" -o "$grant_page"
-
-  # state and redirect_uri come straight back out of the consent page's
-  # own hidden fields rather than being re-derived -- Gitea validates
-  # them against exactly what it issued.
-  state=$(grep -o 'name="state" value="[^"]*"' "$grant_page" | sed 's/.*value="//;s/"$//')
-  redirect_uri=$(grep -o 'name="redirect_uri" value="[^"]*"' "$grant_page" | sed 's/.*value="//;s/"$//')
-  rm -f "$grant_page"
-
+  # Two distinct cases here, found live: a user authorizing this app for
+  # the FIRST time gets a real consent page (an HTML form to scrape state/
+  # redirect_uri from, then POST); a user who already granted this exact
+  # app previously gets Gitea's OWN 303 redirect straight to Woodpecker's
+  # callback with the code already attached -- no form ever exists to
+  # scrape. The original version of this function only handled the first
+  # case; against an already-authorized account it silently extracted
+  # empty state/redirect_uri, POSTed a no-op grant, and returned "User not
+  # authorized" with no indication why. Detect which case actually
+  # happened from the response itself rather than assuming.
   grant_headers=$(mktemp)
-  curl -s -c "$cookies" -b "$cookies" -X POST "${gitea_host_url}/login/oauth/grant" \
-    --data-urlencode "client_id=${oauth_client_id}" \
-    --data-urlencode "state=${state}" \
-    --data-urlencode "scope=" --data-urlencode "nonce=" \
-    --data-urlencode "redirect_uri=${redirect_uri}" \
-    --data-urlencode "granted=true" \
-    -D "$grant_headers" -o /dev/null
-
-  grant_location=$(grep -i '^Location:' "$grant_headers" | sed 's/[Ll]ocation: //' | tr -d '\r')
-  code=$(echo "$grant_location" | sed -n 's/.*code=\([^&]*\).*/\1/p')
+  grant_page=$(mktemp)
+  curl -s -c "$cookies" -b "$cookies" "${gitea_host_url}/login/oauth/authorize?${qs}" \
+    -D "$grant_headers" -o "$grant_page"
+  already_authorized_location=$(grep -i '^Location:' "$grant_headers" | sed 's/[Ll]ocation: //' | tr -d '\r')
   rm -f "$grant_headers"
+
+  if [ -n "$already_authorized_location" ]; then
+    code=$(echo "$already_authorized_location" | sed -n 's/.*[?&]code=\([^&]*\).*/\1/p')
+    # The final step below needs $state regardless of which branch was
+    # taken -- pull it from $qs (the same value Gitea already validated
+    # this request against), not from a consent form that was never shown.
+    state=$(echo "$qs" | sed -n 's/.*state=\([^&]*\).*/\1/p')
+    rm -f "$grant_page"
+  else
+    # state and redirect_uri come straight back out of the consent page's
+    # own hidden fields rather than being re-derived -- Gitea validates
+    # them against exactly what it issued.
+    state=$(grep -o 'name="state" value="[^"]*"' "$grant_page" | sed 's/.*value="//;s/"$//')
+    redirect_uri=$(grep -o 'name="redirect_uri" value="[^"]*"' "$grant_page" | sed 's/.*value="//;s/"$//')
+    rm -f "$grant_page"
+
+    grant_headers=$(mktemp)
+    curl -s -c "$cookies" -b "$cookies" -X POST "${gitea_host_url}/login/oauth/grant" \
+      --data-urlencode "client_id=${oauth_client_id}" \
+      --data-urlencode "state=${state}" \
+      --data-urlencode "scope=" --data-urlencode "nonce=" \
+      --data-urlencode "redirect_uri=${redirect_uri}" \
+      --data-urlencode "granted=true" \
+      -D "$grant_headers" -o /dev/null
+
+    grant_location=$(grep -i '^Location:' "$grant_headers" | sed 's/[Ll]ocation: //' | tr -d '\r')
+    code=$(echo "$grant_location" | sed -n 's/.*code=\([^&]*\).*/\1/p')
+    rm -f "$grant_headers"
+  fi
 
   curl -s -c "$cookies" -b "$cookies" "${woodpecker_url}/authorize?code=${code}&state=${state}" -o /dev/null
 

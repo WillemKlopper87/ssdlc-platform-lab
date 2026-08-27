@@ -2,26 +2,57 @@
 
 ## Do next — Sprint 01 trusted pilot foundation
 
-The ordered sprint is in [`SPRINT-01-TRUSTED-PILOT.md`](SPRINT-01-TRUSTED-PILOT.md).
-It takes priority over feature expansion because it closes the current trust-
-boundary gaps before a real developer team is onboarded.
+The ordered sprint is in [`SPRINT-01-TRUSTED-PILOT.md`](SPRINT-01-TRUSTED-PILOT.md), which tracks
+finer-grained checkboxes than this section did — this list had drifted out of sync with it and is now
+reconciled. Sprint 01 takes priority over feature expansion because it closes the current
+trust-boundary gaps before a real developer team is onboarded. Genuinely outstanding, in priority
+order:
 
-- [ ] Create and approve the Trusted Gate Contract SADR.
-- [ ] Review and approve the additive framework update in
-      [`FRAMEWORK-ADDENDUM-2026.md`](FRAMEWORK-ADDENDUM-2026.md); it preserves
-      SSDLC Framework v1.1 while versioning current standards and guidance.
-- [ ] Explicitly dismiss stale approvals on push; prove it live and in regression coverage.
-- [ ] Require a current-head gate-bot verdict plus a distinct non-author human
-      approval; do not treat `required_approvals: 2` as proof of those roles.
-- [ ] Prevent a PR from supplying the pipeline, policy, or decision code that
-      approves itself; make the bot verify a pinned contract/attestation.
-- [ ] Add altered-pipeline and altered-policy bypass tests before changing
-      enforcement design.
-- [ ] Ship the pilot developer guidance and pre-commit setup.
+- [ ] **Replace PR-controlled gate files with a platform-controlled gate bundle/image** (the durable
+      SADR-0017 design), or at minimum make `GATE_ATTESTATION_REQUIRED=1` the default rather than the
+      transitional `GATE_CONTRACT_ENFORCE` byte-comparison. `scripts/trusted-gate-runner.py` and
+      `gate-bundle/` are built and unit-tested; nothing is deployed because this environment has only
+      one machine and the design specifically needs an isolated runner host. See
+      [`GATE_CONTRACT.md`](GATE_CONTRACT.md).
+- [x] ~~Consolidated regression cases for the Gate Contract specifically: altered pipeline, altered
+      policy, stale approval, and an old bot approval~~ Done —
+      `tests/regression/07-gate-contract-bypass.sh`, wired into `run-minimal-suite.sh`. Three
+      scenarios, 12 assertions, all live against a real Gitea+Woodpecker stack: (A) a PR that alters
+      `.woodpecker.yml` relative to its protected base gets zero bot votes even though its own
+      self-controlled pipeline reports fully green — proving file-comparison, not pipeline trust, is
+      what's actually doing the work; (B) a human approval stops satisfying the gate the instant a
+      new commit supersedes its head, independent of Gitea's own `dismiss_stale_approvals`; (C) the
+      same freshness requirement applied to the bot's own vote specifically — an old bot approval for
+      a superseded head fails `verify-approvals.py`'s bot-specific check (not just a generic
+      approval-count failure), and the bot does not get stuck refusing to ever vote again once the
+      new head is green. Found and fixed two real bugs building it: `tests/regression/lib.sh`'s
+      `woodpecker_get_pat` only handled a first-time OAuth consent, silently returning "User not
+      authorized" against an already-authorized account (skip-consent redirect case, now handled);
+      and a nested command-substitution pattern for repo activation silently swallowed a failure mode
+      that a step-by-step version (matching `05-bot-approver.sh`'s own proven pattern) does not.
+      "Missing report" and "forged status" were judged already adequately covered — the former by
+      existing unit tests (`test_evaluate_findings.py`, `test_gate_attestation.py`), the latter live
+      in SADR-0001 — and not duplicated here.
+- [ ] An independently managed signing identity to replace `gate_contract/attestation.py`'s HMAC
+      pilot bridge, once the runner above is deployed.
+- [ ] Review and approve `FRAMEWORK-ADDENDUM-2026.md` as a formal enhancement to SSDLC Framework v1.1
+      — written, not yet through any approval step.
+
+Already done, despite this section previously listing them as outstanding:
+- [x] ~~Create and approve the Trusted Gate Contract SADR~~ — [SADR-0017](adr/0017-trusted-gate-contract.md).
+- [x] ~~Explicitly dismiss stale approvals on push~~ — `onboard-repo.sh` sets `dismiss_stale_approvals: true`.
+- [x] ~~Require a current-head gate-bot verdict plus a distinct non-author human approval~~ —
+      `verify-approvals.py` requires both when `GATE_BOT_LOGIN` is set; unit-tested.
+- [x] ~~Prevent a PR from supplying the pipeline/policy/decision code that approves itself~~ —
+      transitionally, via `bot-approver.py`'s protected-base byte-comparison
+      (`GATE_CONTRACT_ENFORCE=1`, default on). The durable attestation path above is the remaining,
+      not-yet-deployed half of this item — do not check off the harder item above by pointing at this one.
+- [x] ~~Ship the pilot developer guidance and pre-commit setup~~ — [SECURITY.md](../SECURITY.md),
+      `.pre-commit-config.yaml`, and now the full doc set under *Documentation debt* below.
 
 ## Existing implementation debt
 
-Pulled from every SADR's own Decision section (docs/adr/0001–0016) and DESIGN.md's Open questions,
+Pulled from every SADR's own Decision section (docs/adr/0001–0018) and DESIGN.md's Open questions,
 not re-derived from scratch. Each item cites where it came from — check that SADR before starting
 work, since the reasoning behind *why* often matters as much as the item itself. This file decays
 like PINNED_VERSIONS.md does: re-check against the current SADR set at each milestone boundary rather
@@ -167,9 +198,12 @@ DESIGN.md's own repository structure names these. All eleven now exist:
 
 ## Operator experience / persistence (flagged critical in the build-ledger review)
 
-- [ ] `scripts/quickstart.sh` does not exist — this is Milestone 1's own named acceptance test.
-- [ ] `scripts/doctor.sh`, `e2e.sh`, `backup.sh`, `restore-drill.sh`, `evidence-export.sh` do not
-      exist.
+- [x] ~~`scripts/quickstart.sh` does not exist~~ — it exists: preflight via `doctor.sh`, then
+      Terraform apply, then `docker compose up -d`. This item was stale.
+- [x] ~~`scripts/doctor.sh` does not exist~~ — it exists: read-only preflight (tool availability,
+      Docker daemon reachability, `.env` placeholder check, `docker compose config` validation). Also
+      stale.
+- [ ] `e2e.sh`, `backup.sh`, `restore-drill.sh`, `evidence-export.sh` do not exist.
 - [ ] Nothing persists evidence, history, or metrics yet. Prometheus/Grafana are named in DESIGN.md's
       `minimal` profile but not present in `compose/minimal/docker-compose.yml` —
       `ansible/playbooks/50-runtime.yml` says so explicitly rather than pretending to bring them up.

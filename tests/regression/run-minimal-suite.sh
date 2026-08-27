@@ -112,4 +112,10 @@ fi
 . "${SCRIPT_DIR}/05-bot-approver.sh"
 test_bot_approver
 
+# shellcheck source=07-gate-contract-bypass.sh
+# Reuses 05-bot-approver.sh's Woodpecker polling helpers (_wp_wait_for_pipeline
+# etc.) -- must be sourced after it, not before.
+. "${SCRIPT_DIR}/07-gate-contract-bypass.sh"
+test_gate_contract_bypass
+
 regression_summary
