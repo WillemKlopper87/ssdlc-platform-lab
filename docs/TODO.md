@@ -82,6 +82,23 @@ priority over new features:
       second onboarding pass. The two-party exception workflow named alongside this in
       `docs/what_next.md`'s item 4 is separate, still open, and depends on Milestone 4's
       exceptions-repo infrastructure. — SADR-0024
+- [x] ~~Fix three real integrity gaps an external code report found in SADR-0024's own work~~ — two
+      named in `SSDLC_Code_report.md` (H1, H2/H3), one it missed. (1) Semgrep's fingerprint was built
+      from Semgrep's own `path` field, which depends on how it was invoked, not on the file itself —
+      confirmed live that an absolute-target scan (`generate-baseline.py`, `run-pilot-bundle.py`) and
+      a `.`-target scan (the fast gate) returned different paths for the identical finding, meaning
+      **every Semgrep finding baselined at onboarding still blocked on every PR** — SADR-0024's own
+      live verification only exercised a Trivy finding, so this survived it. (2) a corrupt existing
+      baseline (bad base64, a transient API hiccup) silently fell back to a fresh full-acceptance
+      snapshot instead of failing closed — `generate-baseline.py` now requires `--create` for
+      first-time creation and raises rather than returning `None` for anything unreadable;
+      `onboard-repo.sh` now checks HTTP status explicitly (404 vs. 200 vs. error) instead of folding
+      all three into one ambiguous signal. (3) the trusted bundle
+      (`gate-bundle/run-pilot-bundle.py`) signed `"scanners": {"secrets": "success", ...}` the moment
+      each process exited 0, never checking its report actually existed or parsed correctly, and never
+      passed `--baseline`/`--semgrep-root` to the evaluator — a real bundle run would have ignored the
+      repo's own baseline and could have attested a scanner that silently produced nothing. Live- and
+      unit-verified; 88 checks across the full unit tier. — SADR-0025
 - [ ] **Deploy and live-test the isolated trusted runner**, then enable
       `GATE_ATTESTATION_REQUIRED=1` only for the selected pilot repository.
       Prove normal merge, altered pipeline/policy rejection, missing

@@ -24,12 +24,20 @@
 # DESIGN.md's own component inventory ("writing a YAML mini-language and
 # its evaluator is a classic avoidable mistake").
 #
-# Deliberately does NOT implement baseline/differential gating here --
-# that depends on the exceptions-repo infrastructure (Milestone 4, not
-# built yet: DESIGN.md's D5). Every finding below is evaluated on its
-# own merits; a pre-existing finding in a legacy repo blocks exactly
-# like a newly-introduced one would, until that infrastructure exists.
-# Tracked honestly in docs/TODO.md, not silently assumed solved.
+# Deliberately does NOT implement baseline/differential gating here, and
+# still doesn't -- but not because that gap is unclosed anymore.
+# docs/adr/0024/0025: policy-eval/evaluate-findings.py now splits findings
+# into new vs. baselined (matched against .ssdlc/baseline.json) BEFORE
+# calling Conftest at all -- only new_findings ever reaches this policy;
+# a pre-existing finding never becomes `input` here in the first place.
+# This file staying baseline-unaware is therefore the correct division of
+# responsibility (severity policy vs. differential filtering are separate
+# concerns), not an open gap. What's still genuinely absent, and still
+# depends on the exceptions-repo infrastructure (Milestone 4, not built:
+# DESIGN.md's D5), is the two-party EXCEPTION workflow for a finding that
+# genuinely IS new -- there is still no accepted-risk path here other than
+# fixing it or a reviewed change to this file itself. Tracked honestly in
+# docs/TODO.md, not silently assumed solved.
 
 package main
 

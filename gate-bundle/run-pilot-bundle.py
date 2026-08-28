@@ -6,6 +6,7 @@ normalisers and Semgrep rules are built into this image. On success it writes
 the runner result contract to GATE_OUTPUT_DIR/result.json. A scanner or policy
 error exits non-zero without a result, which prevents an attestation.
 """
+import hashlib
 import json
 import os
 import subprocess
@@ -60,6 +61,49 @@ def run(command, name):
         raise SystemExit(2)
 
 
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+# docs/adr/0025 (SSDLC_Code_report.md H2): the original version of this
+# script wrote "scanners": {"secrets": "success", ...} unconditionally,
+# the moment each scanner's own exit code was 0 -- regardless of whether
+# it actually produced a real report. A scanner that exits 0 without
+# writing its report (a tool regression, an unexpected filesystem
+# interaction, a wrapper mistake) would then be SIGNED as successful.
+# trusted-gate-runner.py's issue() already refuses to attest when a
+# required scanner isn't literally the string "success" -- this function
+# is what makes that check meaningful instead of a tautology, by proving
+# the report is a real, structurally sane artifact before that label is
+# ever applied, not just trusting the process that wrote it said so.
+REPORT_SHAPES = {
+    "gitleaks": lambda data: isinstance(data, list),
+    "semgrep": lambda data: isinstance(data, dict) and isinstance(data.get("results"), list),
+    "trivy": lambda data: isinstance(data, dict) and (data.get("Results") is None or isinstance(data.get("Results"), list)),
+}
+
+
+def validate_report(path, kind):
+    """Return (ok, sha256_hex_or_None). Only ever true for a report file
+    that exists, is non-empty, parses as JSON, and matches the specific
+    top-level shape that scanner always produces -- on both a clean run
+    and a run with findings."""
+    if not path.exists() or path.stat().st_size == 0:
+        return False, None
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return False, None
+    if not REPORT_SHAPES[kind](data):
+        return False, None
+    return True, sha256_file(path)
+
+
 def main():
     workspace = Path(os.environ["GATE_WORKSPACE"])
     output = Path(os.environ["GATE_OUTPUT_DIR"])
@@ -97,18 +141,52 @@ def main():
          "--skip-files", ",".join(PLATFORM_MANAGED_FILES),
          "--skip-dirs", ",".join(PLATFORM_MANAGED_DIRS),
          "--output", str(reports["trivy"]), str(workspace)], "dependency scan")
+
+    gitleaks_ok, gitleaks_hash = validate_report(reports["gitleaks"], "gitleaks")
+    semgrep_ok, semgrep_hash = validate_report(reports["semgrep"], "semgrep")
+    trivy_ok, trivy_hash = validate_report(reports["trivy"], "trivy")
+    scanners = {
+        "secrets": "success" if gitleaks_ok else "missing-or-invalid-report",
+        "sast": "success" if semgrep_ok else "missing-or-invalid-report",
+        "dependencies": "success" if trivy_ok else "missing-or-invalid-report",
+    }
+    report_digests = {
+        name: digest
+        for name, digest in (("secrets", gitleaks_hash), ("sast", semgrep_hash), ("dependencies", trivy_hash))
+        if digest is not None
+    }
+    for name, ok in scanners.items():
+        if ok != "success":
+            print(f"gate-bundle: {name}'s report is missing, empty, or does not match the expected structure -- will not attest success", file=sys.stderr)
+
+    # docs/adr/0025 (SSDLC_Code_report.md H3): the fast gate evaluates
+    # ".ssdlc/baseline.json" relative to its own working directory, which
+    # IS the repo checkout it just scanned. This bundle instead passes
+    # absolute report paths from a working directory that is NOT the
+    # workspace (cwd is wherever the runner invoked this script from) --
+    # without --baseline pointed explicitly at the workspace's own file,
+    # the default relative path resolves against the wrong directory and
+    # silently misses it, treating every inherited finding as new. Same
+    # reasoning for --semgrep-root: this bundle's Semgrep invocation
+    # scanned str(workspace) (an absolute path), so its report's "path"
+    # values are absolute too, and normalise/semgrep_adapter.py needs the
+    # same root to strip them back to what the fast gate's fingerprint
+    # would compute for the identical file (docs/adr/0025 primary fix).
     policy = subprocess.run([
         "python3", "/opt/ssdlc/policy-eval/evaluate-findings.py",
         "--gitleaks", str(reports["gitleaks"]),
         "--semgrep", str(reports["semgrep"]),
         "--trivy", str(reports["trivy"]),
+        "--baseline", str(workspace / ".ssdlc" / "baseline.json"),
+        "--semgrep-root", str(workspace),
     ])
     if policy.returncode not in (0, 1):
         print(f"gate-bundle: policy evaluator failed with exit {policy.returncode}", file=sys.stderr)
         return 2
     (output / "result.json").write_text(json.dumps({
         "decision": "pass" if policy.returncode == 0 else "fail",
-        "scanners": {"secrets": "success", "sast": "success", "dependencies": "success"},
+        "scanners": scanners,
+        "report_digests": report_digests,
         # docs/adr/0022: lets the runner's attestation record which exact
         # scanning policy (vendored rules + severity.rego) produced this
         # decision, so a bundle rebuild with a silently different ruleset

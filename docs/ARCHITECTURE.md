@@ -20,7 +20,7 @@ behind it; this document describes what exists in `compose/minimal` today and wh
 | `scripts/reconciliation-loop.py` | Live | Recovers PRs stuck with no gate verdict (SADR-0015). Not yet a standing service either. |
 | `scripts/trusted-gate-runner.py` + `gate-bundle/` | Built, not deployed | SADR-0017's durable trust boundary. Designed and unit-tested; no isolated runner host exists in this environment to deploy it to. |
 | Reporting sidecar | Not built | D1's "reporting, not trust-path" service — sticky comments, DefectDojo push, metrics, `/exception` commands, reconciliation loop as a standing process. Currently these exist only as standalone scripts run manually or not at all. |
-| Exceptions repo | Not built | D5's signed exception/baseline store. No baseline gating exists yet — every finding blocks regardless of whether it predates onboarding. See [`EXCEPTIONS.md`](EXCEPTIONS.md). |
+| Exceptions repo | Not built | D5's signed *exception* store specifically — two-party risk acceptance, expiry, audit trail. Baseline/differential gating itself is separate and IS built (SADR-0024/0025): `scripts/generate-baseline.py`, `.ssdlc/baseline.json`, `evaluate-findings.py --baseline`. See [`EXCEPTIONS.md`](EXCEPTIONS.md). |
 | DefectDojo, Dependency-Track | Not built | Deferred past the trusted-pilot phase (`FRAMEWORK-ADDENDUM-2026.md`). |
 | Portal (D10) | Not built | Milestone 8. |
 
@@ -99,10 +99,11 @@ unit-tested but not deployed; see [`GATE_CONTRACT.md`](GATE_CONTRACT.md).
 
 ## What "minimal" currently omits versus DESIGN.md's target
 
-- No baseline/differential gating — see [`EXCEPTIONS.md`](EXCEPTIONS.md). Every finding blocks
-  regardless of history, which DESIGN.md's *Policy model* names as "the rollout killer neither
-  earlier review caught." Acceptable only because Sprint 01 restricts onboarding to pilot repos with
-  no pre-existing findings, not a general-purpose posture yet.
+- **Baseline/differential gating is now built** (SADR-0024/0025) — a pre-existing finding no longer
+  blocks a PR that didn't introduce it. The two-party *exception* workflow named alongside it in
+  DESIGN.md's *Policy model* is still absent — see [`EXCEPTIONS.md`](EXCEPTIONS.md). Sprint 01's
+  onboarding restriction to pilot repos with no pre-existing findings predates this and can now be
+  revisited, subject to re-verifying the restriction was only ever about the baseline gap.
 - No pre-receive secret-detection hook wired into `onboard-repo.sh` (SADR-0002 built and tested the
   mechanism; it is not yet packaged as the Ansible role that installs it on every onboarded repo).
 - No standing services for `bot-approver.py` or `reconciliation-loop.py` — both are scripts run by

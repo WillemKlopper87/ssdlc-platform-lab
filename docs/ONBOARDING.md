@@ -8,10 +8,13 @@ is there because skipping it breaks that guarantee for real (see the bug histori
 
 ## Before you onboard anything
 
-**Only onboard a pilot repo with no pre-existing Critical/High findings.** There is no baseline/
-differential gating yet — see [`EXCEPTIONS.md`](EXCEPTIONS.md). Onboarding a repo with inherited debt
-blocks every PR from day one for problems the PR did not cause. Sprint 01 restricts onboarding to
-pilot repos for exactly this reason.
+**Baseline/differential gating now exists (SADR-0024/0025)** — step [3/6] below scans the repo's
+current state and writes `.ssdlc/baseline.json` *before* any platform file is committed, so
+pre-existing findings become tracked debt rather than PR blockers. Sprint 01's original restriction to
+pilot repos with no pre-existing findings predated this and can be revisited — but the two-party
+*exception* workflow for genuinely NEW findings is still absent (see [`EXCEPTIONS.md`](EXCEPTIONS.md)),
+so a real Critical/High finding introduced by a PR still has no accepted-risk path other than fixing it
+or a reviewed policy change.
 
 **`scripts/bot-approver.py` must already be running, watching this repo, before or immediately after
 onboarding.** Onboarding sets `required_approvals: 2` on branch protection. Nothing gives the bot's
@@ -94,8 +97,9 @@ mergeable.
   push-whitelist grant. This is acceptable for Sprint 01's scope (this script *is* the platform
   admin's own tool) but is explicitly flagged in `docs/TODO.md` as needing a narrower-scoped
   automation identity before broad rollout.
-- **No baseline write.** Onboarding does not scan the repo's existing default-branch state — see
-  [`EXCEPTIONS.md`](EXCEPTIONS.md). This is why onboarding is currently pilot-repos-only.
+- ~~No baseline write.~~ **Fixed (SADR-0024/0025).** Step [3/6] scans the repo's existing default-branch
+  state before any platform file is committed and writes `.ssdlc/baseline.json`. Re-running onboarding
+  refreshes (shrinks) it rather than starting over.
 
 ## Related
 

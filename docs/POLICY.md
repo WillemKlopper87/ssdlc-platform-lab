@@ -118,11 +118,13 @@ numbers — exercised directly by `severity_test.rego`'s
 
 ## What this layer deliberately does not do
 
-**No baseline/differential gating.** Every finding is judged on its own merits, whether it predates
-onboarding or was introduced by the current PR. `policy/severity.rego`'s own header comment and
-`evaluate-findings.py`'s docstring both say this explicitly — it depends on the exceptions-repo
-infrastructure that doesn't exist yet. See [`EXCEPTIONS.md`](EXCEPTIONS.md) for what that gap means in
-practice and why it currently restricts onboarding to repos with no pre-existing findings.
+**Baseline/differential gating exists (SADR-0024/0025), separate from exceptions.** `evaluate-findings.py
+--baseline` splits findings into new (still gates exactly as below) and pre-existing debt (reported,
+never blocking) by consulting `.ssdlc/baseline.json`, generated at onboarding by
+`scripts/generate-baseline.py`. Secrets are never baselined regardless of what that file claims — a
+Gitleaks finding always evaluates as new. What's still absent is the two-party *exception* path (a
+human accepting a genuinely NEW finding, time-boxed, with expiry) — that depends on the exceptions-repo
+infrastructure named in [`EXCEPTIONS.md`](EXCEPTIONS.md), and is unrelated to baseline gating.
 
 **No exception/suppression consumption.** `fingerprint` is computed and carried through the pipeline,
 but nothing reads it yet to honour a risk acceptance or a `.ssdlc/suppressions.yaml` entry (DESIGN.md's

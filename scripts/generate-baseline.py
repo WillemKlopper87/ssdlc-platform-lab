@@ -127,7 +127,16 @@ def scan_workspace(workspace):
         if os.path.exists(semgrep_report):
             with open(semgrep_report, encoding="utf-8") as fh:
                 data = json.load(fh)
-            findings += semgrep_adapter.normalize(data.get("results", []))
+            # docs/adr/0025: this scan's target was "/src" (the container
+            # mount point above), not workspace's own host path -- Semgrep
+            # reports whatever target it was given, so the root to strip
+            # is that literal container path, matching what the fast gate
+            # (which scans ".") already returns unprefixed. See
+            # normalise/semgrep_adapter.py's docstring for why this matters:
+            # without it, every Semgrep finding this script baselines has a
+            # different fingerprint than the fast gate computes for the
+            # identical file, and it blocks on every PR regardless.
+            findings += semgrep_adapter.normalize(data.get("results", []), "/src")
         if os.path.exists(trivy_report):
             with open(trivy_report, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -135,21 +144,48 @@ def scan_workspace(workspace):
         return findings
 
 
+class BaselineUnreadable(Exception):
+    """The baseline file exists but cannot be trusted as a refresh floor."""
+
+
 def load_existing(path):
+    """Returns None only when the file genuinely does not exist -- the
+    "first onboarding, no baseline yet" case, which main() only accepts
+    with --create. A file that exists but is empty, not JSON, missing its
+    schema, or has a malformed entry raises BaselineUnreadable instead of
+    returning None.
+
+    docs/adr/0025 (SSDLC_Code_report.md H1): the original version of this
+    function collapsed BOTH cases to None, and main() treated None as
+    permission to create a fresh full-acceptance snapshot. That silently
+    converts "the existing baseline is corrupt" into "every current
+    finding is now accepted debt" -- exactly backwards, and asymmetric
+    with evaluate-findings.py's OWN handling of the same file at
+    evaluation time (there, unreadable correctly means "trust nothing,
+    treat as empty" -- the safe direction for a step that BLOCKS on a
+    mismatch, not one that's about to overwrite the file no one can read
+    yet). A corrupt existing baseline must fail this script outright; the
+    only way to reset it is the same explicit action DESIGN.md's docstring
+    already named -- delete the file, then rerun with --create.
+    """
     if not os.path.exists(path):
         return None
     try:
         with open(path, encoding="utf-8") as fh:
             document = json.load(fh)
-        entries = document.get("findings", [])
-        return {(e["tool"], e["fingerprint"]): e for e in entries if isinstance(e, dict)}
-    except (OSError, json.JSONDecodeError, KeyError, TypeError):
-        # A baseline this script cannot parse is not one it should trust as a
-        # floor to intersect against -- treat as "no existing baseline",
-        # which produces a fresh full snapshot, the safer of the two
-        # ambiguous options (evaluate-findings.py separately treats an
-        # unparseable baseline as empty at evaluation time regardless).
-        return None
+    except (OSError, json.JSONDecodeError) as error:
+        raise BaselineUnreadable(f"{path} exists but is not valid JSON: {error}") from error
+    if not isinstance(document, dict):
+        raise BaselineUnreadable(f"{path} does not contain a JSON object")
+    entries = document.get("findings")
+    if not isinstance(entries, list):
+        raise BaselineUnreadable(f"{path} has no 'findings' list")
+    result = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("tool"), str) or not isinstance(entry.get("fingerprint"), str):
+            raise BaselineUnreadable(f"{path} contains a malformed finding entry")
+        result[(entry["tool"], entry["fingerprint"])] = entry
+    return result
 
 
 def main():
@@ -158,16 +194,42 @@ def main():
     parser.add_argument("output")
     parser.add_argument("--repo", default="")
     parser.add_argument("--commit", default="")
+    # docs/adr/0025: required for first-time creation, so a caller can
+    # never end up here by accident -- e.g. a typo'd --output path, or an
+    # onboard-repo.sh run that silently failed to fetch a real existing
+    # baseline, both used to look identical to "genuinely nothing exists
+    # yet" and produced a full-acceptance snapshot either way.
+    parser.add_argument("--create", action="store_true",
+                         help="Allow creating a fresh baseline when none exists yet at <output>. "
+                              "Required for first onboarding; omit for a refresh.")
     args = parser.parse_args()
 
     if not os.path.isdir(args.workspace):
         print(f"generate-baseline: {args.workspace} is not a directory", file=sys.stderr)
         return 2
 
+    try:
+        existing = load_existing(args.output)
+    except BaselineUnreadable as error:
+        print(
+            f"generate-baseline: FATAL: {error} -- refusing to treat this as 'no baseline' and "
+            "silently accept every current finding. Delete the file explicitly to start a fresh "
+            "baseline, then rerun with --create.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if existing is None and not args.create:
+        print(
+            f"generate-baseline: FATAL: no baseline exists at {args.output} -- pass --create to "
+            "create one (first onboarding only; a refresh should always find an existing file)",
+            file=sys.stderr,
+        )
+        return 2
+
     findings = scan_workspace(args.workspace)
     current = {(f["tool"], f["fingerprint"]): f for f in findings if f["tool"] != "gitleaks"}
 
-    existing = load_existing(args.output)
     if existing is None:
         kept_keys = set(current.keys())
         print(f"generate-baseline: no existing baseline at {args.output} -- creating a fresh one ({len(kept_keys)} findings)")

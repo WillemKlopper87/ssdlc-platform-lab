@@ -65,12 +65,12 @@ REPO="${2:?usage: onboard-repo.sh <owner> <repo>}"
 
 echo "==> Onboarding ${OWNER}/${REPO} onto the SSDLC platform"
 
-echo "--> [1/3] Looking up the repo's forge-internal ID"
+echo "--> [1/6] Looking up the repo's forge-internal ID"
 REPO_ID=$(curl -sf "${GITEA_URL}/api/v1/repos/${OWNER}/${REPO}" \
   -H "Authorization: token ${GITEA_ADMIN_TOKEN}" | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])")
 echo "    repo id: ${REPO_ID}"
 
-echo "--> [1/3] Activating in Woodpecker"
+echo "--> [2/6] Activating in Woodpecker"
 ACTIVATE_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
   -H "Authorization: Bearer ${WOODPECKER_TOKEN}" \
   -X POST "${WOODPECKER_URL}/api/repos?forge_remote_id=${REPO_ID}")
@@ -85,7 +85,7 @@ fi
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
-echo "--> [1/4] Generating the differential-gating baseline (docs/adr/0024)"
+echo "--> [3/6] Generating the differential-gating baseline (docs/adr/0024)"
 # Scans the repo's CURRENT state -- deliberately before any platform file is
 # committed below, so the baseline reflects the repo's own pre-existing
 # findings, not the platform's own paved-road files (normalise/, policy/,
@@ -95,25 +95,64 @@ echo "--> [1/4] Generating the differential-gating baseline (docs/adr/0024)"
 # intersect-with-existing logic handles that.
 BASELINE_WORK_DIR=$(mktemp -d)
 git -c http.extraHeader="Authorization: token ${GITEA_ADMIN_TOKEN}" clone -q "${GITEA_URL}/${OWNER}/${REPO}.git" "${BASELINE_WORK_DIR}"
-BASELINE_TMP_FILE=$(mktemp)
-# Seed with the currently-committed baseline, if one exists, so
-# generate-baseline.py can intersect against it (shrink-only refresh)
-# instead of always producing a fresh full snapshot. content_b64 is
-# base64, matching how commit_file below reads the same Contents API field.
-EXISTING_BASELINE_CONTENT_B64=$(curl -s "${GITEA_URL}/api/v1/repos/${OWNER}/${REPO}/contents/.ssdlc/baseline.json" \
-  -H "Authorization: token ${GITEA_ADMIN_TOKEN}" | python3 -c "import json,sys
-try:
-    print(json.load(sys.stdin)['content'])
-except Exception:
-    print('')" 2>/dev/null || echo "")
-if [ -n "$EXISTING_BASELINE_CONTENT_B64" ]; then
-  echo "$EXISTING_BASELINE_CONTENT_B64" | base64 -d > "${BASELINE_TMP_FILE}" 2>/dev/null || true
+# docs/adr/0025 (SSDLC_Code_report.md H1): `mktemp` always creates an
+# EMPTY file, so a bare `BASELINE_TMP_FILE=$(mktemp)` made
+# generate-baseline.py's own "does this path exist" check always true --
+# even on a repo's genuine first onboarding, with nothing committed yet.
+# Not created here; only created below once an existing baseline's
+# content is actually confirmed and decoded.
+BASELINE_TMP_FILE=$(mktemp -u)
+# HTTP status distinguishes "genuinely no baseline yet" (404 -- first
+# onboarding, generate-baseline.py gets --create) from "something is
+# already there" (200 -- decode it, no --create, so a shrink-only refresh
+# is the only path) from anything else (network/auth/server error --
+# FAIL, not silently guess either way). The previous version of this
+# script folded a failed API call into the same "empty string" signal as
+# a genuine 404, and swallowed a base64 decode failure with `|| true` --
+# both could turn a shrink-only refresh into a fresh full-acceptance
+# snapshot on nothing more than a transient hiccup (SSDLC_Code_report.md's
+# own wording for exactly this risk).
+BASELINE_HTTP_RESPONSE=$(mktemp)
+BASELINE_HTTP_STATUS=$(curl -s -o "${BASELINE_HTTP_RESPONSE}" -w "%{http_code}" \
+  "${GITEA_URL}/api/v1/repos/${OWNER}/${REPO}/contents/.ssdlc/baseline.json" \
+  -H "Authorization: token ${GITEA_ADMIN_TOKEN}")
+GENERATE_BASELINE_CREATE_FLAG=""
+if [ "$BASELINE_HTTP_STATUS" = "404" ]; then
+  GENERATE_BASELINE_CREATE_FLAG="--create"
+elif [ "$BASELINE_HTTP_STATUS" = "200" ]; then
+  # The response path is passed as argv, not interpolated into the -c
+  # string: found live that a path embedded in the script TEXT (as the
+  # first version of this fix did) never gets Git Bash's own argv-level
+  # POSIX-to-Windows path translation, since that translation only
+  # applies to arguments bash itself passes to the invoked program --
+  # breaking this specific decode step whenever onboard-repo.sh is run
+  # from Windows Git Bash (a real, previously-used dev/test path for this
+  # project, even though production always runs it from a real Linux
+  # host). Passing it as sys.argv[1] instead lets bash translate it
+  # exactly the same way it already does for generate-baseline.py's own
+  # workspace argument below.
+  python3 -c "
+import base64, json, sys
+with open(sys.argv[1], encoding='utf-8') as fh:
+    document = json.load(fh)
+sys.stdout.buffer.write(base64.b64decode(document['content']))
+" "${BASELINE_HTTP_RESPONSE}" > "${BASELINE_TMP_FILE}"
+  # set -eu (top of this script) aborts here on either python3's own
+  # non-zero exit (malformed API response, missing 'content' key) or a
+  # failed redirect -- deliberately no `|| true` guard, unlike the
+  # version this replaces.
+else
+  echo "    ERROR: could not check for an existing baseline (HTTP ${BASELINE_HTTP_STATUS}) -- refusing to guess whether one exists" >&2
+  rm -f "${BASELINE_HTTP_RESPONSE}"
+  rm -rf "${BASELINE_WORK_DIR}"
+  exit 1
 fi
+rm -f "${BASELINE_HTTP_RESPONSE}"
 HEAD_SHA=$(git -C "${BASELINE_WORK_DIR}" rev-parse HEAD)
-python3 "${SCRIPT_DIR}/generate-baseline.py" "${BASELINE_WORK_DIR}" "${BASELINE_TMP_FILE}" --repo "${OWNER}/${REPO}" --commit "${HEAD_SHA}"
+python3 "${SCRIPT_DIR}/generate-baseline.py" "${BASELINE_WORK_DIR}" "${BASELINE_TMP_FILE}" --repo "${OWNER}/${REPO}" --commit "${HEAD_SHA}" ${GENERATE_BASELINE_CREATE_FLAG}
 rm -rf "${BASELINE_WORK_DIR}"
 
-echo "--> [2/4] Committing the fast-gate pipeline template and its dependencies"
+echo "--> [4/6] Committing the fast-gate pipeline template and its dependencies"
 
 # commit_file <local_path> <remote_path>
 # Generalized from what used to be .woodpecker.yml-only logic. Found
@@ -212,7 +251,7 @@ commit_directory() {
 commit_directory "${SCRIPT_DIR}/../policy/vendored-rules" "policy/vendored-rules"
 echo "    all pipeline dependencies committed"
 
-echo "--> [3/4] Adding the gate bot as a collaborator"
+echo "--> [5/6] Adding the gate bot as a collaborator"
 # Needed so it can hold the "bot" half of the two required approvals below
 # -- write permission only, matching every other human collaborator; the
 # bot's approve-only token (scripts/bot-approver.py, docs/adr/0011) is a
@@ -223,7 +262,7 @@ curl -sf -X PUT "${GITEA_URL}/api/v1/repos/${OWNER}/${REPO}/collaborators/${GITE
   -d '{"permission":"write"}' -o /dev/null
 echo "    ${GITEA_BOT_USER} added as a write collaborator"
 
-echo "--> [4/4] Setting branch protection on main"
+echo "--> [6/6] Setting branch protection on main"
 # Glob-matched context, per DESIGN.md D1's correction (SADR-0004): the real
 # Woodpecker context string includes /<event>/<workflow>, not just the
 # bare "ssdlc/security-gate" this design originally assumed.

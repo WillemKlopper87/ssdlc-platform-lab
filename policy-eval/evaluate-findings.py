@@ -84,7 +84,7 @@ def collect_findings(args):
 
     semgrep_data = load_report(args.semgrep)
     if semgrep_data is not None:
-        findings += semgrep_adapter.normalize(semgrep_data.get("results", []))
+        findings += semgrep_adapter.normalize(semgrep_data.get("results", []), args.semgrep_root)
 
     trivy_data = load_report(args.trivy)
     if trivy_data is not None:
@@ -190,6 +190,15 @@ def main():
     parser.add_argument("--semgrep", default=os.environ.get("SEMGREP_REPORT", "semgrep-report.json"))
     parser.add_argument("--trivy", default=os.environ.get("TRIVY_REPORT", "trivy-report.json"))
     parser.add_argument("--baseline", default=os.environ.get("BASELINE_REPORT", ".ssdlc/baseline.json"))
+    # docs/adr/0025: the fast gate scans "." (Semgrep already returns
+    # scan-root-relative paths, so no root is needed there -- the default).
+    # A caller whose Semgrep invocation used an absolute or container-
+    # mount-point target (scripts/generate-baseline.py, gate-bundle/
+    # run-pilot-bundle.py) MUST pass the same value here, or every Semgrep
+    # fingerprint it computes silently disagrees with every other scan
+    # site's -- see normalise/semgrep_adapter.py's docstring for the live
+    # evidence this was found from.
+    parser.add_argument("--semgrep-root", default=os.environ.get("SEMGREP_ROOT"))
     args = parser.parse_args()
 
     try:

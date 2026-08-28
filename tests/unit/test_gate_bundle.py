@@ -33,11 +33,24 @@ def restore(previous):
             os.environ[name] = value
 
 
+def write_valid_reports(output_dir):
+    """docs/adr/0025: validate_report() now requires each report to
+    actually exist and match its scanner's real top-level JSON shape
+    before that scanner can be labelled "success" -- write genuinely
+    valid-shaped (if empty-of-findings) reports so a mocked subprocess.run
+    (which never touches the filesystem itself) still produces a result
+    this check accepts, the same way a real scanner run would."""
+    Path(output_dir, "gitleaks-report.json").write_text("[]", encoding="utf-8")
+    Path(output_dir, "semgrep-report.json").write_text('{"results": []}', encoding="utf-8")
+    Path(output_dir, "trivy-report.json").write_text('{"Results": []}', encoding="utf-8")
+
+
 def test_policy_findings_create_a_valid_fail_result():
     workspace, output, previous = with_environment()
     original_run = BUNDLE.subprocess.run
     original_digest = BUNDLE.compute_policy_digest
     try:
+        write_valid_reports(output.name)
         calls = []
         BUNDLE.subprocess.run = lambda command, **_kwargs: (calls.append(command) or Result(1 if len(calls) == 4 else 0))
         BUNDLE.compute_policy_digest = lambda: "sha256:" + "ab" * 32
@@ -45,6 +58,7 @@ def test_policy_findings_create_a_valid_fail_result():
         result = json.loads(Path(output.name, "result.json").read_text(encoding="utf-8"))
         assert result["decision"] == "fail"
         assert result["scanners"] == {"secrets": "success", "sast": "success", "dependencies": "success"}
+        assert set(result["report_digests"]) == {"secrets", "sast", "dependencies"}, "a real hash is recorded per validated report"
         assert result["policy_digest"] == "sha256:" + "ab" * 32
         # docs/adr/0023: GATE_WORKSPACE is a Gitea archive extraction with no
         # .git directory. Without --no-git, gitleaks silently scans "0
@@ -53,6 +67,68 @@ def test_policy_findings_create_a_valid_fail_result():
         gitleaks_call = calls[0]
         assert "gitleaks" in gitleaks_call[0]
         assert "--no-git" in gitleaks_call, "gitleaks must run with --no-git against an archive-extracted workspace"
+        # docs/adr/0025 H3: the policy evaluator must be told explicitly
+        # where this workspace's baseline lives and what root its Semgrep
+        # report's paths need stripped -- both silently defaulted wrong
+        # otherwise (see run-pilot-bundle.py's own comment on this call).
+        policy_call = calls[3]
+        assert "--baseline" in policy_call, "the evaluator must be pointed at the workspace's own baseline, not a cwd-relative default"
+        assert str(Path(workspace.name, ".ssdlc", "baseline.json")) in policy_call
+        assert "--semgrep-root" in policy_call, "the evaluator must be told the Semgrep scan root to strip"
+        assert workspace.name in policy_call
+    finally:
+        BUNDLE.subprocess.run = original_run
+        BUNDLE.compute_policy_digest = original_digest
+        restore(previous)
+        workspace.cleanup()
+        output.cleanup()
+
+
+def test_missing_report_is_not_labelled_success():
+    """docs/adr/0025 (SSDLC_Code_report.md H2): a scanner that exits 0
+    without writing its report must never be signed as successful --
+    trusted-gate-runner.py's issue() relies on this label being trustworthy
+    before it ever produces an attestation."""
+    workspace, output, previous = with_environment()
+    original_run = BUNDLE.subprocess.run
+    original_digest = BUNDLE.compute_policy_digest
+    try:
+        # Only semgrep and trivy write real reports; gitleaks "succeeds"
+        # (exit 0) but never writes gitleaks-report.json -- exactly the
+        # failure mode H2 describes.
+        Path(output.name, "semgrep-report.json").write_text('{"results": []}', encoding="utf-8")
+        Path(output.name, "trivy-report.json").write_text('{"Results": []}', encoding="utf-8")
+        BUNDLE.subprocess.run = lambda command, **_kwargs: Result(0)
+        BUNDLE.compute_policy_digest = lambda: "sha256:" + "cd" * 32
+        assert BUNDLE.main() == 0
+        result = json.loads(Path(output.name, "result.json").read_text(encoding="utf-8"))
+        assert result["scanners"]["secrets"] != "success", "no report on disk must never read as success"
+        assert result["scanners"]["sast"] == "success"
+        assert result["scanners"]["dependencies"] == "success"
+        assert "secrets" not in result["report_digests"], "no hash is recorded for a report that was never validated"
+    finally:
+        BUNDLE.subprocess.run = original_run
+        BUNDLE.compute_policy_digest = original_digest
+        restore(previous)
+        workspace.cleanup()
+        output.cleanup()
+
+
+def test_malformed_report_is_not_labelled_success():
+    workspace, output, previous = with_environment()
+    original_run = BUNDLE.subprocess.run
+    original_digest = BUNDLE.compute_policy_digest
+    try:
+        Path(output.name, "gitleaks-report.json").write_text("[]", encoding="utf-8")
+        # Wrong shape: a Semgrep report is always an object with a
+        # "results" list, never a bare array.
+        Path(output.name, "semgrep-report.json").write_text("[]", encoding="utf-8")
+        Path(output.name, "trivy-report.json").write_text('{"Results": []}', encoding="utf-8")
+        BUNDLE.subprocess.run = lambda command, **_kwargs: Result(0)
+        BUNDLE.compute_policy_digest = lambda: "sha256:" + "ef" * 32
+        assert BUNDLE.main() == 0
+        result = json.loads(Path(output.name, "result.json").read_text(encoding="utf-8"))
+        assert result["scanners"]["sast"] != "success", "the wrong top-level shape must never read as success"
     finally:
         BUNDLE.subprocess.run = original_run
         BUNDLE.compute_policy_digest = original_digest
@@ -98,6 +174,8 @@ def test_scanner_crash_prevents_a_result():
 
 TESTS = [
     test_policy_findings_create_a_valid_fail_result,
+    test_missing_report_is_not_labelled_success,
+    test_malformed_report_is_not_labelled_success,
     test_scanner_crash_prevents_a_result,
     test_compute_policy_digest_is_deterministic_and_content_sensitive,
 ]

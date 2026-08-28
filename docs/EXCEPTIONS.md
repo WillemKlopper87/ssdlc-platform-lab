@@ -97,11 +97,14 @@ command, no DefectDojo. `fingerprint` is computed by every `normalise/` adapter 
 the pipeline specifically so this is a wiring problem when the time comes, not a schema problem — but
 nothing reads it today.
 
-**The practical consequence, stated in [`ARCHITECTURE.md`](ARCHITECTURE.md) and Sprint 01's own scope:**
-onboarding is restricted to pilot repos with no pre-existing Critical/High findings. Onboarding a real
-repo with inherited debt today would block every PR from day one for problems the PR did not cause —
-exactly the "rollout killer" DESIGN.md's *Policy model* names. Do not onboard a repo with known
-existing findings until baseline gating exists.
+**Update (SADR-0024/0025): baseline/differential gating now exists.** `scripts/generate-baseline.py`
+snapshots a repo's pre-existing findings at onboarding into `.ssdlc/baseline.json`, and
+`evaluate-findings.py --baseline` blocks only what's genuinely new — a repo with inherited debt no
+longer blocks every PR from day one for problems the PR did not cause. This page's own subject, the
+two-party *exception* workflow (accepting a genuinely NEW finding, not baselining pre-existing ones),
+is still not built and is a separate gap from the one baseline gating closes — do not conflate the
+two. Sprint 01's original restriction to pilot repos with no pre-existing findings predates this fix
+and is a candidate for re-verification, not something to keep citing this paragraph's old reasoning for.
 
 **The only accepted-risk path that exists today is out-of-band**: editing `policy/severity.rego`
 itself (a reviewed PR to the platform repo, same as any policy change) or not merging. There is no

@@ -88,16 +88,19 @@ building it separately.
 
 ### 3. No exception path exists
 
-`policy-eval/evaluate-findings.py` blocks every Critical/High finding unconditionally — no baseline
-gating, no false-positive suppression, no two-party risk acceptance, no expiry, no enforcement
-record. [`EXCEPTIONS.md`](EXCEPTIONS.md) documents the intended design in full; none of it is built.
-This is what blocks onboarding any repo with pre-existing findings, and a gate with no usable
-exception path is exactly the shape that gets quietly disabled by an admin under real deadline
-pressure — that's the actual production risk, not just a UX gap. Needed: stable finding fingerprints,
-a default-branch baseline generated at onboarding, "new findings only" PR enforcement, a
-baseline that can only shrink, separate suppression records from risk-acceptance records, two-party
-acceptance with named Security-Officer/Eng-Lead roles, hard expiry with automatic re-blocking, and
-append-only audit evidence.
+**Update: the baseline half of this is now built (SADR-0024/0025).** `policy-eval/evaluate-findings.py
+--baseline` splits findings into new (still blocks Critical/High unconditionally) and pre-existing
+debt (reported, never blocking), using stable fingerprints and a default-branch baseline generated at
+onboarding (`scripts/generate-baseline.py`) that can only shrink. This is what used to block onboarding
+any repo with pre-existing findings — it no longer does.
+
+What remains genuinely absent: false-positive suppression, two-party risk acceptance, expiry, and
+enforcement/audit records for a genuinely NEW finding someone wants to accept rather than fix.
+[`EXCEPTIONS.md`](EXCEPTIONS.md) documents the intended design for that remaining half in full; none of
+it is built. A gate with no usable exception path is exactly the shape that gets quietly disabled by an
+admin under real deadline pressure — that's the actual production risk, not just a UX gap. Needed:
+separate suppression records from risk-acceptance records, two-party acceptance with named
+Security-Officer/Eng-Lead roles, hard expiry with automatic re-blocking, and append-only audit evidence.
 
 ### 4. Secret detection happens too late
 
@@ -152,10 +155,10 @@ controls, not receive everything.
   onboarding identity, separate identities per function (comments / scanning / approval /
   administration), and treatment of the gate-bot token specifically as a crown-jewel credential —
   DESIGN.md already uses that language; it should be operationalized, not just stated.
-- **Policy evaluation is severity-only** — no baseline/introduced-vs-inherited state, no repository
-  risk tier, no reachability/exploitability weighting, no exception state read at evaluation time.
-  Don't over-engineer this early, but a versioned policy input document now avoids rewriting the
-  normalise adapters later when this grows.
+- **Policy evaluation now has introduced-vs-inherited state (SADR-0024/0025), still nothing beyond
+  that** — no repository risk tier, no reachability/exploitability weighting, no exception state read
+  at evaluation time (that's item 3 above, still open). Don't over-engineer this early, but a versioned
+  policy input document now avoids rewriting the normalise adapters later when this grows.
 - **Scanner coverage is real but narrow**: Gitleaks + Semgrep OSS + Trivy filesystem SCA only.
   Missing from the *active* fast/deep gate: IaC scanning, container-image scanning tied to the built
   digest, SBOM generation, license compliance, package-reputation checks, structured DAST evidence,

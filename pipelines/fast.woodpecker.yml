@@ -241,9 +241,18 @@ steps:
     # (policy/severity.rego) instead of severity handling scattered
     # across three tools' own flag choices.
     #
-    # Deliberately NOT baseline/differential gating -- every finding is
-    # judged on its own merits regardless of whether it's newly
-    # introduced or pre-existing in an onboarded legacy repo. That
+    # docs/adr/0024/0025: baseline/differential gating DOES apply here.
+    # `python3 policy-eval/evaluate-findings.py` below takes no explicit
+    # --baseline/--semgrep-root flags, and needs none -- both defaults are
+    # already correct for this step's own invocation shape: it runs with
+    # cwd == the repo checkout, so the default relative
+    # ".ssdlc/baseline.json" resolves correctly, and the sast step above
+    # scanned "." (not an absolute/mount-point target), so Semgrep's own
+    # paths already come back scan-root-relative with no stripping needed
+    # (see normalise/semgrep_adapter.py's docstring). A pre-existing
+    # finding is reported as debt, not a block; a genuinely new one still
+    # blocks. The two-party EXCEPTION workflow (accepting a new finding,
+    # not baselining a pre-existing one) is the separate thing that still
     # depends on the exceptions-repo infrastructure (Milestone 4, not
     # built) -- tracked honestly in docs/TODO.md, not silently assumed
     # solved by this step's existence.
