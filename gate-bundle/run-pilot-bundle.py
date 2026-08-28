@@ -24,6 +24,30 @@ from gate_contract.attestation import policy_digest
 # real built image on disk.
 POLICY_DIR = Path("/opt/ssdlc/policy")
 
+# docs/adr/0024 verification: onboard-repo.sh commits these same
+# platform-owned paths into the application repo this bundle scans
+# (scripts/bot-approver.py's DEFAULT_GATE_MANAGED_PATHS/_TREE_PREFIXES --
+# duplicated here, not imported, since bot-approver.py is never copied into
+# this image, see gate-bundle/Dockerfile). Scanning GATE_WORKSPACE wholesale
+# means policy/vendored-rules/'s own ~700 deliberately-vulnerable rule-test
+# fixtures (bash/ifs-tampering.bash, c/double-free.c, ...) get scanned as if
+# they were the application's code -- confirmed live to produce thousands of
+# self-matches with no error of any kind. Same self-contamination class
+# docs/adr/0018 found for report filenames in the fast gate, never checked
+# against this larger target until now, and present here too since this
+# bundle scans the same committed checkout.
+PLATFORM_MANAGED_FILES = (
+    ".woodpecker.yml",
+    "policy-eval/verify-approvals.py",
+    "policy-eval/evaluate-findings.py",
+    "normalise/gitleaks_adapter.py",
+    "normalise/semgrep_adapter.py",
+    "normalise/trivy_adapter.py",
+    "policy/severity.rego",
+    ".ssdlc/baseline.json",
+)
+PLATFORM_MANAGED_DIRS = ("policy/vendored-rules",)
+
 
 def compute_policy_digest():
     return policy_digest(POLICY_DIR)
@@ -64,9 +88,15 @@ def main():
     # (pipelines/fast.woodpecker.yml) runs against a real `git clone`
     # (Woodpecker's own clone step), where scanning commit history is
     # correct and more thorough -- do not add --no-git there too.
+    semgrep_excludes = []
+    for path in PLATFORM_MANAGED_FILES + PLATFORM_MANAGED_DIRS:
+        semgrep_excludes += ["--exclude", path]
     run(["gitleaks", "detect", "--no-git", "--source", str(workspace), "--report-format=json", "--report-path", str(reports["gitleaks"]), "--exit-code=0", "--no-banner"], "secrets scan")
-    run(["semgrep", "--disable-version-check", "--metrics=off", "--config=/opt/ssdlc/policy/vendored-rules", "--json", "--output", str(reports["semgrep"]), str(workspace)], "SAST scan")
-    run(["trivy", "fs", "--cache-dir=/opt/ssdlc/trivy-cache", "--skip-db-update", "--exit-code=0", "--format=json", "--output", str(reports["trivy"]), str(workspace)], "dependency scan")
+    run(["semgrep", "--disable-version-check", "--metrics=off", "--config=/opt/ssdlc/policy/vendored-rules", *semgrep_excludes, "--json", "--output", str(reports["semgrep"]), str(workspace)], "SAST scan")
+    run(["trivy", "fs", "--cache-dir=/opt/ssdlc/trivy-cache", "--skip-db-update", "--exit-code=0", "--format=json",
+         "--skip-files", ",".join(PLATFORM_MANAGED_FILES),
+         "--skip-dirs", ",".join(PLATFORM_MANAGED_DIRS),
+         "--output", str(reports["trivy"]), str(workspace)], "dependency scan")
     policy = subprocess.run([
         "python3", "/opt/ssdlc/policy-eval/evaluate-findings.py",
         "--gitleaks", str(reports["gitleaks"]),

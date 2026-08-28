@@ -77,8 +77,10 @@ def test_trivy_severity_passthrough():
     assert_eq(len(findings), 1, "one vulnerability normalized from the recorded fixture")
     assert_eq(findings[0]["severity"], "critical", "CRITICAL maps to critical")
     assert_eq(findings[0]["rule_id"], "CVE-2020-14343", "the real CVE id is preserved")
-    assert_eq(findings[0]["fingerprint"].startswith("sha256:"), True,
-               "Trivy's own native fingerprint (a real hash) is used directly")
+    assert_eq(findings[0]["fingerprint"], "CVE-2020-14343:pyyaml:requirements.txt",
+               "constructed from CVE id + package + manifest path, not Trivy's own native "
+               "Fingerprint field -- docs/adr/0024 verification found that field unstable "
+               "across scans that don't touch the vulnerable manifest at all")
 
 
 def test_trivy_dependency_findings_have_no_line_number():

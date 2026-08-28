@@ -84,8 +84,24 @@ steps:
       # gate on these tools' output. Every onboarded repo's own paved-road
       # files carry these same report filenames, so excluding by name
       # here is sufficient without needing a per-repo ignore file.
-      - semgrep --config=policy/vendored-rules --sarif --output=semgrep-report.sarif --exclude=gitleaks-report.json . || true
-      - semgrep --config=policy/vendored-rules --json --output=semgrep-report.json --exclude=gitleaks-report.json --exclude=semgrep-report.sarif .
+      #
+      # --exclude=policy/vendored-rules: found live (docs/adr/0024
+      # verification) that this is the SAME self-contamination class, just
+      # a target docs/adr/0018 never checked. onboard-repo.sh commits this
+      # 1298-file tree into every onboarded repo (it IS the --config
+      # source), but scanning "." also scans it as application code --
+      # ~700 of those files are deliberately vulnerable rule-test fixtures
+      # (bash/ifs-tampering.bash, c/double-free.c, ...), each written to
+      # match a sibling rule. A live run against a repo that already had
+      # this tree committed produced 2564 self-matches with no error of
+      # any kind -- silently wrong, not a crash. The other platform-owned
+      # paths (.woodpecker.yml, policy-eval/*.py, normalise/*.py,
+      # policy/severity.rego, .ssdlc/baseline.json -- scripts/bot-approver.py's
+      # DEFAULT_GATE_MANAGED_PATHS) are excluded too: they're the
+      # platform's own committed infrastructure, not code the developer
+      # who opened this PR wrote or can fix.
+      - semgrep --config=policy/vendored-rules --sarif --output=semgrep-report.sarif --exclude=gitleaks-report.json --exclude=policy/vendored-rules --exclude=.woodpecker.yml --exclude=policy-eval/verify-approvals.py --exclude=policy-eval/evaluate-findings.py --exclude=normalise/gitleaks_adapter.py --exclude=normalise/semgrep_adapter.py --exclude=normalise/trivy_adapter.py --exclude=policy/severity.rego --exclude=.ssdlc/baseline.json . || true
+      - semgrep --config=policy/vendored-rules --json --output=semgrep-report.json --exclude=gitleaks-report.json --exclude=semgrep-report.sarif --exclude=policy/vendored-rules --exclude=.woodpecker.yml --exclude=policy-eval/verify-approvals.py --exclude=policy-eval/evaluate-findings.py --exclude=normalise/gitleaks_adapter.py --exclude=normalise/semgrep_adapter.py --exclude=normalise/trivy_adapter.py --exclude=policy/severity.rego --exclude=.ssdlc/baseline.json .
     when:
       - event: [push, pull_request]
 
@@ -205,7 +221,14 @@ steps:
       # --exclude fixes (docs/adr/0018) -- trivy fs's default scanners
       # include its own secret detector, and by this point the workspace
       # already holds the secrets and sast steps' report files.
-      - trivy fs $SKIP_DB --exit-code=0 --format=json --output=trivy-report.json --skip-files=gitleaks-report.json,semgrep-report.sarif,semgrep-report.json .
+      #
+      # --skip-dirs=policy/vendored-rules: same policy/vendored-rules
+      # self-contamination the sast step above now excludes too (docs/adr/0024
+      # verification) -- Trivy's fs scan covers misconfig/secret/license
+      # detectors across the whole tree by default, so this platform's own
+      # committed rule-test fixtures are in scope for those the same way
+      # they were for semgrep.
+      - trivy fs $SKIP_DB --exit-code=0 --format=json --output=trivy-report.json --skip-files=gitleaks-report.json,semgrep-report.sarif,semgrep-report.json,.woodpecker.yml,policy-eval/verify-approvals.py,policy-eval/evaluate-findings.py,normalise/gitleaks_adapter.py,normalise/semgrep_adapter.py,normalise/trivy_adapter.py,policy/severity.rego,.ssdlc/baseline.json --skip-dirs=policy/vendored-rules .
     when:
       - event: [push, pull_request]
 

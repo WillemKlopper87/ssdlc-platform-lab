@@ -65,6 +65,23 @@ priority over new features:
       Live-verified against a real rebuilt image: the same key now correctly
       produces a blocking `CRITICAL [gitleaks/aws-access-token]` finding.
       Guarded by a new unit assertion. — SADR-0023
+- [x] ~~Implement baseline/differential gating~~ — `docs/what_next.md`'s highest-leverage
+      software-only item. `scripts/generate-baseline.py` (self-shrinking baseline, Semgrep +
+      Trivy only, secrets never baselined per D7), `policy-eval/evaluate-findings.py --baseline`,
+      `.ssdlc/baseline.json` added to `bot-approver.py`'s managed paths, wired into
+      `onboard-repo.sh`. Found and fixed two real bugs live before calling this done: (1) all three
+      scan sites (`generate-baseline.py`, the fast gate, `run-pilot-bundle.py`) were scanning the
+      platform's own committed `policy/vendored-rules/` tree as if it were application code — same
+      self-contamination class SADR-0018 found for report filenames, an eleven-times-larger target
+      never checked against until now, confirmed live at 2564 spurious self-matches; (2) Trivy's
+      native `Fingerprint` field, trusted directly by `normalise/trivy_adapter.py`, turned out to
+      shift whenever an unrelated file elsewhere in the repo changed — the actual root cause of a
+      baselined finding silently vanishing, now fixed by constructing the fingerprint from CVE id +
+      package + manifest path only. Live-verified end to end: a seeded 1-finding baseline survives
+      an unchanged-content refresh (`1 findings, was 1`) against a workspace shaped like a real
+      second onboarding pass. The two-party exception workflow named alongside this in
+      `docs/what_next.md`'s item 4 is separate, still open, and depends on Milestone 4's
+      exceptions-repo infrastructure. — SADR-0024
 - [ ] **Deploy and live-test the isolated trusted runner**, then enable
       `GATE_ATTESTATION_REQUIRED=1` only for the selected pilot repository.
       Prove normal merge, altered pipeline/policy rejection, missing

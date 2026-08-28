@@ -83,8 +83,37 @@ else
   exit 1
 fi
 
-echo "--> [2/3] Committing the fast-gate pipeline template and its dependencies"
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+echo "--> [1/4] Generating the differential-gating baseline (docs/adr/0024)"
+# Scans the repo's CURRENT state -- deliberately before any platform file is
+# committed below, so the baseline reflects the repo's own pre-existing
+# findings, not the platform's own paved-road files (normalise/, policy/,
+# etc.) that are about to land in the same tree. Re-running onboarding
+# against an already-onboarded repo refreshes (shrinks) the existing
+# baseline rather than starting over -- generate-baseline.py's own
+# intersect-with-existing logic handles that.
+BASELINE_WORK_DIR=$(mktemp -d)
+git -c http.extraHeader="Authorization: token ${GITEA_ADMIN_TOKEN}" clone -q "${GITEA_URL}/${OWNER}/${REPO}.git" "${BASELINE_WORK_DIR}"
+BASELINE_TMP_FILE=$(mktemp)
+# Seed with the currently-committed baseline, if one exists, so
+# generate-baseline.py can intersect against it (shrink-only refresh)
+# instead of always producing a fresh full snapshot. content_b64 is
+# base64, matching how commit_file below reads the same Contents API field.
+EXISTING_BASELINE_CONTENT_B64=$(curl -s "${GITEA_URL}/api/v1/repos/${OWNER}/${REPO}/contents/.ssdlc/baseline.json" \
+  -H "Authorization: token ${GITEA_ADMIN_TOKEN}" | python3 -c "import json,sys
+try:
+    print(json.load(sys.stdin)['content'])
+except Exception:
+    print('')" 2>/dev/null || echo "")
+if [ -n "$EXISTING_BASELINE_CONTENT_B64" ]; then
+  echo "$EXISTING_BASELINE_CONTENT_B64" | base64 -d > "${BASELINE_TMP_FILE}" 2>/dev/null || true
+fi
+HEAD_SHA=$(git -C "${BASELINE_WORK_DIR}" rev-parse HEAD)
+python3 "${SCRIPT_DIR}/generate-baseline.py" "${BASELINE_WORK_DIR}" "${BASELINE_TMP_FILE}" --repo "${OWNER}/${REPO}" --commit "${HEAD_SHA}"
+rm -rf "${BASELINE_WORK_DIR}"
+
+echo "--> [2/4] Committing the fast-gate pipeline template and its dependencies"
 
 # commit_file <local_path> <remote_path>
 # Generalized from what used to be .woodpecker.yml-only logic. Found
@@ -139,6 +168,8 @@ commit_file "${SCRIPT_DIR}/../normalise/gitleaks_adapter.py" "normalise/gitleaks
 commit_file "${SCRIPT_DIR}/../normalise/semgrep_adapter.py" "normalise/semgrep_adapter.py"
 commit_file "${SCRIPT_DIR}/../normalise/trivy_adapter.py" "normalise/trivy_adapter.py"
 commit_file "${SCRIPT_DIR}/../policy/severity.rego" "policy/severity.rego"
+commit_file "${BASELINE_TMP_FILE}" ".ssdlc/baseline.json"
+rm -f "${BASELINE_TMP_FILE}"
 
 # commit_directory <local_dir> <remote_dir>
 # docs/adr/0020: policy/vendored-rules/ is 594 files -- commit_file's

@@ -251,7 +251,8 @@ replaces `pipelines/self-verify.woodpecker.yml`'s current scope once #1 and #3 a
    share this checkout.
 2. **Deploy the isolated trusted runner and replace HMAC with an independent signing identity.**
 3. **Require signed, head-bound gate attestations for one pilot repository.**
-4. **Implement baseline/differential gating and the two-party exception workflow.**
+4. ~~**Implement baseline/differential gating**~~ — done, live-verified, SADR-0024. **The two-party
+   exception workflow** remains open — it depends on Milestone 4's exceptions-repo infrastructure.
 5. **Install pre-receive secret detection** with measured latency and a rotation procedure.
 6. **Turn the bot/reconciliation logic into a supervised multi-repository service.**
 7. **Add durable evidence storage and per-release evidence export.**
@@ -267,10 +268,10 @@ replaces `pipelines/self-verify.woodpecker.yml`'s current scope once #1 and #3 a
     rollout — a hard gate on *rollout scope*, independent of technical readiness on the items above.
 
 **The next tranche is 2–4.** Items 2 and 3 are blocked on infrastructure this environment doesn't
-have (a second, isolated host) — everything else in that tranche (4, and item 1's repo migration) is
-directly actionable here. Item 1 needs explicit user authorization given its blast radius; item 4 does
-not, and is the highest-leverage thing achievable purely in software right now: nothing about
-onboarding a second real repo matters until baseline gating exists.
+have (a second, isolated host). Item 4's baseline/differential-gating half is now done (SADR-0024,
+live-verified); its two-party exception workflow half is not, and stays blocked on Milestone 4's
+exceptions-repo infrastructure like items 2/3. Item 1's repo migration remains directly actionable
+here but needs explicit user authorization given its blast radius.
 
 ## Tranche breakdown for items 2–4 (once a second host exists)
 
@@ -288,9 +289,11 @@ missing, and stale-head decisions. Retain evidence and document the rollback pat
 **Exit criterion, stated precisely: a PR-controlled build must not be able to manufacture the
 merge-authorising evidence** — not "the happy path works," but "the attack doesn't."
 
-**Tranche 2 — usable enforcement.** Baseline/fingerprints (SADR-0018's `fingerprint` field is already
-computed by every `normalise/` adapter specifically for this, per its own docstring — the wiring is
-the gap, not the schema). Materialize false-positive suppressions and two-party exceptions per
+**Tranche 2 — usable enforcement.** Baseline/differential gating is done (SADR-0024) — found and
+fixed two real bugs live along the way, including that Trivy's own `fingerprint` field (which
+SADR-0018's docstring assumed was stable) actually isn't across scans that don't touch the vulnerable
+manifest at all; `normalise/trivy_adapter.py` no longer trusts it. Remaining for this tranche:
+materialize false-positive suppressions and two-party exceptions per
 `EXCEPTIONS.md`'s design. Enforce expiry and reactivation. Actionable PR feedback, and start
 measuring exception wait time (`DESIGN.md`'s own "the gate's survival metric"). Keep peer review
 independent of security acceptance — an exception unblocks the security gate, never the review gate.

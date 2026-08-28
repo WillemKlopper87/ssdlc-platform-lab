@@ -2,11 +2,31 @@
 """
 normalise/trivy_adapter.py
 
-Trivy -> the unified finding schema (docs/adr/0018). The easiest of the
-three adapters, confirmed live rather than assumed: Trivy already
+Trivy -> the unified finding schema (docs/adr/0018). Trivy already
 reports a clean CRITICAL/HIGH/MEDIUM/LOW/UNKNOWN string directly on each
-vulnerability, and a genuinely stable native Fingerprint (a real SHA256
-hash) -- no reconstruction needed, unlike Semgrep's gated one.
+vulnerability, no mapping ambiguity there.
+
+The native "Fingerprint" field is deliberately NOT used, unlike
+Semgrep's own registry-gated one this adapter also reconstructs. Found
+live (docs/adr/0024 verification): it is stable across repeated scans of
+IDENTICAL content, but changes when ANY unrelated file elsewhere in the
+scanned tree changes -- even though the vulnerable manifest itself, and
+the vulnerability it names, are untouched. The recorded fixture below
+shows why: Trivy's own report carries a whole-scan "ArtifactID" alongside
+each finding, and the per-vulnerability Fingerprint is derived from
+something scan-wide like it, not purely the finding's own identity. For
+a one-off report that is invisible; for this platform's baseline/
+differential gating (docs/adr/0024), where a finding's identity must
+survive an unrelated commit elsewhere in the repo, it silently breaks
+the entire mechanism -- a baselined finding "disappears" (looks fixed)
+the moment anything else in the repo changes, and reappears as "new" on
+the next scan after that, blocking a PR for a pre-existing finding no
+one touched. Confirmed live: identical requirements.txt content produced
+two different Fingerprint values across two generate-baseline.py runs
+that differed only in unrelated files added elsewhere in the tree.
+Constructing the fingerprint from CVE id + package + manifest path only
+is the one thing here guaranteed independent of everything else in the
+repo.
 
 "UNKNOWN" (Trivy's own catch-all when a source doesn't classify
 severity) maps to "low" here, deliberately conservative in the opposite
@@ -48,7 +68,7 @@ def normalize(results):
                 "file": target,
                 "line": None,
                 "message": f"{v['PkgName']} {v.get('InstalledVersion', '')}: {v.get('Title', v['VulnerabilityID'])}",
-                "fingerprint": v.get("Fingerprint") or f"{v['VulnerabilityID']}:{v['PkgName']}:{target}",
+                "fingerprint": f"{v['VulnerabilityID']}:{v['PkgName']}:{target}",
                 "raw_severity": raw_severity,
             })
     return out

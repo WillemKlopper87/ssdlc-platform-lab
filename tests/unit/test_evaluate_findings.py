@@ -99,11 +99,96 @@ def test_malformed_report_fails_closed():
     assert_eq("could not read or normalize scanner report" in result.stderr, True, "fatal log identifies report handling")
 
 
+def _write_json(content):
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fh:
+        fh.write(content)
+        return fh.name
+
+
+TRIVY_CRITICAL = '{"Results": [{"Target": "requirements.txt", "Vulnerabilities": [{"VulnerabilityID": "CVE-2099-1", "Severity": "CRITICAL", "PkgName": "pyyaml", "InstalledVersion": "5.3.1", "Title": "test", "Fingerprint": "test-fp-1"}]}]}'
+
+
+def test_baselined_finding_does_not_block():
+    print("=== a finding matching the baseline is pre-existing debt, not a block ===")
+    trivy_report = _write_json(TRIVY_CRITICAL)
+    # docs/adr/0024 verification: trivy_adapter.py no longer trusts the
+    # report's own "Fingerprint" field (found unstable across scans --
+    # see normalise/trivy_adapter.py's docstring), so the baseline fixture
+    # must match the adapter's constructed "rule_id:pkg:target" form instead.
+    baseline = _write_json(
+        '{"schema_version": 1, "findings": [{"tool": "trivy", "fingerprint": "CVE-2099-1:pyyaml:requirements.txt", "rule_id": "CVE-2099-1", "severity": "critical"}]}'
+    )
+    try:
+        result = run_evaluator(BLOCKING_SHIM, "--trivy", trivy_report, "--baseline", baseline)
+    finally:
+        os.unlink(trivy_report)
+        os.unlink(baseline)
+    assert_eq(result.returncode, 0, "a baselined Critical finding does not block")
+    assert_eq("BASELINE  [trivy/CVE-2099-1]" in result.stdout, True, "the baselined finding is still surfaced, as debt")
+    assert_eq("FAIL" in result.stdout, False, "no FAIL line is printed for a baselined finding")
+
+
+def test_new_finding_blocks_despite_unrelated_baseline():
+    print("=== a genuinely new finding still blocks even with an unrelated baseline present ===")
+    trivy_report = _write_json(TRIVY_CRITICAL)
+    baseline = _write_json(
+        '{"schema_version": 1, "findings": [{"tool": "trivy", "fingerprint": "some-other-fp", "rule_id": "CVE-0000-0", "severity": "critical"}]}'
+    )
+    try:
+        result = run_evaluator(BLOCKING_SHIM, "--trivy", trivy_report, "--baseline", baseline)
+    finally:
+        os.unlink(trivy_report)
+        os.unlink(baseline)
+    assert_eq(result.returncode, 1, "a finding not in the baseline still blocks")
+    assert_eq("CRITICAL [trivy/CVE-2099-1]" in result.stdout, True, "the new finding is reported as a failure")
+
+
+def test_secret_blocks_even_if_present_in_baseline():
+    print("=== DESIGN.md D7: a secret blocks regardless of what the baseline file claims ===")
+    gitleaks_report = os.path.join(FIXTURES, "gitleaks-sample.json")
+    import json as _json
+    with open(gitleaks_report, encoding="utf-8") as fh:
+        sample_fingerprint = _json.load(fh)[0]["Fingerprint"]
+    baseline = _write_json(
+        _json.dumps({"schema_version": 1, "findings": [{"tool": "gitleaks", "fingerprint": sample_fingerprint, "rule_id": "x", "severity": "critical"}]})
+    )
+    try:
+        result = run_evaluator(BLOCKING_SHIM, "--gitleaks", gitleaks_report, "--baseline", baseline)
+    finally:
+        os.unlink(baseline)
+    assert_eq(result.returncode, 1, "a secret still blocks even when its fingerprint is listed in the baseline")
+    assert_eq("BASELINE" in result.stdout, False, "a secret is never printed as baseline debt")
+
+
+def test_malformed_baseline_is_not_fatal():
+    print("=== a malformed baseline file is treated as empty, not a crash ===")
+    trivy_report = _write_json(TRIVY_CRITICAL)
+    baseline = _write_json("not-json")
+    try:
+        result = run_evaluator(BLOCKING_SHIM, "--trivy", trivy_report, "--baseline", baseline)
+    finally:
+        os.unlink(trivy_report)
+        os.unlink(baseline)
+    assert_eq(result.returncode, 1, "malformed baseline still evaluates the finding as new (exit 1, not 2)")
+    assert_eq("treating as empty" in result.stderr, True, "the malformed baseline is logged, not silently ignored")
+
+
+def test_missing_baseline_file_matches_prior_behaviour():
+    print("=== no baseline file at all -- identical to this script's pre-baseline behaviour ===")
+    result = run_evaluator(BLOCKING_SHIM, "--gitleaks", os.path.join(FIXTURES, "gitleaks-sample.json"), "--baseline", "/no/such/file.json")
+    assert_eq(result.returncode, 1, "a missing baseline file blocks exactly as if no baseline feature existed")
+
+
 def main():
     test_critical_finding_blocks()
     test_medium_finding_warns_but_passes()
     test_conftest_crash_fails_closed()
     test_malformed_report_fails_closed()
+    test_baselined_finding_does_not_block()
+    test_new_finding_blocks_despite_unrelated_baseline()
+    test_secret_blocks_even_if_present_in_baseline()
+    test_malformed_baseline_is_not_fatal()
+    test_missing_baseline_file_matches_prior_behaviour()
     print(f"\n=== evaluate-findings unit summary: {PASS_COUNT} passed, {FAIL_COUNT} failed ===")
     return 0 if FAIL_COUNT == 0 else 1
 

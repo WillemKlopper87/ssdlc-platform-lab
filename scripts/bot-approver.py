@@ -82,6 +82,13 @@ DEFAULT_GATE_MANAGED_PATHS = (
     "normalise/semgrep_adapter.py",
     "normalise/trivy_adapter.py",
     "policy/severity.rego",
+    # docs/adr/0024: per-repo content (unlike every other entry above, which
+    # is byte-identical across every onboarded repo), but the same
+    # base-vs-head comparison protects it correctly regardless -- a PR
+    # cannot add its own new finding to ITS OWN repo's baseline and expect
+    # the bot to miss the change, since this compares against that same
+    # repo's protected base, never a canonical platform-wide copy.
+    ".ssdlc/baseline.json",
 )
 # Large platform-owned trees are compared through Gitea's recursive Git Trees
 # API, once per base/head, rather than one Contents API call for every file.
