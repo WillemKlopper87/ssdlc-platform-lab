@@ -52,7 +52,19 @@ def main():
     # The bundle container is read-only, so keep that incidental state in the
     # runner-provided output mount rather than weakening container isolation.
     os.environ["SEMGREP_SETTINGS_FILE"] = str(output / "semgrep-settings.yml")
-    run(["gitleaks", "detect", "--source", str(workspace), "--report-format=json", "--report-path", str(reports["gitleaks"]), "--exit-code=0", "--no-banner"], "secrets scan")
+    # docs/adr/0023: --no-git is required here, not optional. GATE_WORKSPACE
+    # is trusted-gate-runner.py's checkout_head() output -- a Gitea archive
+    # tarball extracted fresh, which (like `git archive` itself) contains no
+    # .git directory at all. Without --no-git, gitleaks treats the missing
+    # .git as "0 commits scanned" and silently reports zero findings
+    # regardless of file content -- confirmed live: a real, non-allowlisted
+    # AWS-shaped key produced ZERO findings without this flag, and was
+    # correctly caught with it. This is the one gitleaks invocation in the
+    # whole platform that needs the flag: the fast gate's own secrets step
+    # (pipelines/fast.woodpecker.yml) runs against a real `git clone`
+    # (Woodpecker's own clone step), where scanning commit history is
+    # correct and more thorough -- do not add --no-git there too.
+    run(["gitleaks", "detect", "--no-git", "--source", str(workspace), "--report-format=json", "--report-path", str(reports["gitleaks"]), "--exit-code=0", "--no-banner"], "secrets scan")
     run(["semgrep", "--disable-version-check", "--metrics=off", "--config=/opt/ssdlc/policy/vendored-rules", "--json", "--output", str(reports["semgrep"]), str(workspace)], "SAST scan")
     run(["trivy", "fs", "--cache-dir=/opt/ssdlc/trivy-cache", "--skip-db-update", "--exit-code=0", "--format=json", "--output", str(reports["trivy"]), str(workspace)], "dependency scan")
     policy = subprocess.run([

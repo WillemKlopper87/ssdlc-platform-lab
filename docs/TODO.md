@@ -46,19 +46,25 @@ priority over new features:
       fixed a real bug along the way: the Dockerfile never copied
       `gate_contract/` in at all, so the import would have crashed in
       production — no mocked unit test could have caught that). — SADR-0022
-- [ ] **Confirm Gitleaks' `detect` behaves correctly inside the gate bundle
-      against a real PR checkout, not just a throwaway directory.** A live
-      run against a workspace with no `.git` (an ad-hoc test directory, not
-      `trusted-gate-runner.py`'s real `checkout_head` output, which extracts
-      a genuine git archive) produced zero Gitleaks findings for an obvious
-      AWS key, while the vendored Semgrep secrets rules still caught it
-      (downgraded to INFO/low, not gitleaks' normal unconditional critical —
-      see `normalise/gitleaks_adapter.py`). Not yet determined whether this
-      is purely a no-`.git`-context artifact of the ad-hoc test or a real gap
-      in how `gitleaks detect --source` behaves inside this specific bundle
-      invocation. Docker crashed before this could be isolated — re-check
-      against a real `checkout_head`-produced workspace before trusting this
-      bundle's secrets detection. — `gate-bundle/run-pilot-bundle.py`
+- [x] ~~Confirm Gitleaks' `detect` behaves correctly inside the gate bundle
+      against a real PR checkout, not just a throwaway directory.~~ **Was
+      real, not a test artifact — Critical severity.** Confirmed directly:
+      `gitleaks detect` without `--no-git` scans **git commit history**, not
+      working-tree files, and `trusted-gate-runner.py`'s `checkout_head()`
+      (a Gitea archive-tarball extraction) produces a workspace with **no
+      `.git` directory at all** — the same shape `git archive` itself
+      produces. Without `.git`, gitleaks silently reported "0 commits
+      scanned" and zero findings for a real, non-allowlisted AWS-shaped key,
+      regardless of file content. The trusted-runner bundle's secret
+      detection was completely, silently inert against its own real input
+      shape — every attestation would have reported `"secrets": "success"`
+      no matter what secrets were actually present. Fixed: `--no-git` added
+      to `gate-bundle/run-pilot-bundle.py`'s gitleaks invocation only (the
+      fast gate's own `secrets` step runs against a real `git clone` and is
+      unaffected — adding the flag there would be a regression, not a fix).
+      Live-verified against a real rebuilt image: the same key now correctly
+      produces a blocking `CRITICAL [gitleaks/aws-access-token]` finding.
+      Guarded by a new unit assertion. — SADR-0023
 - [ ] **Deploy and live-test the isolated trusted runner**, then enable
       `GATE_ATTESTATION_REQUIRED=1` only for the selected pilot repository.
       Prove normal merge, altered pipeline/policy rejection, missing

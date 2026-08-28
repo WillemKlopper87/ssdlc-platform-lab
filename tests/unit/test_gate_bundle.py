@@ -46,6 +46,13 @@ def test_policy_findings_create_a_valid_fail_result():
         assert result["decision"] == "fail"
         assert result["scanners"] == {"secrets": "success", "sast": "success", "dependencies": "success"}
         assert result["policy_digest"] == "sha256:" + "ab" * 32
+        # docs/adr/0023: GATE_WORKSPACE is a Gitea archive extraction with no
+        # .git directory. Without --no-git, gitleaks silently scans "0
+        # commits" and reports zero findings regardless of file content --
+        # confirmed live with a real secret. Guard the flag stays present.
+        gitleaks_call = calls[0]
+        assert "gitleaks" in gitleaks_call[0]
+        assert "--no-git" in gitleaks_call, "gitleaks must run with --no-git against an archive-extracted workspace"
     finally:
         BUNDLE.subprocess.run = original_run
         BUNDLE.compute_policy_digest = original_digest
