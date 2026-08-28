@@ -140,6 +140,13 @@ def issue(owner, repo, pr, contract, required_scanners, result):
     if any(result["scanners"].get(scanner) != "success" for scanner in required_scanners):
         fail(f"bundle result for PR #{pr['number']} is missing a successful required scanner")
         return False
+    # docs/adr/0022: the bundle computes this over its own bundled policy/ at
+    # scan time (gate-bundle/run-pilot-bundle.py); carrying it into the signed
+    # attestation is what lets the bot verify WHICH ruleset actually produced
+    # this decision, not just that some scan happened.
+    if not isinstance(result.get("policy_digest"), str) or not result["policy_digest"]:
+        fail(f"bundle result for PR #{pr['number']} has no policy_digest")
+        return False
     document = sign({
         "schema_version": 1,
         "repository_owner": owner,
@@ -149,6 +156,7 @@ def issue(owner, repo, pr, contract, required_scanners, result):
         "contract_digest": contract_digest(contract),
         "decision": result["decision"],
         "scanners": result["scanners"],
+        "policy_digest": result["policy_digest"],
     }, os.environ["GATE_ATTESTATION_KEY"])
     destination = Path(os.environ["GATE_ATTESTATIONS_DIR"])
     destination.mkdir(parents=True, exist_ok=True)

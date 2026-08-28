@@ -23,5 +23,8 @@ that database; do not give a merge-decision container Internet access merely to
 refresh it.
 
 Add or update rules only through a reviewed bundle release, then update
-`gate-contract/contract.json`, record its new digest, and test it against a
-pilot repository before enforcing it.
+`gate-contract/contract.json`, record its new digest, run
+`scripts/print-policy-digest.py` and update `GATE_POLICY_DIGEST` on the bot
+sidecar (docs/adr/0022 -- this is what stops a rebuilt bundle with a
+different ruleset from attesting successfully without the operator noticing),
+and test it against a pilot repository before enforcing it.

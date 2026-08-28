@@ -41,7 +41,7 @@ runner and the bot compare to detect a contract change out from under them.
 | A gate verdict is bound to the exact PR head SHA, not a prior or later one | `verify-approvals.py` checks `review.commit_id == head_sha`; `bot-approver.py` checks the bot's own latest review's `commit_id` before skipping; `trusted_attestation_matches` checks `head_sha` against the attestation filename and body | Unit: `test_policy_eval.py` scenario 10. Live: SADR-0009, SADR-0011 |
 | A missing or malformed scanner report fails closed, never silently passes | `evaluate-findings.py` exits 2 on unreadable/malformed input; `verify-approvals.py` exits 2 on API failure | Unit: `tests/unit/test_evaluate_findings.py` ("a Conftest crash fails closed even if it prints JSON", "malformed scanner JSON fails closed") |
 | A lost webhook does not leave a PR stuck forever with no verdict | `scripts/reconciliation-loop.py` -- pushes a real empty commit through the real webhook path (deliberately not a synthesized event; see the SADR for two rejected alternatives that would have reintroduced a bypass) | Live: [SADR-0015](adr/0015-reconciliation-loop.md), including a runaway-safety limit (max 3 nudges) |
-| A trusted-runner attestation is bound to this repo, PR, head SHA, and contract digest, and cannot be forged without the key | `gate_contract/attestation.py`'s HMAC-SHA256 signing over canonical JSON; `trusted_attestation_matches` checks identity, digest, decision, and required-scanner success before trusting it | Not yet live -- no isolated runner host exists in this environment to deploy `trusted-gate-runner.py` against. Unit-testable today (`tests/unit/test_gate_attestation.py`, `test_trusted_gate_runner.py`, `test_gate_bundle.py`) |
+| A trusted-runner attestation is bound to this repo, PR, head SHA, contract digest, **and the exact scanning policy used**, and cannot be forged without the key | `gate_contract/attestation.py`'s HMAC-SHA256 signing over canonical JSON; `trusted_attestation_matches` checks identity, contract digest, **policy digest** (SADR-0022), decision, and required-scanner success before trusting it | Not yet live -- no isolated runner host exists in this environment to deploy `trusted-gate-runner.py` against. Unit-testable today (`tests/unit/test_gate_attestation.py`, `test_trusted_gate_runner.py`, `test_gate_bundle.py`) |
 
 ## Two enforcement modes, and where each stands
 
@@ -62,20 +62,28 @@ The bot ignores Woodpecker pipeline results entirely and requires a signed attes
    wrapper that refuses anything but an immutable `@sha256:` image digest, and runs it with
    `--network none --read-only --cap-drop ALL`, workspace mounted read-only, no Docker socket, no
    forge token, no bot credential inside the container.
-3. Validates the bundle's `result.json` (decision + per-scanner success) against the loaded contract's
-   `required_scanners`.
+3. Validates the bundle's `result.json` (decision + per-scanner success, plus a `policy_digest` --
+   SADR-0022 -- computed over the bundle's own `/opt/ssdlc/policy/` at scan time) against the loaded
+   contract's `required_scanners`.
 4. Signs and writes the attestation atomically (`gate_contract/attestation.py`, `os.replace` to avoid
    a torn read).
 
-`bot-approver.py` then checks: signature valid, repository/PR/head-SHA/contract-digest/decision all
-match, and every required scanner reports `success` -- failing closed on any missing configuration,
-missing file, bad signature, or mismatch.
+`bot-approver.py` then checks: signature valid, repository/PR/head-SHA/contract-digest/**policy-digest**/
+decision all match, and every required scanner reports `success` -- failing closed on any missing
+configuration, missing file, bad signature, or mismatch. The policy-digest check specifically closes a
+gap a straight contract-digest check does not: `gate-contract/contract.json` only describes which
+scanners are required and the block thresholds, not the actual rule content -- rebuilding the bundle
+image with a weakened or different Semgrep ruleset would not change `contract_digest` at all. The
+digest is computed by `scripts/print-policy-digest.py` (over the *source* `policy/` tree, the same
+content `gate-bundle/Dockerfile`'s `COPY policy/ ./policy/` puts into the image) and set on the bot as
+`GATE_POLICY_DIGEST` -- an operator-configured expected value, the same pattern `GATE_CONTRACT_DIGEST`
+already uses, not something derived automatically.
 
 **Turning this on requires, in order:** an isolated runner host (this environment has only one
 machine -- the same honest gap SADR-0010 recorded for Ansible and SADR-0016 recorded for Tier 2 of the
 regression suite), a normal and a deliberately-altered PR both tested against it, then setting
-`GATE_ATTESTATION_REQUIRED=1` and `GATE_CONTRACT_DIGEST` on the bot per `docs/OPERATIONS.md`'s
-"Trusted-runner pilot" section.
+`GATE_ATTESTATION_REQUIRED=1`, `GATE_CONTRACT_DIGEST`, and `GATE_POLICY_DIGEST` on the bot per
+`docs/OPERATIONS.md`'s "Trusted-runner pilot" section.
 
 ## The HMAC key is a pilot bridge, not a production signing design
 

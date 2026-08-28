@@ -20,6 +20,11 @@ WORKDIR /opt/ssdlc
 COPY normalise/ ./normalise/
 COPY policy/ ./policy/
 COPY policy-eval/evaluate-findings.py ./policy-eval/evaluate-findings.py
+# docs/adr/0022: run-pilot-bundle.py imports gate_contract.attestation to
+# compute its own policy_digest -- found live (a rebuild that a mocked unit
+# test could not have caught, since that test imports the module from the
+# repo root, not from inside the built image) that this was never copied in.
+COPY gate_contract/ ./gate_contract/
 COPY gate-bundle/run-pilot-bundle.py ./gate-bundle/run-pilot-bundle.py
 
 RUN chmod -R a-w /opt/ssdlc/trivy-cache && chmod 0555 gate-bundle/run-pilot-bundle.py

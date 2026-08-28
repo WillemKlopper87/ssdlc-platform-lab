@@ -23,19 +23,42 @@ priority over new features:
       rejection is provably the tree comparison firing, not an unrelated
       failure) and zero bot votes with the log naming the protected tree.
       — SADR-0017, SADR-0020
-- [ ] **Live-test onboarding for private repositories.** `commit_directory`
-      now authenticates its clone and push with Git's `http.extraHeader`; prove
-      one private repository and an idempotent re-onboarding run.
-      — `scripts/onboard-repo.sh`
-- [ ] **Align the trusted gate bundle with the approved fast-gate policy
-      before enabling it.** Partially done — `gate-bundle/Dockerfile` and
-      `run-pilot-bundle.py` now use `policy/vendored-rules` (the same ruleset
-      the fast gate uses) instead of the old two-rule pilot file; local image
-      build confirmed working (`ssdlc-gate:pilot-2026-08-27`). Still open:
-      `gate-contract/contract.json`'s digest was not updated to reflect this
-      change, and nothing in the attestation path yet verifies the bundle's
-      rules/policy digest specifically — a bundle rebuild today would go
-      undetected by `bot-approver.py`'s attestation check. — SADR-0017
+- [x] ~~Live-test onboarding for private repositories.~~ Done — a genuinely
+      private repo (`private: true`, confirmed via the Gitea API response)
+      onboarded cleanly, with the vendored-rules content verified actually
+      present afterward (not just that the script exited 0). Re-ran onboarding
+      against the same repo immediately after: `git diff --cached --quiet`
+      correctly detected `policy/vendored-rules already up to date, nothing
+      to commit`, Woodpecker activation and branch protection both handled
+      the already-exists case cleanly. — `scripts/onboard-repo.sh`
+- [x] ~~Align the trusted gate bundle with the approved fast-gate policy
+      before enabling it.~~ Done — `gate-bundle/Dockerfile` and
+      `run-pilot-bundle.py` use `policy/vendored-rules` (the same ruleset the
+      fast gate uses), and the attestation path now verifies it specifically:
+      `run-pilot-bundle.py` computes a content-based digest
+      (`gate_contract.attestation.policy_digest`) over its own bundled
+      `/opt/ssdlc/policy/` at scan time, carries it into the signed
+      attestation via `trusted-gate-runner.py`, and `bot-approver.py` requires
+      it to match an operator-configured `GATE_POLICY_DIGEST` — a bundle
+      rebuild with a silently different ruleset now fails closed instead of
+      going undetected. `scripts/print-policy-digest.py` computes the
+      expected value. Live-verified against a real rebuilt image (found and
+      fixed a real bug along the way: the Dockerfile never copied
+      `gate_contract/` in at all, so the import would have crashed in
+      production — no mocked unit test could have caught that). — SADR-0022
+- [ ] **Confirm Gitleaks' `detect` behaves correctly inside the gate bundle
+      against a real PR checkout, not just a throwaway directory.** A live
+      run against a workspace with no `.git` (an ad-hoc test directory, not
+      `trusted-gate-runner.py`'s real `checkout_head` output, which extracts
+      a genuine git archive) produced zero Gitleaks findings for an obvious
+      AWS key, while the vendored Semgrep secrets rules still caught it
+      (downgraded to INFO/low, not gitleaks' normal unconditional critical —
+      see `normalise/gitleaks_adapter.py`). Not yet determined whether this
+      is purely a no-`.git`-context artifact of the ad-hoc test or a real gap
+      in how `gitleaks detect --source` behaves inside this specific bundle
+      invocation. Docker crashed before this could be isolated — re-check
+      against a real `checkout_head`-produced workspace before trusting this
+      bundle's secrets detection. — `gate-bundle/run-pilot-bundle.py`
 - [ ] **Deploy and live-test the isolated trusted runner**, then enable
       `GATE_ATTESTATION_REQUIRED=1` only for the selected pilot repository.
       Prove normal merge, altered pipeline/policy rejection, missing

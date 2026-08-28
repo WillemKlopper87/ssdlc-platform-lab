@@ -81,7 +81,14 @@ must write `result.json` to `GATE_OUTPUT_DIR`, for example:
 Mount the attestation directory read-only into the bot sidecar. Use a different
 account/token for the bot; do not give the runner any forge write permission or
 the bot approval token. After a normal and a deliberately altered PR have been
-tested, set `GATE_ATTESTATION_REQUIRED=1` on the bot and set
-`GATE_CONTRACT_DIGEST` to the output of
-`scripts/print-gate-contract-digest.py`. The bot then ignores Woodpecker
-pipeline success and requires the matching runner result instead.
+tested, set `GATE_ATTESTATION_REQUIRED=1` on the bot and set both
+`GATE_CONTRACT_DIGEST` (the output of `scripts/print-gate-contract-digest.py`)
+and `GATE_POLICY_DIGEST` (the output of `scripts/print-policy-digest.py`,
+run against the exact `policy/` tree baked into the bundle image currently
+deployed). The bot then ignores Woodpecker pipeline success and requires the
+matching runner result instead — including that the bundle's own scanning
+policy matches what was reviewed, not just that some scan ran. Re-run
+`print-policy-digest.py` and update `GATE_POLICY_DIGEST` on the bot every time
+the bundle image is rebuilt with a rule change; a stale value means every
+attestation from the new bundle fails closed rather than silently trusting
+an unreviewed rule change.

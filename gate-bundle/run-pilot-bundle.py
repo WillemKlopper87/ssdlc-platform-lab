@@ -12,6 +12,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+from gate_contract.attestation import policy_digest
+
+# The absolute in-image path gate-bundle/Dockerfile's `COPY policy/ ./policy/`
+# produces (WORKDIR /opt/ssdlc) -- a separate module-level function, not
+# inlined into main(), so tests/unit/test_gate_bundle.py can monkeypatch it
+# the same way it already monkeypatches subprocess.run, without needing a
+# real built image on disk.
+POLICY_DIR = Path("/opt/ssdlc/policy")
+
+
+def compute_policy_digest():
+    return policy_digest(POLICY_DIR)
+
 
 def run(command, name):
     result = subprocess.run(command, cwd=os.environ["GATE_WORKSPACE"])
@@ -51,6 +67,11 @@ def main():
     (output / "result.json").write_text(json.dumps({
         "decision": "pass" if policy.returncode == 0 else "fail",
         "scanners": {"secrets": "success", "sast": "success", "dependencies": "success"},
+        # docs/adr/0022: lets the runner's attestation record which exact
+        # scanning policy (vendored rules + severity.rego) produced this
+        # decision, so a bundle rebuild with a silently different ruleset
+        # cannot pass verification against an operator's expected digest.
+        "policy_digest": compute_policy_digest(),
     }, sort_keys=True) + "\n", encoding="utf-8")
     # A policy finding is a valid, signed "fail" result, not a runner crash.
     # The runner records it for audit; the bot rejects its decision.

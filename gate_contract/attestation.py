@@ -8,6 +8,7 @@ and verified release provenance.
 import hashlib
 import hmac
 import json
+from pathlib import Path
 
 
 def canonical_bytes(document):
@@ -20,6 +21,25 @@ def contract_digest(contract):
     return "sha256:" + hashlib.sha256(
         json.dumps(contract, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+
+
+def policy_digest(directory):
+    """Deterministic digest over every file's (relative path, content hash) under
+    directory, sorted by path.
+
+    Detects any change to the bundle's scanning policy -- a rule added, removed,
+    or edited anywhere under policy/, including policy/vendored-rules/'s 594
+    files -- without needing to enumerate or reason about which specific file
+    changed. Content-based (not mtime/size-based) so a byte-identical rebuild
+    always reproduces the same digest.
+    """
+    directory = Path(directory)
+    entries = [
+        f"{path.relative_to(directory).as_posix()}:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+        for path in sorted(directory.rglob("*"))
+        if path.is_file()
+    ]
+    return "sha256:" + hashlib.sha256("\n".join(entries).encode("utf-8")).hexdigest()
 
 
 def sign(document, key):

@@ -18,7 +18,11 @@ SPEC.loader.exec_module(RUNNER)
 
 CONTRACT = {"required_scanners": ["secrets", "sast", "dependencies"]}
 PR = {"number": 7, "head": {"sha": "c" * 40}}
-RESULT = {"decision": "pass", "scanners": {"secrets": "success", "sast": "success", "dependencies": "success"}}
+RESULT = {
+    "decision": "pass",
+    "scanners": {"secrets": "success", "sast": "success", "dependencies": "success"},
+    "policy_digest": "sha256:" + "d" * 64,
+}
 
 
 def configured_store():
@@ -45,6 +49,7 @@ def test_pass_result_creates_a_valid_head_bound_attestation():
         value = json.loads(path.read_text(encoding="utf-8"))
         assert value["contract_digest"] == contract_digest(CONTRACT)
         assert value["head_sha"] == PR["head"]["sha"]
+        assert value["policy_digest"] == RESULT["policy_digest"]
         assert signature_is_valid(value, "runner-test-key")
     finally:
         restore(previous)
@@ -62,13 +67,25 @@ def test_incomplete_result_is_not_attested():
         directory.cleanup()
 
 
+def test_missing_policy_digest_is_not_attested():
+    directory, previous = configured_store()
+    try:
+        no_digest = {"decision": "pass", "scanners": RESULT["scanners"]}
+        assert not RUNNER.issue("team", "demo", PR, CONTRACT, tuple(CONTRACT["required_scanners"]), no_digest)
+        assert not list(Path(directory.name).iterdir())
+    finally:
+        restore(previous)
+        directory.cleanup()
+
+
 def test_policy_failure_is_recorded_but_not_marked_pass():
     directory, previous = configured_store()
     try:
-        failure = {"decision": "fail", "scanners": RESULT["scanners"]}
+        failure = {"decision": "fail", "scanners": RESULT["scanners"], "policy_digest": RESULT["policy_digest"]}
         assert RUNNER.issue("team", "demo", PR, CONTRACT, tuple(CONTRACT["required_scanners"]), failure)
         value = json.loads(Path(directory.name, f"team--demo--{'c' * 40}.json").read_text(encoding="utf-8"))
         assert value["decision"] == "fail"
+        assert value["policy_digest"] == RESULT["policy_digest"]
     finally:
         restore(previous)
         directory.cleanup()
@@ -77,6 +94,7 @@ def test_policy_failure_is_recorded_but_not_marked_pass():
 TESTS = [
     test_pass_result_creates_a_valid_head_bound_attestation,
     test_incomplete_result_is_not_attested,
+    test_missing_policy_digest_is_not_attested,
     test_policy_failure_is_recorded_but_not_marked_pass,
 ]
 for test in TESTS:

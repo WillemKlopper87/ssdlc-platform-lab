@@ -20,6 +20,7 @@ SPEC.loader.exec_module(BOT)
 
 KEY = "test-only-attestation-key"
 CONTRACT = "sha256:0123456789abcdef"
+POLICY = "sha256:fedcba9876543210"
 PR = {"number": 42, "head": {"sha": "a" * 40}}
 
 
@@ -31,6 +32,7 @@ def document(**changes):
         "pull_request": 42,
         "head_sha": "a" * 40,
         "contract_digest": CONTRACT,
+        "policy_digest": POLICY,
         "decision": "pass",
         "scanners": {"secrets": "success", "sast": "success", "dependencies": "success"},
     }
@@ -40,8 +42,14 @@ def document(**changes):
 
 def configured_store():
     directory = tempfile.TemporaryDirectory()
-    previous = {name: os.environ.get(name) for name in ("GATE_ATTESTATIONS_DIR", "GATE_ATTESTATION_KEY", "GATE_CONTRACT_DIGEST")}
-    os.environ.update({"GATE_ATTESTATIONS_DIR": directory.name, "GATE_ATTESTATION_KEY": KEY, "GATE_CONTRACT_DIGEST": CONTRACT})
+    names = ("GATE_ATTESTATIONS_DIR", "GATE_ATTESTATION_KEY", "GATE_CONTRACT_DIGEST", "GATE_POLICY_DIGEST")
+    previous = {name: os.environ.get(name) for name in names}
+    os.environ.update({
+        "GATE_ATTESTATIONS_DIR": directory.name,
+        "GATE_ATTESTATION_KEY": KEY,
+        "GATE_CONTRACT_DIGEST": CONTRACT,
+        "GATE_POLICY_DIGEST": POLICY,
+    })
     return directory, previous
 
 
@@ -94,6 +102,23 @@ def test_missing_scanner_or_configuration_fails():
         directory.cleanup()
 
 
+def test_wrong_or_missing_policy_digest_fails():
+    directory, previous = configured_store()
+    try:
+        # A bundle rebuilt with a different (weakened) ruleset would produce
+        # this exact shape: everything else about the attestation still
+        # checks out, only policy_digest differs.
+        write(directory.name, document(policy_digest="sha256:" + "0" * 16))
+        assert not BOT.trusted_attestation_matches("team", "demo", PR)
+
+        write(directory.name, document())
+        os.environ.pop("GATE_POLICY_DIGEST")
+        assert not BOT.trusted_attestation_matches("team", "demo", PR)
+    finally:
+        restore(previous)
+        directory.cleanup()
+
+
 def test_attestation_mode_does_not_trust_woodpecker_steps():
     directory, previous = configured_store()
     extra_names = ("GATE_ATTESTATION_REQUIRED", "GATE_CONTRACT_ENFORCE")
@@ -123,6 +148,7 @@ TESTS = [
     test_valid_attestation_passes,
     test_modified_or_wrong_head_attestation_fails,
     test_missing_scanner_or_configuration_fails,
+    test_wrong_or_missing_policy_digest_fails,
     test_attestation_mode_does_not_trust_woodpecker_steps,
 ]
 for test in TESTS:

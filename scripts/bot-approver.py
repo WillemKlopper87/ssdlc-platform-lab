@@ -221,7 +221,11 @@ def _safe_attestation_component(value):
 
 def trusted_attestation_matches(owner, repo, pr):
     """Validate a trusted-runner result, bound to this exact PR and head SHA."""
-    required = ("GATE_ATTESTATIONS_DIR", "GATE_ATTESTATION_KEY", "GATE_CONTRACT_DIGEST")
+    # docs/adr/0022: GATE_POLICY_DIGEST is the operator-configured expected
+    # value of scripts/print-policy-digest.py -- verifying it here means a
+    # bundle rebuild with a silently different ruleset (a rule added, removed,
+    # or edited) cannot pass attestation just because the scan itself ran.
+    required = ("GATE_ATTESTATIONS_DIR", "GATE_ATTESTATION_KEY", "GATE_CONTRACT_DIGEST", "GATE_POLICY_DIGEST")
     missing = [name for name in required if not os.environ.get(name)]
     if missing:
         print(f"gate-attestation: missing required configuration {', '.join(missing)} -- fail closed", file=sys.stderr)
@@ -251,6 +255,7 @@ def trusted_attestation_matches(owner, repo, pr):
         "pull_request": pr_number,
         "head_sha": head_sha,
         "contract_digest": os.environ["GATE_CONTRACT_DIGEST"],
+        "policy_digest": os.environ["GATE_POLICY_DIGEST"],
         "decision": "pass",
     }
     if any(attestation.get(field) != value for field, value in expected.items()):
