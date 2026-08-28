@@ -47,14 +47,31 @@
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # docs/adr/0026: bumped 16.x -> 18.6-alpine (self-scan finding, 2026-08-28) --
+    # "16-alpine" was a floating tag (violates docs/PINNED_VERSIONS.md's own
+    # "never a floating tag" rule), and its bundled gosu binary carried 20+
+    # unpatched Go-stdlib CVEs including one Critical. Major-version jump, not
+    # a patch bump -- the data volume needs an explicit pg_dumpall/restore
+    # migration, not a bare image swap (PostgreSQL's on-disk format is not
+    # compatible across major versions). See OPERATIONS.md for the migration
+    # this pin change requires before it takes effect.
+    image: postgres:18.6-alpine
     container_name: ssdlc-minimal-postgres
     environment:
       - POSTGRES_USER=ssdlc
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set in .env}
       - POSTGRES_MULTIPLE_DATABASES=gitea,woodpecker
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # Found live during the 16->18 migration: postgres 18's official image
+      # made a real, documented breaking change to its expected mount layout
+      # (docker-library/postgres#1259) -- 18+ wants a single mount at
+      # /var/lib/postgresql and creates its own major-version-named
+      # subdirectory inside it (pg_ctlcluster-style), specifically to support
+      # pg_upgrade --link across versions without a mount-point boundary in
+      # the way. The pre-18 convention (mount straight at .../data) makes the
+      # container refuse to start. Volume name unchanged; only the container
+      # path moved up one level.
+      - postgres-data:/var/lib/postgresql
       - ./init-multi-db.sh:/docker-entrypoint-initdb.d/init-multi-db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ssdlc"]
@@ -118,7 +135,12 @@ services:
       - gitea-data:/data
 
   woodpecker-server:
-    image: woodpeckerci/woodpecker-server:v3.17.0
+    # docs/adr/0026: v3.17.0 -> v3.18.0 (self-scan finding, 2026-08-28). Real
+    # migration on first boot: v3.18.0 alters log storage in the database,
+    # duration scales with stored log volume -- trivial for this lab's own
+    # history, but not a bare no-op. Confirmed nothing here uses the renamed
+    # WOODPECKER_GRPC_VERIFY -> WOODPECKER_GRPC_SKIP_VERIFY env var.
+    image: woodpeckerci/woodpecker-server:v3.18.0
     container_name: ssdlc-minimal-woodpecker-server
     network_mode: "service:gitea"
     depends_on:
@@ -167,7 +189,10 @@ services:
     restart: unless-stopped
 
   woodpecker-agent:
-    image: woodpeckerci/woodpecker-agent:v3.17.0
+    # docs/adr/0026: kept in lockstep with woodpecker-server above -- v3.18.0
+    # enforces stricter gRPC protocol-version checks between agent and
+    # server, so these two tags must always match.
+    image: woodpeckerci/woodpecker-agent:v3.18.0
     container_name: ssdlc-minimal-woodpecker-agent
     # The agent's own retry budget on first boot is short (a handful of
     # attempts, seconds apart) and it exits fatally rather than retrying

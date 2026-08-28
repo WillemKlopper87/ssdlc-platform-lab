@@ -10,10 +10,14 @@ Tuesday-afternoon upstream release becomes an unreviewed change to what the gate
 
 ## Core platform
 
+**Re-checked 2026-08-28** (SADR-0026, self-scan-driven — the first live vulnerability scan of the
+platform's own deployed images, not just its own code).
+
 | Component | Pinned | Released | Note |
 |---|---|---|---|
-| Gitea | **1.27.2** | 2026-08-13 | See [PINNED_VERSIONS §Gitea CVE posture](#gitea-cve-posture-as-of-2026-08-23) below — do not pin without reading it |
-| Woodpecker CI | **v3.17.0** | 2026-07-31 | |
+| Gitea | **1.27.2** | 2026-08-13 | Re-confirmed 2026-08-28 as still the latest release — nothing to bump. See [PINNED_VERSIONS §Gitea CVE posture](#gitea-cve-posture-as-of-2026-08-23) below — do not pin without reading it |
+| Woodpecker CI | **v3.18.0** | 2026-08-24 | Bumped from v3.17.0 (SADR-0026). Server and agent must stay in lockstep — v3.18 enforces stricter gRPC protocol-version matching between them. First boot alters log storage (migration duration scales with stored log volume, trivial for a lab-scale deployment). Renamed `WOODPECKER_GRPC_VERIFY` → `WOODPECKER_GRPC_SKIP_VERIFY`; confirmed unused here |
+| postgres (compose base image) | **18.6-alpine** | — | Bumped from `postgres:16-alpine` (SADR-0026) — that pin was itself a **floating tag**, in violation of this file's own rule below; re-pinned to the exact patch this time. Major-version jump: needs a real `pg_dumpall`/restore migration, not a bare image swap, and 18+'s official image changed its expected volume-mount layout (`docker-library/postgres#1259`) — see the SADR before touching this again |
 | gitea-mq | *commit SHA, not a tag* | pushed 2026-08-20 | **Zero tagged releases exist.** Actively developed (27★, MIT) but unversioned — pin the exact commit SHA used, re-evaluate before Milestone 3 makes it the primary merge-queue path rather than the sidecar fallback |
 
 ## Scanners (fast + deep gates)

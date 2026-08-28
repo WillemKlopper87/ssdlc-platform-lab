@@ -27,5 +27,18 @@ COPY policy-eval/evaluate-findings.py ./policy-eval/evaluate-findings.py
 COPY gate_contract/ ./gate_contract/
 COPY gate-bundle/run-pilot-bundle.py ./gate-bundle/run-pilot-bundle.py
 
-RUN chmod -R a-w /opt/ssdlc/trivy-cache && chmod 0555 gate-bundle/run-pilot-bundle.py
+RUN chmod -R a-w /opt/ssdlc/trivy-cache && chmod 0555 gate-bundle/run-pilot-bundle.py \
+    && chown -R semgrep:semgrep /opt/ssdlc
+# Found live (docs/adr/0025 verification, Trivy config DS-0002 + Semgrep
+# last-user-is-root, both independently flagging this): the image never left
+# USER root, so a container escape from any bundled scanner would already
+# hold root inside a container this platform explicitly runs against
+# untrusted PR content (SADR-0017). run-container.sh's own
+# --cap-drop ALL --network none --read-only already bound the blast radius
+# at the orchestration layer; this is the same property declared in the
+# image itself, so it still holds if the bundle is ever invoked without that
+# wrapper. "semgrep" (UID 1000) already exists in the base image -- reused,
+# not invented, and chowned above so it can actually read/execute what was
+# copied in as root.
+USER semgrep
 ENTRYPOINT ["python3", "/opt/ssdlc/gate-bundle/run-pilot-bundle.py"]
