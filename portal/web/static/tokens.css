@@ -1,0 +1,73 @@
+/* portal/web/static/tokens.css
+   OKLCH palette extracted directly from the approved mockup
+   (docs/superpowers/specs/2026-09-07-portal-mockup/AutomatedPRDark.dc.html) —
+   do not substitute hex approximations; the mockup's own values ARE the
+   spec for this file. */
+:root {
+  --ssdlc-bg:          oklch(0.165 0.012 265);
+  --ssdlc-surface:     oklch(0.198 0.013 265);
+  --ssdlc-surface-alt: oklch(0.24 0.012 265);
+  --ssdlc-border:      oklch(0.27 0.012 265);
+  --ssdlc-border-alt:  oklch(0.30 0.012 265);
+
+  --ssdlc-text-1:      oklch(0.86 0.008 265);
+  --ssdlc-text-2:      oklch(0.72 0.01 265);
+  --ssdlc-text-3:      oklch(0.6 0.012 265);
+  --ssdlc-text-4:      oklch(0.5 0.012 265);
+
+  --ssdlc-success:      oklch(0.72 0.15 152);
+  --ssdlc-success-bg:   oklch(0.15 0.03 152);
+  --ssdlc-critical:     oklch(0.62 0.18 22);
+  --ssdlc-critical-bg:  oklch(0.2 0.05 22);
+  --ssdlc-warning:      oklch(0.75 0.14 68);
+  --ssdlc-warning-bg:   oklch(0.22 0.04 68);
+  --ssdlc-accent:       oklch(0.68 0.14 258);
+  --ssdlc-accent-bg:    oklch(0.27 0.05 258);
+  --ssdlc-bot-accent:   oklch(0.68 0.12 300);
+  --ssdlc-bot-accent-bg:oklch(0.24 0.04 300);
+}
+
+body {
+  margin: 0;
+  background: var(--ssdlc-bg);
+  color: var(--ssdlc-text-1);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+code, .ssdlc-mono { font-family: 'IBM Plex Mono', monospace; }
+
+.ssdlc-shell { display: flex; min-height: 100vh; }
+.ssdlc-sidebar {
+  width: 256px; flex: none;
+  background: var(--ssdlc-surface);
+  border-right: 1px solid var(--ssdlc-border);
+  padding: 20px 0;
+}
+.ssdlc-sidebar a {
+  display: block; padding: 10px 20px;
+  color: var(--ssdlc-text-2); text-decoration: none; font-size: 14px;
+}
+.ssdlc-sidebar a:hover { background: var(--ssdlc-surface-alt); color: var(--ssdlc-text-1); }
+.ssdlc-sidebar a.active { color: var(--ssdlc-text-1); border-left: 3px solid var(--ssdlc-accent); background: var(--ssdlc-surface-alt); }
+.ssdlc-sidebar a.disabled { color: var(--ssdlc-text-4); cursor: not-allowed; pointer-events: none; }
+.ssdlc-sidebar a.disabled::after { content: " (not built yet)"; font-size: 11px; }
+
+.ssdlc-main { flex: 1; padding: 24px 32px; }
+.ssdlc-card {
+  background: var(--ssdlc-surface);
+  border: 1px solid var(--ssdlc-border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.ssdlc-row { display: flex; align-items: center; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--ssdlc-border); font-size: 14px; }
+.ssdlc-row:last-child { border-bottom: none; }
+
+.ssdlc-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.ssdlc-badge-success  { background: var(--ssdlc-success-bg);  color: var(--ssdlc-success); }
+.ssdlc-badge-critical { background: var(--ssdlc-critical-bg); color: var(--ssdlc-critical); }
+.ssdlc-badge-warning  { background: var(--ssdlc-warning-bg);  color: var(--ssdlc-warning); }
+.ssdlc-badge-neutral  { background: var(--ssdlc-surface-alt); color: var(--ssdlc-text-3); }
+
+.ssdlc-btn { display: inline-block; padding: 8px 16px; border-radius: 6px; border: 1px solid var(--ssdlc-border-alt); background: var(--ssdlc-surface-alt); color: var(--ssdlc-text-1); font-size: 14px; cursor: pointer; text-decoration: none; }
+.ssdlc-btn-primary { background: var(--ssdlc-accent-bg); border-color: var(--ssdlc-accent); color: var(--ssdlc-accent); }
