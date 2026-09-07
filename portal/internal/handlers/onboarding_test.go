@@ -3,12 +3,16 @@ package handlers
 
 import (
 	"bufio"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"ssdlc-portal/internal/auth"
+	"ssdlc-portal/internal/giteaclient"
 )
 
 func TestOnboardingStream_StreamsScriptOutputAsSSE(t *testing.T) {
@@ -78,5 +82,157 @@ func TestOnboardingStream_InheritsParentEnvironment(t *testing.T) {
 
 	if !strings.Contains(rec.Body.String(), "inherited-value-123") {
 		t.Errorf("subprocess did not see the parent's environment; body:\n%s", rec.Body.String())
+	}
+}
+
+func TestOnboardingStream_RejectsMalformedOwnerOrRepo(t *testing.T) {
+	// Point at a script that would fail loudly (nonexistent path) so that
+	// if validation is accidentally skipped, the test fails via "script
+	// executed" evidence rather than silently passing.
+	handler := OnboardingStream(filepath.Join(t.TempDir(), "does-not-exist.sh"), nil)
+
+	cases := []struct{ owner, repo string }{
+		{"../evil", "repo"},
+		{"owner", "foo/bar"},
+		{"owner", ".."},
+		{"", "repo"}, // still must be BadRequest, not reach the regex path oddly
+	}
+	for _, c := range cases {
+		form := strings.NewReader("owner=" + c.owner + "&repo=" + c.repo)
+		req := httptest.NewRequest(http.MethodPost, "/onboarding/start", form)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+		handler(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("owner=%q repo=%q: status = %d, want %d", c.owner, c.repo, rec.Code, http.StatusBadRequest)
+		}
+		if strings.Contains(rec.Body.String(), "data:") {
+			t.Errorf("owner=%q repo=%q: subprocess appears to have run; body:\n%s", c.owner, c.repo, rec.Body.String())
+		}
+	}
+}
+
+func TestOnboardingStream_AcceptsWellFormedOwnerAndRepo(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "fake-onboard.sh")
+	os.WriteFile(script, []byte("#!/bin/sh\necho \"ok $1 $2\"\n"), 0o755)
+
+	handler := OnboardingStream(script, nil)
+
+	form := strings.NewReader("owner=gate-admin.1&repo=gate_demo-2")
+	req := httptest.NewRequest(http.MethodPost, "/onboarding/start", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "ok gate-admin.1 gate_demo-2") {
+		t.Errorf("subprocess did not run with the validated owner/repo args; body:\n%s", rec.Body.String())
+	}
+}
+
+// fakeTeamGitea returns an httptest.Server implementing just enough of the
+// Gitea API (GET /api/v1/user/teams) for IsOnTeam, so RequireTeam can be
+// tested without a live Gitea instance.
+func fakeTeamGitea(t *testing.T, body string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/user/teams" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func newRequireTeamRequest(token string) (*httptest.ResponseRecorder, *http.Request) {
+	req := httptest.NewRequest(http.MethodGet, "/onboarding", nil)
+	if token != "" {
+		ctx := context.WithValue(req.Context(), auth.ContextKeyToken, token)
+		req = req.WithContext(ctx)
+	}
+	return httptest.NewRecorder(), req
+}
+
+func TestRequireTeam_MemberPassesThrough(t *testing.T) {
+	srv := fakeTeamGitea(t, `[{"name":"approvers","organization":{"username":"acme"}}]`)
+	gitea := giteaclient.New(srv.URL, "")
+
+	called := false
+	next := func(w http.ResponseWriter, r *http.Request) { called = true; w.WriteHeader(http.StatusOK) }
+
+	handler := RequireTeam(gitea, "acme", "approvers", next)
+	rec, req := newRequireTeamRequest("caller-token")
+	handler(rec, req)
+
+	if !called {
+		t.Error("next was not called for a caller on the required team")
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestRequireTeam_NonMemberIsForbidden(t *testing.T) {
+	srv := fakeTeamGitea(t, `[{"name":"engineers","organization":{"username":"acme"}}]`)
+	gitea := giteaclient.New(srv.URL, "")
+
+	called := false
+	next := func(w http.ResponseWriter, r *http.Request) { called = true }
+
+	handler := RequireTeam(gitea, "acme", "approvers", next)
+	rec, req := newRequireTeamRequest("caller-token")
+	handler(rec, req)
+
+	if called {
+		t.Error("next was called for a caller NOT on the required team")
+	}
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestRequireTeam_APIErrorFailsClosed(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	gitea := giteaclient.New(srv.URL, "")
+
+	called := false
+	next := func(w http.ResponseWriter, r *http.Request) { called = true }
+
+	handler := RequireTeam(gitea, "acme", "approvers", next)
+	rec, req := newRequireTeamRequest("caller-token")
+	handler(rec, req)
+
+	if called {
+		t.Error("next was called despite a Gitea API error checking team membership")
+	}
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d (fail closed on API error)", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestRequireTeam_NoTokenIsForbidden(t *testing.T) {
+	srv := fakeTeamGitea(t, `[]`)
+	gitea := giteaclient.New(srv.URL, "")
+
+	called := false
+	next := func(w http.ResponseWriter, r *http.Request) { called = true }
+
+	handler := RequireTeam(gitea, "acme", "approvers", next)
+	rec, req := newRequireTeamRequest("")
+	handler(rec, req)
+
+	if called {
+		t.Error("next was called for a request with no auth token in context")
+	}
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusForbidden)
 	}
 }

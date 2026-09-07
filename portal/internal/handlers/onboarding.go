@@ -9,7 +9,18 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+
+	"ssdlc-portal/internal/auth"
+	"ssdlc-portal/internal/giteaclient"
 )
+
+// giteaNamePattern enforces Gitea's own username/repo-name rules: it must
+// start with an alphanumeric character and may otherwise contain
+// alphanumerics, dots, underscores, and hyphens. This rejects values like
+// "../evil" or "foo/bar" before they ever reach exec.CommandContext or the
+// Gitea API/git-remote URLs that onboard-repo.sh builds from them.
+var giteaNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$`)
 
 // templateDir is declared once in dashboard.go (Task 6) and reused here —
 // do not redeclare it.
@@ -47,6 +58,10 @@ func OnboardingStream(scriptPath string, extraEnv []string) http.HandlerFunc {
 		repo := r.FormValue("repo")
 		if owner == "" || repo == "" {
 			http.Error(w, "owner and repo are required", http.StatusBadRequest)
+			return
+		}
+		if !giteaNamePattern.MatchString(owner) || !giteaNamePattern.MatchString(repo) {
+			http.Error(w, "owner and repo must match "+giteaNamePattern.String(), http.StatusBadRequest)
 			return
 		}
 
@@ -87,5 +102,34 @@ func OnboardingStream(scriptPath string, extraEnv []string) http.HandlerFunc {
 			fmt.Fprintf(w, "data: ONBOARDING COMPLETE\n\n")
 		}
 		flusher.Flush()
+	}
+}
+
+// RequireTeam gates next behind membership in the Gitea team org/team,
+// checked using a client built from the *caller's own* token (never the
+// admin token) so the membership check reflects what the requesting
+// operator can actually see about themselves. It fails closed: if the
+// caller isn't authenticated, the membership check errors (e.g. the Gitea
+// API is unreachable), or the caller simply isn't on the team, the request
+// is rejected with 403 and next is never invoked.
+//
+// gitea is used only as a template for its base URL (see giteaclient.New);
+// its own token, if any, is not used for the membership check.
+func RequireTeam(gitea *giteaclient.Client, org, team string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token, ok := auth.TokenFromContext(r.Context())
+		if !ok || token == "" {
+			http.Error(w, "forbidden: authentication required", http.StatusForbidden)
+			return
+		}
+
+		caller := giteaclient.New(gitea.BaseURL(), token)
+		onTeam, err := caller.IsOnTeam(r.Context(), org, team)
+		if err != nil || !onTeam {
+			http.Error(w, fmt.Sprintf("forbidden: requires membership in the %s/%s team", org, team), http.StatusForbidden)
+			return
+		}
+
+		next(w, r)
 	}
 }
