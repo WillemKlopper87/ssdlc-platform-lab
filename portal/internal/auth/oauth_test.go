@@ -40,6 +40,54 @@ func TestLogin_RedirectsToGiteaAuthorize(t *testing.T) {
 	if loc.Query().Get("response_type") != "code" {
 		t.Errorf("response_type = %q, want code", loc.Query().Get("response_type"))
 	}
+
+	state := loc.Query().Get("state")
+	if state == "" {
+		t.Fatal("Location has no state param, want a non-empty CSRF state value")
+	}
+
+	var stateCookie *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == stateCookieName {
+			stateCookie = c
+		}
+	}
+	if stateCookie == nil {
+		t.Fatal("no oauth state cookie was set")
+	}
+	if stateCookie.Value != state {
+		t.Errorf("state cookie value = %q, want it to match the state param %q", stateCookie.Value, state)
+	}
+	if !stateCookie.HttpOnly {
+		t.Error("state cookie must be HttpOnly")
+	}
+	if stateCookie.SameSite != http.SameSiteLaxMode {
+		t.Error("state cookie must be SameSite=Lax")
+	}
+}
+
+func TestLogin_UsesConfiguredPublicURLForRedirectURI(t *testing.T) {
+	cfg := config.Config{
+		GiteaURL:      "http://gitea.example",
+		OAuthClientID: "client-123",
+		SessionKey:    []byte("0123456789abcdef0123456789abcdef"),
+		PublicURL:     "https://portal.example.com",
+	}
+	h := NewHandler(cfg)
+
+	req := httptest.NewRequest(http.MethodGet, "/login", nil)
+	req.Host = "attacker-controlled.example" // must be ignored when PublicURL is set
+	rec := httptest.NewRecorder()
+	h.Login(rec, req)
+
+	loc, err := url.Parse(rec.Header().Get("Location"))
+	if err != nil {
+		t.Fatalf("bad Location header: %v", err)
+	}
+	want := "https://portal.example.com/oauth/callback"
+	if got := loc.Query().Get("redirect_uri"); got != want {
+		t.Errorf("redirect_uri = %q, want %q (derived from PublicURL, not Host)", got, want)
+	}
 }
 
 func TestCallback_ExchangesCodeAndSetsSessionCookie(t *testing.T) {
@@ -60,7 +108,8 @@ func TestCallback_ExchangesCodeAndSetsSessionCookie(t *testing.T) {
 	}
 	h := NewHandler(cfg)
 
-	req := httptest.NewRequest(http.MethodGet, "/oauth/callback?code=abc123", nil)
+	req := httptest.NewRequest(http.MethodGet, "/oauth/callback?code=abc123&state=matching-state", nil)
+	req.AddCookie(&http.Cookie{Name: stateCookieName, Value: "matching-state"})
 	rec := httptest.NewRecorder()
 	h.Callback(rec, req)
 
@@ -89,6 +138,64 @@ func TestCallback_ExchangesCodeAndSetsSessionCookie(t *testing.T) {
 	}
 	if sessionCookie.SameSite != http.SameSiteLaxMode {
 		t.Error("session cookie must be SameSite=Lax")
+	}
+}
+
+func TestCallback_RejectsMismatchedState(t *testing.T) {
+	fakeGitea := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("token exchange must not happen when state does not match")
+	}))
+	defer fakeGitea.Close()
+
+	cfg := config.Config{
+		GiteaURL:          fakeGitea.URL,
+		OAuthClientID:     "client-123",
+		OAuthClientSecret: "secret-456",
+		SessionKey:        []byte("0123456789abcdef0123456789abcdef"),
+	}
+	h := NewHandler(cfg)
+
+	req := httptest.NewRequest(http.MethodGet, "/oauth/callback?code=abc123&state=attacker-state", nil)
+	req.AddCookie(&http.Cookie{Name: stateCookieName, Value: "victim-state"})
+	rec := httptest.NewRecorder()
+	h.Callback(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == cookieName {
+			t.Error("no session cookie should be set when state does not match")
+		}
+	}
+}
+
+func TestCallback_RejectsMissingStateCookie(t *testing.T) {
+	fakeGitea := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("token exchange must not happen when there is no state cookie")
+	}))
+	defer fakeGitea.Close()
+
+	cfg := config.Config{
+		GiteaURL:          fakeGitea.URL,
+		OAuthClientID:     "client-123",
+		OAuthClientSecret: "secret-456",
+		SessionKey:        []byte("0123456789abcdef0123456789abcdef"),
+	}
+	h := NewHandler(cfg)
+
+	req := httptest.NewRequest(http.MethodGet, "/oauth/callback?code=abc123&state=whatever", nil)
+	// No state cookie added.
+	rec := httptest.NewRecorder()
+	h.Callback(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == cookieName {
+			t.Error("no session cookie should be set when there is no state cookie")
+		}
 	}
 }
 

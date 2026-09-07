@@ -16,6 +16,12 @@ type Config struct {
 	ExceptionsRepoOwner string
 	ExceptionsRepoName  string
 	ListenAddr          string
+	// PublicURL, when set, is the portal's externally-reachable base URL
+	// (e.g. "https://portal.example.com"). It is optional: when unset, the
+	// OAuth redirect_uri is derived from the incoming request's Host header
+	// instead (see internal/auth). Setting it avoids trusting a
+	// proxy-forwarded Host header for the OAuth redirect_uri.
+	PublicURL string
 }
 
 // Load reads the portal's configuration from the environment. It fails
@@ -43,6 +49,7 @@ func Load() (Config, error) {
 		ExceptionsRepoOwner: required("PORTAL_EXCEPTIONS_REPO_OWNER"),
 		ExceptionsRepoName:  get("PORTAL_EXCEPTIONS_REPO_NAME"),
 		ListenAddr:          get("PORTAL_LISTEN_ADDR"),
+		PublicURL:           get("PORTAL_PUBLIC_URL"),
 	}
 	if cfg.ExceptionsRepoName == "" {
 		cfg.ExceptionsRepoName = "exceptions"
