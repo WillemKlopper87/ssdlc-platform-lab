@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@0.363.0/dist/umd/lucide.js"></script>
+<style>
+:root {
+  --page:#F7F8FA; --page-alt:#EEF1F6; --surface:#FFFFFF; --surface-alt:#F9FAFB;
+  --border:#E5E7EB; --border-subtle:#F1F3F7;
+  --text-1:#111827; --text-2:#374151; --text-3:#4b5563; --text-4:#6b7280; --text-5:#9ca3af;
+  --tint:#EFF5FC; --tint-border:#DBE9F8;
+  --warning-bg:#FDECD2; --warning-text:#92400e;
+  --success-bg:#DCF1E6; --success-text:#1E6B4A;
+}
+[data-theme="dark"] {
+  --page:#0B1220; --page-alt:#0B1220; --surface:#131B2C; --surface-alt:#1A2438;
+  --border:#263047; --border-subtle:#1D2743;
+  --text-1:#F3F4F6; --text-2:#D1D5DB; --text-3:#B4BCC9; --text-4:#93A0B4; --text-5:#6D7A90;
+  --tint:#16283F; --tint-border:#1F3A5C;
+  --warning-bg:#3B2A11; --warning-text:#FBBF6B;
+  --success-bg:#123626; --success-text:#6EE7B0;
+}
+  body { margin:0; background:#EEF1F6; font-family:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#1668C1; text-decoration:none; }
+  a:hover { color:#0A4E96; text-decoration:underline; }
+  .row:hover { background:var(--surface-alt); }
+</style>
+</helmet>
+
+<div data-theme="{{theme}}" style="width:1440px; height:900px; margin:0; display:flex; background:var(--surface); color:var(--text-1); box-sizing:border-box; overflow:hidden;">
+
+  <div style="width:256px; flex:none; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column;">
+    <div style="height:64px; flex:none; background:#003d7a; display:flex; align-items:center; gap:10px; padding:0 20px;">
+      <div style="width:32px; height:32px; border-radius:8px; background:rgba(255,255,255,0.16); display:flex; align-items:center; justify-content:center;"><i data-lucide="shield-check" width="18" height="18" style="color:#FFFFFF;"></i></div>
+      <div style="display:flex; align-items:center; gap:8px;"><span style="font-size:16px; font-weight:700; color:#FFFFFF; letter-spacing:-0.01em;">SSDLC</span><span style="width:1px; height:16px; background:rgba(255,255,255,0.3);"></span><span style="font-size:13px; color:#CFE0F3;">platform</span></div>
+    </div>
+    <div style="flex:1; overflow-y:auto; padding:16px 12px; display:flex; flex-direction:column; gap:20px;">
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0.1em; color:var(--text-5); padding:0 12px 8px;">MY WORK</div>
+        <div style="display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:8px; background:var(--tint); box-shadow:inset 2px 0 0 #1668C1; color:#0A4E96; font-size:14px; font-weight:600;"><i data-lucide="home" width="18" height="18" style="color:#0A4E96; flex:none;"></i>Home</div>
+        <div style="display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:8px; color:var(--text-2); font-size:14px;"><i data-lucide="git-pull-request" width="18" height="18" style="color:var(--text-4); flex:none;"></i>My pull requests<span style="margin-left:auto; font-size:11px; font-weight:600; color:var(--warning-text); background:var(--warning-bg); border-radius:999px; padding:1px 8px;">2</span></div>
+        <div style="display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:8px; color:var(--text-2); font-size:14px;"><i data-lucide="shield-alert" width="18" height="18" style="color:var(--text-4); flex:none;"></i>Exceptions<span style="margin-left:auto; font-size:11px; font-weight:600; color:var(--warning-text); background:var(--warning-bg); border-radius:999px; padding:1px 8px;">3</span></div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0.1em; color:var(--text-5); padding:0 12px 8px;">REPOSITORIES</div>
+        <div style="display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:8px; color:var(--text-2); font-size:14px;"><i data-lucide="folder-git-2" width="18" height="18" style="color:var(--text-4); flex:none;"></i>All repositories<span style="margin-left:auto; font-size:11px; color:var(--text-5);">4</span></div>
+        <div style="display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:8px; color:var(--text-2); font-size:14px;"><i data-lucide="circle-plus" width="18" height="18" style="color:var(--text-4); flex:none;"></i>Onboard a repository</div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:0.1em; color:var(--text-5); padding:0 12px 8px;">PLATFORM</div>
+        <div style="display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:8px; color:var(--text-2); font-size:14px;"><i data-lucide="activity" width="18" height="18" style="color:var(--text-4); flex:none;"></i>Posture</div>
+        <div style="display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:8px; color:var(--text-2); font-size:14px;"><i data-lucide="server-cog" width="18" height="18" style="color:var(--text-4); flex:none;"></i>Admin health</div>
+        <div style="display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:8px; color:var(--text-2); font-size:14px;"><i data-lucide="book-open" width="18" height="18" style="color:var(--text-4); flex:none;"></i>Gate Contract docs</div>
+      </div>
+    </div>
+    <div style="margin:12px; background:var(--tint); border:1px solid var(--tint-border); border-radius:10px; padding:14px; display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; align-items:center; gap:8px;"><i data-lucide="info" width="15" height="15" style="color:#0A4E96;"></i><span style="font-size:12.5px; font-weight:600; color:#0A4E96;">This portal owns no state</span></div>
+      <p style="margin:0; font-size:11.5px; line-height:1.5; color:#3D5A85;">A thin view over Gitea and Woodpecker. Every decision here traces back to a real commit status.</p>
+    </div>
+  </div>
+
+  <div style="flex:1; min-width:0; display:flex; flex-direction:column;">
+
+    <div style="height:64px; flex:none; border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 24px; gap:20px;">
+      <div style="flex:1; max-width:520px; height:38px; background:var(--page); border:1px solid #E1E5EC; border-radius:8px; display:flex; align-items:center; gap:10px; padding:0 12px;">
+        <i data-lucide="search" width="16" height="16" style="color:var(--text-4);"></i>
+        <span style="font-size:13.5px; color:var(--text-4); flex:1;">Search repos, PRs, findings…</span>
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-4); background:var(--surface); border:1px solid #E1E5EC; border-radius:5px; padding:2px 6px;">⌘K</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:500; color:var(--success-text); background:var(--success-bg); border-radius:999px; padding:6px 12px;"><span style="width:7px; height:7px; border-radius:999px; background:#1E8E5A;"></span>Gitea &amp; Woodpecker reachable</div>
+      <div style="display:flex; align-items:center; gap:18px; margin-left:auto;">
+        <div style="position:relative;"><i data-lucide="bell" width="20" height="20" style="color:var(--text-2);"></i><span style="position:absolute; top:-5px; right:-7px; min-width:16px; height:16px; border-radius:999px; background:#D64545; color:#FFFFFF; font-size:9.5px; font-weight:700; display:flex; align-items:center; justify-content:center; padding:0 4px;">5</span></div>
+        <div style="display:flex; align-items:center; gap:10px; padding-left:18px; border-left:1px solid var(--border);">
+          <div style="width:32px; height:32px; border-radius:999px; background:var(--tint-border); color:#003d7a; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center;">GA</div>
+          <div style="display:flex; flex-direction:column;"><span style="font-size:13px; font-weight:600; color:var(--text-1);">gateadmin</span><span style="font-size:11px; color:var(--text-4);">platform admin</span></div>
+          <i data-lucide="chevron-down" width="15" height="15" style="color:var(--text-5);"></i>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex:1; overflow-y:auto; background:var(--page); padding:24px; display:flex; flex-direction:column; gap:20px;">
+
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:24px; flex-wrap:wrap;">
+        <div style="display:flex; flex-direction:column; gap:3px;">
+          <h1 style="margin:0; font-size:24px; font-weight:700; letter-spacing:-0.01em;">Good morning, gateadmin</h1>
+          <span style="font-size:13.5px; color:var(--text-4);">4 repositories onboarded · 2 pull requests need your review</span>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <span style="display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:7px 14px; font-size:13px; color:var(--text-2);"><span style="width:8px; height:8px; border-radius:999px; background:#D64545;"></span>Blocking<strong style="font-weight:600; color:var(--text-1);">1</strong></span>
+          <span style="display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:7px 14px; font-size:13px; color:var(--text-2);"><span style="width:8px; height:8px; border-radius:999px; background:#E8912D;"></span>Needs bot vote<strong style="font-weight:600; color:var(--text-1);">1</strong></span>
+          <span style="display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:7px 14px; font-size:13px; color:var(--text-2);"><span style="width:8px; height:8px; border-radius:999px; background:#1E8E5A;"></span>Passing<strong style="font-weight:600; color:var(--text-1);">6</strong></span>
+          <span style="display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:7px 14px; font-size:13px; color:var(--text-2);"><span style="width:8px; height:8px; border-radius:999px; background:#1668C1;"></span>Baselined debt<strong style="font-weight:600; color:var(--text-1);">14</strong></span>
+        </div>
+      </div>
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+        <div style="padding:14px 20px; border-bottom:1px solid var(--border-subtle); display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:10px;"><i data-lucide="inbox" width="17" height="17" style="color:#1668C1;"></i><h3 style="margin:0; font-size:15.5px; font-weight:600;">Needs your action</h3><span style="font-size:11px; font-weight:700; color:#FFFFFF; background:#E8912D; border-radius:999px; padding:1px 8px;">2</span></div>
+          <span style="font-size:13px; font-weight:500; color:#1668C1;">All pull requests</span>
+        </div>
+
+        <div class="row" style="display:grid; grid-template-columns:40px 1fr 190px 220px; gap:14px; align-items:center; padding:14px 20px; border-bottom:1px solid var(--border-subtle); border-radius:8px;">
+          <div style="width:32px; height:32px; border-radius:999px; background:var(--warning-bg); display:flex; align-items:center; justify-content:center;"><i data-lucide="shield-x" width="16" height="16" style="color:#D64545;"></i></div>
+          <div style="display:flex; flex-direction:column; gap:3px; min-width:0;">
+            <span style="font-size:14px; font-weight:600;">PR #42 · pilot-app · fix: pin requests to patched version</span>
+            <span style="font-size:12.5px; color:var(--text-4);">gitleaks clean · semgrep 2 findings (baselined) · <strong style="color:#B42318;">1 new Critical</strong> (trivy/pyyaml, CVE-2020-14343) — not in baseline</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-5);">head 4c1a9e2 · 2h ago</span>
+            <span style="font-size:12px; font-weight:600; color:#B42318;">blocking merge</span>
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end;">
+            <span style="font-size:12.5px; font-weight:600; color:#FFFFFF; background:#1668C1; border-radius:7px; padding:8px 14px;">Open report</span>
+            <span style="font-size:12.5px; font-weight:500; color:var(--text-3); border:1px solid var(--border); border-radius:7px; padding:8px 12px;">Request exception</span>
+          </div>
+        </div>
+
+        <div class="row" style="display:grid; grid-template-columns:40px 1fr 190px 220px; gap:14px; align-items:center; padding:14px 20px; border-radius:8px;">
+          <div style="width:32px; height:32px; border-radius:999px; background:var(--tint); display:flex; align-items:center; justify-content:center;"><i data-lucide="bot" width="16" height="16" style="color:#1668C1;"></i></div>
+          <div style="display:flex; flex-direction:column; gap:3px; min-width:0;">
+            <span style="font-size:14px; font-weight:600;">PR #17 · internal-collaboration-platform · add zone-4 relevance ranking</span>
+            <span style="font-size:12.5px; color:var(--text-4);">scanning steps green · human approval by t-mokoena ✓ · <strong style="color:var(--warning-text);">gate-bot has not voted for this head</strong></span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-5);">head a88f01d · 41m ago</span>
+            <span style="font-size:12px; font-weight:600; color:var(--warning-text);">waiting on bot-approver</span>
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end;">
+            <span style="font-size:12.5px; font-weight:600; color:#FFFFFF; background:#1668C1; border-radius:7px; padding:8px 14px;">View pipeline</span>
+            <span style="display:flex; align-items:center; padding:0 4px;"><i data-lucide="more-horizontal" width="16" height="16" style="color:var(--text-5);"></i></span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+        <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+          <div style="padding:14px 20px; border-bottom:1px solid var(--border-subtle); display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:10px;"><i data-lucide="folder-git-2" width="17" height="17" style="color:#1668C1;"></i><h3 style="margin:0; font-size:15.5px; font-weight:600;">Repositories at a glance</h3></div>
+            <span style="font-size:12.5px; font-weight:500; color:#1668C1;">All 4</span>
+          </div>
+          <div style="display:flex; flex-direction:column;">
+            <div class="row" style="display:grid; grid-template-columns:1fr 90px 76px; gap:12px; align-items:center; padding:12px 20px; border-bottom:1px solid var(--border-subtle);">
+              <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:13.5px; font-weight:500;">pilot-app</span><span style="font-size:12px; color:var(--text-4);">gate contract enforced · baseline: 1 finding</span></div>
+              <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#B42318; justify-self:start;"><span style="width:7px; height:7px; border-radius:999px; background:#D64545;"></span>Blocked</span>
+              <span style="font-size:12.5px; font-weight:500; color:#1668C1; justify-self:end;">Open</span>
+            </div>
+            <div class="row" style="display:grid; grid-template-columns:1fr 90px 76px; gap:12px; align-items:center; padding:12px 20px; border-bottom:1px solid var(--border-subtle);">
+              <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:13.5px; font-weight:500;">internal-collaboration-platform</span><span style="font-size:12px; color:var(--text-4);">gate contract enforced · baseline: 6 findings</span></div>
+              <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--warning-text); justify-self:start;"><span style="width:7px; height:7px; border-radius:999px; background:#E8912D;"></span>Pending</span>
+              <span style="font-size:12.5px; font-weight:500; color:#1668C1; justify-self:end;">Open</span>
+            </div>
+            <div class="row" style="display:grid; grid-template-columns:1fr 90px 76px; gap:12px; align-items:center; padding:12px 20px; border-bottom:1px solid var(--border-subtle);">
+              <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:13.5px; font-weight:500;">HR_system</span><span style="font-size:12px; color:var(--text-4);">gate contract enforced · baseline: 7 findings</span></div>
+              <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--success-text); justify-self:start;"><span style="width:7px; height:7px; border-radius:999px; background:#1E8E5A;"></span>Passing</span>
+              <span style="font-size:12.5px; font-weight:500; color:#1668C1; justify-self:end;">Open</span>
+            </div>
+            <div class="row" style="display:grid; grid-template-columns:1fr 90px 76px; gap:12px; align-items:center; padding:12px 20px;">
+              <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:13.5px; font-weight:500;">edge_agent</span><span style="font-size:12px; color:var(--text-4);">gate contract enforced · baseline: 0 findings</span></div>
+              <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--success-text); justify-self:start;"><span style="width:7px; height:7px; border-radius:999px; background:#1E8E5A;"></span>Passing</span>
+              <span style="font-size:12.5px; font-weight:500; color:#1668C1; justify-self:end;">Open</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+          <div style="padding:14px 20px; border-bottom:1px solid var(--border-subtle); display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:10px;"><i data-lucide="history" width="17" height="17" style="color:#1668C1;"></i><h3 style="margin:0; font-size:15.5px; font-weight:600;">Recent pipeline runs</h3></div>
+            <span style="font-size:12.5px; font-weight:500; color:#1668C1;">Woodpecker</span>
+          </div>
+          <div style="display:flex; flex-direction:column;">
+            <div class="row" style="display:flex; gap:12px; align-items:center; padding:12px 20px; border-bottom:1px solid var(--border-subtle);">
+              <i data-lucide="x-circle" width="16" height="16" style="color:#D64545; flex:none;"></i>
+              <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;"><span style="font-size:13.5px; font-weight:500;">policy-eval-findings · pilot-app #42</span><span style="font-size:11.5px; color:var(--text-5);">2 hours ago · pull_request</span></div>
+            </div>
+            <div class="row" style="display:flex; gap:12px; align-items:center; padding:12px 20px; border-bottom:1px solid var(--border-subtle);">
+              <i data-lucide="check-circle-2" width="16" height="16" style="color:#1E8E5A; flex:none;"></i>
+              <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;"><span style="font-size:13.5px; font-weight:500;">approval-check · internal-collaboration-platform #17</span><span style="font-size:11.5px; color:var(--text-5);">41 minutes ago · pull_request</span></div>
+            </div>
+            <div class="row" style="display:flex; gap:12px; align-items:center; padding:12px 20px; border-bottom:1px solid var(--border-subtle);">
+              <i data-lucide="check-circle-2" width="16" height="16" style="color:#1E8E5A; flex:none;"></i>
+              <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;"><span style="font-size:13.5px; font-weight:500;">refresh-trivy-db · scheduled</span><span style="font-size:11.5px; color:var(--text-5);">3 hours ago · cron</span></div>
+            </div>
+            <div class="row" style="display:flex; gap:12px; align-items:center; padding:12px 20px;">
+              <i data-lucide="check-circle-2" width="16" height="16" style="color:#1E8E5A; flex:none;"></i>
+              <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;"><span style="font-size:13.5px; font-weight:500;">self-verify · SSDLC-Platform-Lab</span><span style="font-size:11.5px; color:var(--text-5);">5 hours ago · push</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="width:300px; flex:none; background:var(--page); border-left:1px solid var(--border); overflow-y:auto; padding:24px 24px 24px 0;">
+    <div style="display:flex; flex-direction:column; gap:20px; margin-left:24px;">
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:12px;">
+        <h3 style="margin:0; font-size:14.5px; font-weight:600;">Platform health</h3>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:7px 8px; border-radius:8px; background:var(--surface-alt);"><span style="display:flex; align-items:center; gap:9px; font-size:13px;"><span style="width:14px; height:14px; border-radius:3px; background:#1668C1; display:inline-block;"></span>bot-approver</span><span style="display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:var(--success-text);"><span style="width:6px; height:6px; border-radius:999px; background:#1E8E5A;"></span>polling</span></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:7px 8px; border-radius:8px;"><span style="display:flex; align-items:center; gap:9px; font-size:13px;"><span style="width:14px; height:14px; border-radius:3px; background:#1668C1; display:inline-block;"></span>reconciliation-loop</span><span style="display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:var(--success-text);"><span style="width:6px; height:6px; border-radius:999px; background:#1E8E5A;"></span>polling</span></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:7px 8px; border-radius:8px; background:var(--surface-alt);"><span style="display:flex; align-items:center; gap:9px; font-size:13px;"><span style="width:14px; height:14px; border-radius:3px; background:var(--text-5); display:inline-block;"></span>trusted-gate-runner</span><span style="display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:var(--text-4);"><span style="width:6px; height:6px; border-radius:999px; background:var(--text-5);"></span>not deployed</span></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-top:1px solid var(--border-subtle); margin-top:2px;"><span style="font-size:13px;">Trivy DB age</span><span style="font-size:13px; font-weight:700;">6 h</span></div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;"><h3 style="margin:0; font-size:14.5px; font-weight:600;">Exceptions expiring</h3><span style="font-size:11px; font-weight:600; color:#FFFFFF; background:#D64545; border-radius:999px; padding:1px 8px;">3</span></div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; gap:12px; align-items:flex-start;">
+            <div style="width:44px; flex:none; background:var(--warning-bg); border-radius:8px; padding:6px 0; display:flex; flex-direction:column; align-items:center;"><span style="font-size:16px; font-weight:700; color:var(--warning-text); line-height:1.1;">2</span><span style="font-size:9.5px; color:var(--warning-text);">DAYS</span></div>
+            <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:12.5px; font-weight:600;">trivy/CVE-2024-3094</span><span style="font-size:11.5px; color:var(--text-4);">edge_agent · approved by S. Officer + T. Lead</span></div>
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-start;">
+            <div style="width:44px; flex:none; background:var(--tint); border:1px solid var(--tint-border); border-radius:8px; padding:6px 0; display:flex; flex-direction:column; align-items:center;"><span style="font-size:16px; font-weight:700; color:#0A4E96; line-height:1.1;">14</span><span style="font-size:9.5px; color:#1668C1;">DAYS</span></div>
+            <div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:12.5px; font-weight:600;">trivy/CVE-2025-1234</span><span style="font-size:11.5px; color:var(--text-4);">HR_system · approved by S. Officer + T. Lead</span></div>
+          </div>
+        </div>
+        <span style="font-size:12.5px; font-weight:500; color:#1668C1;">All exceptions</span>
+      </div>
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:12px;">
+        <h3 style="margin:0; font-size:14.5px; font-weight:600;">Open in Gitea &amp; Woodpecker</h3>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px;"><div style="width:38px; height:38px; border-radius:9px; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:#00994D;">GT</div><span style="font-size:11px; text-align:center;">Gitea</span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px;"><div style="width:38px; height:38px; border-radius:9px; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:#1668C1;">WP</div><span style="font-size:11px; text-align:center;">Woodpecker</span></div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:6px;"><div style="width:38px; height:38px; border-radius:9px; background:var(--surface); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:#E8912D;">GF</div><span style="font-size:11px; text-align:center;">Grafana</span></div>
+        </div>
+      </div>
+
+      <div style="background:#003d7a; border-radius:12px; padding:18px; display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; align-items:center; gap:10px;"><i data-lucide="life-buoy" width="18" height="18" style="color:#9FC2E8;"></i><span style="font-size:14px; font-weight:600; color:#FFFFFF;">Gate failing unexpectedly?</span></div>
+        <p style="margin:0; font-size:12.5px; line-height:1.6; color:#CFE0F3;">Read SECURITY.md's "If a gate fails" section before requesting an exception or weakening a check.</p>
+        <span style="align-self:flex-start; display:inline-flex; align-items:center; gap:8px; background:var(--surface); color:#003d7a; font-size:12.5px; font-weight:600; border-radius:8px; padding:8px 14px;">Open runbook</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script data-dc-script data-props='{"darkMode":{"editor":"boolean","default":false,"section":"Theme"}}'>
+class Component extends DCLogic {
+  paintIcons(tries) {
+    if (window.lucide && window.lucide.createIcons) { window.lucide.createIcons(); return; }
+    if ((tries || 0) < 40) setTimeout(() => this.paintIcons((tries || 0) + 1), 100);
+  }
+  componentDidMount() { this.paintIcons(0); }
+  componentDidUpdate() { this.paintIcons(0); }
+  renderVals() {
+    return { theme: this.props.darkMode ? 'dark' : 'light' };
+  }
+}
+</script>
+</body>
+</html>
