@@ -7,6 +7,7 @@ import (
 
 	"ssdlc-portal/internal/auth"
 	"ssdlc-portal/internal/config"
+	"ssdlc-portal/internal/handlers"
 )
 
 func main() {
@@ -22,6 +23,9 @@ func main() {
 	mux.HandleFunc("/login", authHandler.Login)
 	mux.HandleFunc("/oauth/callback", authHandler.Callback)
 	mux.HandleFunc("/logout", authHandler.Logout)
+	mux.HandleFunc("/dashboard", authHandler.RequireAuth(handlers.Dashboard(cfg.GiteaURL)))
+	mux.HandleFunc("/pr/{owner}/{repo}/{number}", authHandler.RequireAuth(
+		handlers.PRReport(cfg.GiteaURL, cfg.WoodpeckerURL, cfg.WoodpeckerToken)))
 
 	log.Printf("ssdlc-portal listening on %s", cfg.ListenAddr)
 	log.Fatal(http.ListenAndServe(cfg.ListenAddr, mux))

@@ -1,0 +1,20 @@
+<!-- portal/web/templates/dashboard.html -->
+{{define "content"}}
+<h1 style="font-weight:600;">Dashboard</h1>
+
+<div class="ssdlc-card">
+  <h2 style="font-size:16px; margin-top:0;">My pull requests</h2>
+  {{if not .PullRequests}}
+    <p style="color:var(--ssdlc-text-3);">No open pull requests found across your onboarded repos.</p>
+  {{else}}
+    {{range .PullRequests}}
+    <div class="ssdlc-row">
+      <span class="ssdlc-mono" style="color:var(--ssdlc-text-3); width:90px;">{{.Repo}}</span>
+      <a href="/pr/{{.Repo}}/{{.Number}}" style="flex:1; color:var(--ssdlc-text-1);">{{.Title}}</a>
+      <span style="color:var(--ssdlc-text-3);">{{.Author}}</span>
+      {{template "statusBadge" .StatusBadge}}
+    </div>
+    {{end}}
+  {{end}}
+</div>
+{{end}}

@@ -1,0 +1,21 @@
+<!-- portal/web/templates/prreport.html -->
+{{define "content"}}
+<h1 style="font-weight:600;">{{.PR.Title}} <span class="ssdlc-mono" style="color:var(--ssdlc-text-3); font-size:16px;">#{{.PR.Number}}</span></h1>
+
+<div class="ssdlc-card">
+  <h2 style="font-size:16px; margin-top:0;">Findings</h2>
+  {{if not .Findings}}
+    <p style="color:var(--ssdlc-text-3);">No findings on this pull request's most recent run.</p>
+  {{else}}
+    {{range .Findings}}
+    <div class="ssdlc-row">
+      <span class="ssdlc-badge ssdlc-badge-{{.SeverityClass}}">{{.Severity}}</span>
+      <span class="ssdlc-mono" style="color:var(--ssdlc-text-2);">{{.RuleID}}</span>
+      <span class="ssdlc-mono" style="color:var(--ssdlc-text-3);">{{.Location}}</span>
+      <span style="flex:1; color:var(--ssdlc-text-2);">{{.Description}}</span>
+      {{if .IsBlocking}}<a href="/exceptions/request?repo={{$.RepoFullName}}&fingerprint={{.RuleID}}-{{.Location}}" class="ssdlc-btn">Request exception</a>{{end}}
+    </div>
+    {{end}}
+  {{end}}
+</div>
+{{end}}

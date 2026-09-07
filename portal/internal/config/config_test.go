@@ -34,6 +34,7 @@ func TestLoad_SessionKeyTooShort(t *testing.T) {
 func TestLoad_Success(t *testing.T) {
 	t.Setenv("PORTAL_GITEA_URL", "http://127.0.0.1:3500")
 	t.Setenv("PORTAL_WOODPECKER_URL", "http://127.0.0.1:8000")
+	t.Setenv("PORTAL_WOODPECKER_TOKEN", "wp-token")
 	t.Setenv("PORTAL_OAUTH_CLIENT_ID", "x")
 	t.Setenv("PORTAL_OAUTH_CLIENT_SECRET", "y")
 	t.Setenv("PORTAL_SESSION_KEY", "0123456789abcdef0123456789abcdef")
