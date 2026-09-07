@@ -1,0 +1,35 @@
+# Extends Gitleaks' built-in ruleset with an allowlist for this platform's
+# own committed infrastructure. Semgrep's invocation in
+# pipelines/fast.woodpecker.yml already excludes this same path set
+# (SADR-0024, after a live run found 2564 self-matches against
+# policy/vendored-rules' deliberately-vulnerable rule-test fixtures) --
+# Gitleaks was never given the same treatment. Found live, 2026-09-07: a
+# freshly onboarded repo's very first push reported 323 CRITICAL findings,
+# every one of them Gitleaks matching example-secret string literals
+# inside its own vendored rule-definition files
+# (policy/vendored-rules/secrets/gitleaks/*.go and *.txt fixtures) as if
+# they were application secrets. None were a real credential; all were
+# this platform's own paved-road files landing in the scanned tree.
+#
+# `useDefault = true` keeps every built-in detection rule; this file only
+# ADDS a path allowlist on top; it does not redefine or narrow detection.
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''^policy/vendored-rules/''',
+  '''^\.woodpecker\.yml$''',
+  '''^policy-eval/verify-approvals\.py$''',
+  '''^policy-eval/evaluate-findings\.py$''',
+  '''^normalise/gitleaks_adapter\.py$''',
+  '''^normalise/semgrep_adapter\.py$''',
+  '''^normalise/trivy_adapter\.py$''',
+  '''^policy/severity\.rego$''',
+  '''^\.ssdlc/baseline\.json$''',
+  # This platform's own step output, present in the shared workspace by
+  # the time a re-run or a later step reads "." -- same self-contamination
+  # class as the vendored-rules paths above, just a different source.
+  '''^gitleaks-report\.json$''',
+  '''^semgrep-report\.(json|sarif)$''',
+]

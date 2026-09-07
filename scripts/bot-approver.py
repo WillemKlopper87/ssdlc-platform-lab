@@ -76,6 +76,11 @@ EXCLUDE_STEPS = {"approval-check"}
 # bundle; this protected-base comparison is the safe Sprint 01 transition.
 DEFAULT_GATE_MANAGED_PATHS = (
     ".woodpecker.yml",
+    # Controls what Gitleaks' own scan excludes (SADR: Gitleaks parity fix,
+    # 2026-09-07). Unprotected, a PR could widen its own allowlist to hide
+    # a real secret from the exact tool meant to catch it -- same trust
+    # boundary as every other file in this tuple.
+    ".gitleaks-platform.toml",
     "policy-eval/verify-approvals.py",
     "policy-eval/evaluate-findings.py",
     "normalise/gitleaks_adapter.py",

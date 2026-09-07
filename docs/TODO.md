@@ -1,5 +1,55 @@
 # Outstanding work
 
+## Review update — 2026-09-07
+
+Live end-to-end demo on the minimal profile (fresh `gateadmin`/`gate-demo` onboarding, a real
+push through the gate) surfaced one gate-correctness bug and completed two items DESIGN.md's
+Rule-set-updates section only described in prose. All three fixed and live-verified, not just
+written:
+
+- [x] ~~Gitleaks scans its own vendored rule-definition files as if they were application
+      code.~~ Semgrep's invocation got `--exclude=policy/vendored-rules` in SADR-0024 after a
+      live run found 2564 self-matches; Gitleaks's own invocation in
+      `pipelines/fast.woodpecker.yml` was never given the same treatment. Confirmed live: a
+      freshly onboarded repo's first-ever push reported 324 findings, 323 of them Gitleaks
+      matching example-secret literals inside `policy/vendored-rules/secrets/gitleaks/*.go` —
+      none a real credential. Fixed with `.gitleaks-platform.toml` (`[extend] useDefault = true`
+      plus a path allowlist mirroring Semgrep's exclude list exactly), wired into
+      `gitleaks detect --config=.gitleaks-platform.toml`, committed by `onboard-repo.sh` into
+      every onboarded repo, and added to `bot-approver.py`'s `DEFAULT_GATE_MANAGED_PATHS` — an
+      unprotected copy would let a PR quietly widen its own allowlist to hide a real secret from
+      the tool meant to catch it. Re-ran the same onboarded repo's pipeline after the fix:
+      324 findings → 1.
+- [x] ~~Register `pipelines/trivy-db-refresh.woodpecker.yml` as an actual running Woodpecker
+      cron job.~~ Its own header comment stated plainly it was "not wired automatically by any
+      script in this repo." Registered on a dedicated `platform-ops` repo (never an onboarded
+      pilot repo — this is shared platform infrastructure, same reasoning as the file's own
+      comment), `.woodpecker/` multi-workflow layout, `@daily` schedule, enabled. Triggered
+      on demand to prove it live rather than trust the schedule: `metadata.json`'s
+      `DownloadedAt` timestamp confirms a real DB pull happened, not a no-op.
+- [x] ~~Automate proposing (never auto-merging) vendored Semgrep rule-set updates.~~ New
+      `scripts/refresh-vendored-rules.sh` + `pipelines/refresh-vendored-rules.woodpecker.yml`,
+      registered on the same `platform-ops` cron schedule. Clones `opengrep/opengrep-rules`
+      fresh, reproduces `policy/vendored-rules/README.md`'s exact selective-copy scope, diffs
+      against what's currently vendored, and — only with a `GH_TOKEN` secret configured — opens
+      a PR against this repo's own GitHub remote. No token, no PR: reports the diff and exits 2,
+      a deliberately safe default. Never pushes to `main` directly. Live-verified against the
+      real upstream repo, inside the exact `alpine:3` container Woodpecker runs pipeline steps
+      in (not just locally, where GNU coreutils masked what follows) — three real bugs found and
+      fixed this way: BusyBox `diff` has no `--exclude` flag (rewritten to pre-filter excluded
+      paths into scratch trees instead); BusyBox `sed` doesn't handle this script's backreference
+      pattern the same way GNU sed does and silently matched nothing (replaced with a `python3`
+      regex, removing the whole class of coreutils-flavor bugs rather than chasing each one);
+      and the PR-opening step assumed its own working directory was already a checkout of the
+      target GitHub repo with push access configured — true only when this job lives inside
+      `ssdlc-platform-lab`'s own repo, false when deployed standalone for this demo, where it
+      pushed a branch to the wrong remote entirely while asking `gh` to open a PR somewhere else.
+      Fixed by cloning the named `GH_REPO` explicitly via `GH_TOKEN` rather than trusting
+      whatever `origin` happens to be. The up-to-date path (exit 0) and the update-available
+      path (exit 2, real diff against an older real upstream commit) are both confirmed live;
+      opening an actual PR needs a real `GH_TOKEN` with write access to this repo, which is a
+      credential decision for a human to make, not this session.
+
 ## Do next — Sprint 01 trusted pilot foundation
 
 The ordered sprint is in [`SPRINT-01-TRUSTED-PILOT.md`](SPRINT-01-TRUSTED-PILOT.md), which tracks

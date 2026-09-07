@@ -28,7 +28,14 @@ steps:
     # all of them to "critical" regardless.
     image: zricethezav/gitleaks:v8.30.1
     commands:
-      - gitleaks detect --source=. --report-format=json --report-path=gitleaks-report.json --exit-code=0 --no-banner
+      # --config=.gitleaks-platform.toml: extends the built-in ruleset with
+      # an allowlist for this platform's own committed infrastructure --
+      # the same protection Semgrep's invocation below already has via
+      # --exclude=policy/vendored-rules (SADR-0024). Without it, every
+      # onboarded repo's first scan reported 323 CRITICAL findings from
+      # Gitleaks matching its own vendored rule-definition files' example
+      # secrets, not anything a developer wrote (found live, 2026-09-07).
+      - gitleaks detect --source=. --config=.gitleaks-platform.toml --report-format=json --report-path=gitleaks-report.json --exit-code=0 --no-banner
     when:
       - event: [push, pull_request]
 

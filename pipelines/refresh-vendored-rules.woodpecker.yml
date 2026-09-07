@@ -1,0 +1,39 @@
+# SSDLC-Platform-Lab — scheduled vendored Semgrep rule-set refresh
+#
+# Companion to trivy-db-refresh.woodpecker.yml: same reasoning
+# (DESIGN.md's Rule-set-updates guidance), same "not tied to any onboarded
+# pilot repo, since this is shared platform infrastructure" placement --
+# registered as a Woodpecker cron job on this platform's own repo, never
+# on gate-demo or any other onboarded application repo.
+#
+# Runs scripts/refresh-vendored-rules.sh, which clones opengrep/opengrep-
+# rules fresh, applies the exact selective-copy scope
+# policy/vendored-rules/README.md documents, and diffs against what's
+# currently vendored. It NEVER pushes to this repo's main branch and NEVER
+# auto-merges anything -- an available update becomes a normal pull
+# request for a human to review, exactly like any other policy change
+# (DESIGN.md: "Rule changes go through the same gate as code"). Without
+# GH_REFRESH_TOKEN configured, it only reports the diff (exit 2) and opens
+# nothing -- a deliberately safe default, not a broken one.
+#
+# GH_REFRESH_TOKEN needs `repo` scope on this platform's own GitHub
+# repository (github.com/WillemKlopper87/ssdlc-platform-lab) -- fine-
+# grained "Contents: write" + "Pull requests: write" on that one repo is
+# enough; it does not need Gitea access at all, since this job proposes
+# changes to the platform's own source, not to an onboarded repo's Gitea
+# copy. Register it as a Woodpecker secret named ssdlc_rule_refresh_gh_token,
+# scoped to this repo only.
+
+steps:
+  refresh-vendored-rules:
+    image: alpine:3
+    environment:
+      GH_REPO: "WillemKlopper87/ssdlc-platform-lab"
+      GH_TOKEN:
+        from_secret: ssdlc_rule_refresh_gh_token
+    commands:
+      # github-cli: alpine's community-repo package name for the `gh` binary.
+      - apk add --no-cache git python3 github-cli rsync bash >/dev/null 2>&1
+      - sh scripts/refresh-vendored-rules.sh
+    when:
+      - event: cron

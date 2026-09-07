@@ -201,6 +201,7 @@ except Exception:
 }
 
 commit_file "${SCRIPT_DIR}/../pipelines/fast.woodpecker.yml" ".woodpecker.yml"
+commit_file "${SCRIPT_DIR}/../.gitleaks-platform.toml" ".gitleaks-platform.toml"
 commit_file "${SCRIPT_DIR}/../policy-eval/verify-approvals.py" "policy-eval/verify-approvals.py"
 commit_file "${SCRIPT_DIR}/../policy-eval/evaluate-findings.py" "policy-eval/evaluate-findings.py"
 commit_file "${SCRIPT_DIR}/../normalise/gitleaks_adapter.py" "normalise/gitleaks_adapter.py"

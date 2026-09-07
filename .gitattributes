@@ -10,6 +10,7 @@
 # Windows checkout.
 *.sh text eol=lf
 *.py text eol=lf
+*.toml text eol=lf
 
 # YAML pipeline definitions are parsed by Woodpecker server-side; keep them
 # byte-stable across platforms rather than relying on every tool involved
