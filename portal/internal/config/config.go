@@ -10,6 +10,7 @@ type Config struct {
 	GiteaURL            string
 	WoodpeckerURL       string
 	WoodpeckerToken     string
+	GiteaAdminToken     string
 	OAuthClientID       string
 	OAuthClientSecret   string
 	SessionKey          []byte
@@ -45,6 +46,7 @@ func Load() (Config, error) {
 		GiteaURL:            required("PORTAL_GITEA_URL"),
 		WoodpeckerURL:       required("PORTAL_WOODPECKER_URL"),
 		WoodpeckerToken:     required("PORTAL_WOODPECKER_TOKEN"),
+		GiteaAdminToken:     required("PORTAL_GITEA_ADMIN_TOKEN"),
 		OAuthClientID:       required("PORTAL_OAUTH_CLIENT_ID"),
 		OAuthClientSecret:   required("PORTAL_OAUTH_CLIENT_SECRET"),
 		ApproverTeam:        get("PORTAL_APPROVER_TEAM"),

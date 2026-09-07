@@ -26,6 +26,14 @@ func main() {
 	mux.HandleFunc("/dashboard", authHandler.RequireAuth(handlers.Dashboard(cfg.GiteaURL)))
 	mux.HandleFunc("/pr/{owner}/{repo}/{number}", authHandler.RequireAuth(
 		handlers.PRReport(cfg.GiteaURL, cfg.WoodpeckerURL, cfg.WoodpeckerToken)))
+	mux.HandleFunc("/onboarding", authHandler.RequireAuth(handlers.OnboardingForm()))
+	mux.HandleFunc("/onboarding/start", authHandler.RequireAuth(
+		handlers.OnboardingStream("../scripts/onboard-repo.sh", []string{
+			"GITEA_URL=" + cfg.GiteaURL,
+			"WOODPECKER_URL=" + cfg.WoodpeckerURL,
+			"GITEA_ADMIN_TOKEN=" + cfg.GiteaAdminToken,
+			"WOODPECKER_TOKEN=" + cfg.WoodpeckerToken,
+		})))
 
 	log.Printf("ssdlc-portal listening on %s", cfg.ListenAddr)
 	log.Fatal(http.ListenAndServe(cfg.ListenAddr, mux))
