@@ -50,6 +50,7 @@ wasn't run this pipeline, is not an error):
     --baseline .ssdlc/baseline.json
 """
 import argparse
+import datetime
 import json
 import os
 import subprocess
@@ -137,6 +138,67 @@ def split_baseline(findings, baseline_pairs):
     return new_findings, baseline_findings
 
 
+def load_exceptions(path, repo, now):
+    """Return a set of finding fingerprints covered by an approved,
+    unexpired exception record scoped to `repo`. Mirrors load_baseline's
+    "missing/malformed collapses to empty, never trusted" discipline
+    exactly -- a missing --exceptions-dir, an unreadable directory, or any
+    individual malformed record file all degrade to "not exempted", the
+    strictly safer failure direction, same as a missing baseline file.
+    """
+    if not path or not os.path.isdir(path):
+        return set()
+    try:
+        entries = os.listdir(path)
+    except OSError as exc:
+        print(f"policy-eval: WARNING: exceptions dir {path} unreadable ({exc}) -- treating as empty", file=sys.stderr)
+        return set()
+
+    fingerprints = set()
+    for name in entries:
+        if not name.endswith(".json"):
+            continue
+        full = os.path.join(path, name)
+        try:
+            with open(full, encoding="utf-8") as fh:
+                record = json.load(fh)
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"policy-eval: WARNING: exception record {full} unreadable ({exc}) -- skipping it, not the whole set", file=sys.stderr)
+            continue
+        if not isinstance(record, dict):
+            print(f"policy-eval: WARNING: exception record {full} is not a JSON object -- skipping it", file=sys.stderr)
+            continue
+        if record.get("repo") != repo or not record.get("approved"):
+            continue
+        fingerprint = record.get("finding_fingerprint")
+        expiry = record.get("expiry")
+        if not isinstance(fingerprint, str) or not isinstance(expiry, str):
+            print(f"policy-eval: WARNING: exception record {full} missing fingerprint/expiry -- skipping it", file=sys.stderr)
+            continue
+        try:
+            expiry_dt = datetime.datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+        except ValueError:
+            print(f"policy-eval: WARNING: exception record {full} has an unparseable expiry -- skipping it", file=sys.stderr)
+            continue
+        if expiry_dt <= now:
+            continue
+        fingerprints.add(fingerprint)
+    return fingerprints
+
+
+def split_exceptions(findings, exception_fingerprints):
+    """Return (remaining, excepted). Secrets are never exempted via an
+    exception either -- DESIGN.md D7's rule, applied here the same way
+    split_baseline already applies it."""
+    remaining, excepted = [], []
+    for f in findings:
+        if f["tool"] != "gitleaks" and f["fingerprint"] in exception_fingerprints:
+            excepted.append(f)
+        else:
+            remaining.append(f)
+    return remaining, excepted
+
+
 def run_conftest(findings):
     """Returns (exit_code_ok, warnings, failures). Conftest needs a real
     file, not stdin, for --output=json to behave predictably -- confirmed
@@ -190,6 +252,8 @@ def main():
     parser.add_argument("--semgrep", default=os.environ.get("SEMGREP_REPORT", "semgrep-report.json"))
     parser.add_argument("--trivy", default=os.environ.get("TRIVY_REPORT", "trivy-report.json"))
     parser.add_argument("--baseline", default=os.environ.get("BASELINE_REPORT", ".ssdlc/baseline.json"))
+    parser.add_argument("--exceptions-dir", default=os.environ.get("EXCEPTIONS_DIR"))
+    parser.add_argument("--repo", default=os.environ.get("CI_REPO"))
     # docs/adr/0025: the fast gate scans "." (Semgrep already returns
     # scan-root-relative paths, so no root is needed there -- the default).
     # A caller whose Semgrep invocation used an absolute or container-
@@ -210,6 +274,10 @@ def main():
     baseline_pairs = load_baseline(args.baseline)
     new_findings, baseline_findings = split_baseline(findings, baseline_pairs)
 
+    now = datetime.datetime.now(datetime.timezone.utc)
+    exception_fingerprints = load_exceptions(args.exceptions_dir, args.repo, now)
+    new_findings, excepted_findings = split_exceptions(new_findings, exception_fingerprints)
+
     by_severity = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     for f in findings:
         by_severity[f["severity"]] = by_severity.get(f["severity"], 0) + 1
@@ -226,6 +294,14 @@ def main():
         )
         for b in baseline_findings:
             print(f"  BASELINE  [{b['tool']}/{b['rule_id']}] {b['file']}:{b.get('line', '?')} -- {b['message']}")
+
+    if exception_fingerprints:
+        print(
+            f"policy-eval: {len(excepted_findings)} finding(s) covered by an approved exception "
+            f"-- not evaluated for blocking"
+        )
+        for e in excepted_findings:
+            print(f"  EXCEPTION  [{e['tool']}/{e['rule_id']}] {e['file']}:{e.get('line', '?')} -- {e['message']}")
 
     _, warnings, failures = run_conftest(new_findings)
 
