@@ -78,6 +78,7 @@ func TestRecordPath_IsDeterministicAndFilesystemSafe(t *testing.T) {
 func TestStore_WriteThenList_RoundTrips(t *testing.T) {
 	const contentsPrefix = "/api/v1/repos/gateadmin/exceptions/contents/"
 	files := map[string][]byte{} // path (relative to contentsPrefix) -> raw content
+	var putCalled bool
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, contentsPrefix) {
@@ -110,6 +111,18 @@ func TestStore_WriteThenList_RoundTrips(t *testing.T) {
 			jsonDecode(r, &body)
 			files[relPath] = base64Decode(body.Content)
 			w.WriteHeader(http.StatusCreated)
+		case http.MethodPut:
+			putCalled = true
+			var body struct {
+				Content string `json:"content"`
+				SHA     string `json:"sha"`
+			}
+			jsonDecode(r, &body)
+			if body.SHA == "" {
+				t.Errorf("PUT for %s must carry the existing record's sha", relPath)
+			}
+			files[relPath] = base64Decode(body.Content)
+			w.WriteHeader(http.StatusOK)
 		default:
 			t.Fatalf("unexpected method %s", r.Method)
 		}
@@ -146,6 +159,34 @@ func TestStore_WriteThenList_RoundTrips(t *testing.T) {
 	}
 	if !got.Expiry.Equal(rec.Expiry) {
 		t.Errorf("Expiry = %v, want %v", got.Expiry, rec.Expiry)
+	}
+
+	// Second Write on the same Repo+FindingFingerprint models the approval
+	// flow (Task 11): RecordPath resolves to the identical file, so this
+	// must issue an HTTP PUT carrying the existing SHA, not a second POST.
+	approved := rec
+	approved.Approved = true
+	approved.Approvers = []string{"bob"}
+	if err := store.Write(context.Background(), approved); err != nil {
+		t.Fatalf("second Write (approval): %v", err)
+	}
+	if !putCalled {
+		t.Error("expected the second Write to issue a PUT against the existing record's path")
+	}
+
+	records, err = store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List after approval: %v", err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("got %d records after approval, want 1 (update must replace, not duplicate)", len(records))
+	}
+	gotApproved := records[0]
+	if !gotApproved.Approved {
+		t.Error("expected Approved=true after the approval Write")
+	}
+	if len(gotApproved.Approvers) != 1 || gotApproved.Approvers[0] != "bob" {
+		t.Errorf("Approvers = %v, want [bob]", gotApproved.Approvers)
 	}
 }
 
