@@ -1,0 +1,27 @@
+# Every shell script in this repo is executed inside a Linux container
+# (docker-entrypoint-initdb.d, gate-bundle/run-container.sh, the Woodpecker
+# pipeline steps) or by a POSIX shell directly. Checked out on a Windows
+# machine with the common `core.autocrlf=true`, a script with no
+# .gitattributes entry is silently converted to CRLF line endings on
+# checkout -- which breaks its shebang the instant something Linux-side
+# tries to run it ("/bin/sh^M: bad interpreter: No such file or directory").
+# Confirmed live: this took down compose/minimal's own Postgres
+# initialization step (init-multi-db.sh) on first launch from a fresh
+# Windows checkout.
+*.sh text eol=lf
+*.py text eol=lf
+
+# YAML pipeline definitions are parsed by Woodpecker server-side; keep them
+# byte-stable across platforms rather than relying on every tool involved
+# tolerating CRLF.
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Config Terraform reads and Rego policy, same reasoning.
+*.tf text eol=lf
+*.rego text eol=lf
+
+# This file exists specifically to stop CRLF creeping into checked-out
+# scripts and config; without its own rule it would be exposed to exactly
+# that on the next checkout.
+.gitattributes text eol=lf

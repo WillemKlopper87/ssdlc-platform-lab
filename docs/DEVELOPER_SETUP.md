@@ -42,8 +42,26 @@ this runs on every commit, not every PR.
 
 ## IDE
 
-No platform-specific IDE requirement exists today. Point your editor's Gitea/git integration at the
-onboarded repo as you would any other Gitea-hosted project.
+No platform-specific IDE requirement exists — this is a standard Gitea remote, so any editor's
+built-in Git support works with no configuration. VS Code specifically:
+
+**Works with no extension at all.** Clone, branch, commit, push and open a PR (via the URL Gitea
+prints after a push) all go through VS Code's built-in Source Control view against this repo's
+Gitea remote exactly as they would against any other git host.
+
+**Optional: the official "Gitea for VSCode" extension** (`gitea.gitea-for-vscode`, VS Code ≥ 1.105,
+also works in Cursor/VSCodium/Windsurf) adds a Pull Requests view — inline diffs, comments, and
+approve/request-changes from the editor — plus a Workflow Runs view for **Gitea Actions**
+specifically. This platform's CI is Woodpecker, not Gitea Actions, so that Workflow Runs view stays
+empty here; it is not where you watch a pipeline. What the extension's PR view *does* surface
+correctly is the PR's Gitea commit status — the same `ssdlc/security-gate/<event>/<workflow>` pass/
+fail check anyone sees on gitea.com/<owner>/<repo>/pulls/<n>, since that's server-side Gitea state,
+not an Actions-specific feature. Configure it against this instance's URL via the extension's
+`gitea-for-vscode.baseUrl` setting (default is `https://gitea.com`) and a personal access token or
+OAuth sign-in.
+
+For the pipeline's own logs — the Semgrep/Trivy/Gitleaks step output the commit status summarizes —
+open the run in Woodpecker's own web UI; nothing in-editor surfaces that today.
 
 ## AI coding assistants (Continue + Ollama)
 
