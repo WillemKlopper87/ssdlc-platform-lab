@@ -2,11 +2,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 
 	"ssdlc-portal/internal/auth"
 	"ssdlc-portal/internal/config"
+	"ssdlc-portal/internal/exceptions"
 	"ssdlc-portal/internal/giteaclient"
 	"ssdlc-portal/internal/handlers"
 )
@@ -14,6 +16,11 @@ import (
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	exceptionsStore := exceptions.NewStore(giteaclient.New(cfg.GiteaURL, cfg.GiteaAdminToken), cfg.ExceptionsRepoOwner, cfg.ExceptionsRepoName)
+	if err := exceptionsStore.Ensure(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 
@@ -47,6 +54,13 @@ func main() {
 			"GITEA_ADMIN_TOKEN=" + cfg.GiteaAdminToken,
 			"WOODPECKER_TOKEN=" + cfg.WoodpeckerToken,
 		}))))
+
+	mux.HandleFunc("/exceptions", authHandler.RequireAuth(
+		handlers.ExceptionsQueue(exceptionsStore, onboardingGitea, cfg.ExceptionsRepoOwner)))
+	mux.HandleFunc("/exceptions/request", authHandler.RequireAuth(handlers.ExceptionRequestForm()))
+	mux.HandleFunc("/exceptions/submit", authHandler.RequireAuth(handlers.ExceptionRequestSubmit(exceptionsStore)))
+	mux.HandleFunc("/exceptions/approve", authHandler.RequireAuth(
+		handlers.ExceptionApprove(exceptionsStore, onboardingGitea, cfg.ApproverTeam, cfg.ExceptionsRepoOwner)))
 
 	log.Printf("ssdlc-portal listening on %s", cfg.ListenAddr)
 	log.Fatal(http.ListenAndServe(cfg.ListenAddr, mux))

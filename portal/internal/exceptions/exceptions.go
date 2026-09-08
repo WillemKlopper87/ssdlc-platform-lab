@@ -25,6 +25,16 @@ type Record struct {
 	Approvers          []string  `json:"approvers"`
 	Ticket             string    `json:"ticket"`
 	Approved           bool      `json:"approved"`
+
+	// Path is the Gitea repo path this record was actually read from
+	// (populated by List). It is deliberately excluded from the persisted
+	// JSON -- it describes where the record lives, not what it is. Write
+	// uses it, when set, to overwrite the exact file a record came from
+	// instead of recomputing RecordPath, so a record whose file predates
+	// (or otherwise doesn't match) the current content-addressed naming
+	// scheme still gets updated in place rather than duplicated under a
+	// second path.
+	Path string `json:"-"`
 }
 
 const maxExpiry = 90 * 24 * time.Hour
@@ -69,7 +79,10 @@ func (s *Store) Ensure(ctx context.Context) error {
 // (used both for the initial request and for the later approval, which
 // updates the same file with Approved=true and an appended approver).
 func (s *Store) Write(ctx context.Context, r Record) error {
-	path := RecordPath(r)
+	path := r.Path
+	if path == "" {
+		path = RecordPath(r)
+	}
 	_, existingSHA, err := s.gitea.GetFileContent(ctx, s.owner, s.repo, path)
 	if err != nil {
 		return fmt.Errorf("exceptions: check existing record: %w", err)
@@ -107,6 +120,7 @@ func (s *Store) List(ctx context.Context) ([]Record, error) {
 		if err := json.Unmarshal(content, &r); err != nil {
 			return nil, fmt.Errorf("exceptions: parse %s: %w", p, err)
 		}
+		r.Path = p
 		out = append(out, r)
 	}
 	return out, nil

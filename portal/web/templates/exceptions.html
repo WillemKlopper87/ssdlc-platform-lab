@@ -1,0 +1,33 @@
+<!-- portal/web/templates/exceptions.html -->
+{{define "content"}}
+<h1 style="font-weight:600;">Exceptions</h1>
+
+<div class="ssdlc-card">
+  <h2 style="font-size:16px; margin-top:0;">Pending approval</h2>
+  {{if not .Pending}}<p style="color:var(--ssdlc-text-3);">Nothing pending.</p>{{end}}
+  {{range .Pending}}
+  <div class="ssdlc-row">
+    <span class="ssdlc-mono" style="color:var(--ssdlc-text-3);">{{.Repo}}</span>
+    <span style="flex:1;">{{.FindingFingerprint}} · requested by {{.Requester}}</span>
+    <span style="color:var(--ssdlc-text-3);">expires {{.Expiry.Format "2006-01-02"}}</span>
+    <form method="post" action="/exceptions/approve" style="display:inline;">
+      <input type="hidden" name="repo" value="{{.Repo}}">
+      <input type="hidden" name="fingerprint" value="{{.FindingFingerprint}}">
+      <button type="submit" class="ssdlc-btn ssdlc-btn-primary" {{if eq .Requester $.Operator}}disabled title="You requested this exception — a different approver is required"{{end}}>Approve</button>
+    </form>
+  </div>
+  {{end}}
+</div>
+
+<div class="ssdlc-card">
+  <h2 style="font-size:16px; margin-top:0;">Active</h2>
+  {{if not .Active}}<p style="color:var(--ssdlc-text-3);">No active exceptions.</p>{{end}}
+  {{range .Active}}
+  <div class="ssdlc-row">
+    <span class="ssdlc-mono" style="color:var(--ssdlc-text-3);">{{.Repo}}</span>
+    <span style="flex:1;">{{.FindingFingerprint}}</span>
+    <span style="color:var(--ssdlc-text-3);">expires {{.Expiry.Format "2006-01-02"}}</span>
+  </div>
+  {{end}}
+</div>
+{{end}}
