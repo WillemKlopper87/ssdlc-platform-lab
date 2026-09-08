@@ -57,10 +57,15 @@ func main() {
 
 	mux.HandleFunc("/exceptions", authHandler.RequireAuth(
 		handlers.ExceptionsQueue(exceptionsStore, onboardingGitea, cfg.ExceptionsRepoOwner)))
-	mux.HandleFunc("/exceptions/request", authHandler.RequireAuth(handlers.ExceptionRequestForm()))
-	mux.HandleFunc("/exceptions/submit", authHandler.RequireAuth(handlers.ExceptionRequestSubmit(exceptionsStore)))
-	mux.HandleFunc("/exceptions/approve", authHandler.RequireAuth(
-		handlers.ExceptionApprove(exceptionsStore, onboardingGitea, cfg.ApproverTeam, cfg.ExceptionsRepoOwner)))
+	mux.HandleFunc("/exceptions/request", authHandler.RequireAuth(handlers.ExceptionRequestForm(onboardingGitea)))
+	mux.HandleFunc("/exceptions/submit", authHandler.RequireAuth(handlers.ExceptionRequestSubmit(exceptionsStore, onboardingGitea)))
+	// Approval is gated behind approver-team membership via the same
+	// RequireTeam middleware /onboarding uses -- ExceptionApprove itself
+	// only enforces the self-approval half of the two-party rule, so the
+	// team-membership half isn't duplicated inline a second time.
+	mux.HandleFunc("/exceptions/approve", authHandler.RequireAuth(handlers.RequireTeam(
+		onboardingGitea, cfg.ExceptionsRepoOwner, cfg.ApproverTeam,
+		handlers.ExceptionApprove(exceptionsStore, onboardingGitea))))
 
 	log.Printf("ssdlc-portal listening on %s", cfg.ListenAddr)
 	log.Fatal(http.ListenAndServe(cfg.ListenAddr, mux))

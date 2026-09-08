@@ -106,7 +106,7 @@ func TestExceptionApprove_RejectsSelfApproval(t *testing.T) {
 	defer srv.Close()
 
 	store := exceptions.NewStore(giteaclient.New(srv.URL, "token"), "gateadmin", "exceptions")
-	handler := ExceptionApprove(store, giteaclient.New(srv.URL, "alice-token"), "security-officers", "gateadmin")
+	handler := ExceptionApprove(store, giteaclient.New(srv.URL, "alice-token"))
 
 	form := url.Values{"repo": {"gateadmin/gate-demo"}, "fingerprint": {"f1"}}
 	req := httptest.NewRequest(http.MethodPost, "/exceptions/approve", strings.NewReader(form.Encode()))
@@ -121,12 +121,19 @@ func TestExceptionApprove_RejectsSelfApproval(t *testing.T) {
 	}
 }
 
+// TestExceptionApprove_RejectsNonApproverTeamMember exercises the full
+// /exceptions/approve route shape -- RequireTeam wrapping ExceptionApprove,
+// exactly as main.go wires it -- rather than calling the bare handler,
+// since the team-membership check now lives entirely in RequireTeam and
+// ExceptionApprove itself no longer performs it (avoiding the duplicate
+// IsOnTeam check the plan calls out).
 func TestExceptionApprove_RejectsNonApproverTeamMember(t *testing.T) {
 	srv := fakeExceptionsGitea(t, "carol", false, map[string]string{"seed1.json": pendingRecordJSON})
 	defer srv.Close()
 
 	store := exceptions.NewStore(giteaclient.New(srv.URL, "token"), "gateadmin", "exceptions")
-	handler := ExceptionApprove(store, giteaclient.New(srv.URL, "carol-token"), "security-officers", "gateadmin")
+	gitea := giteaclient.New(srv.URL, "")
+	handler := RequireTeam(gitea, "gateadmin", "security-officers", ExceptionApprove(store, gitea))
 
 	form := url.Values{"repo": {"gateadmin/gate-demo"}, "fingerprint": {"f1"}}
 	req := httptest.NewRequest(http.MethodPost, "/exceptions/approve", strings.NewReader(form.Encode()))
@@ -141,12 +148,16 @@ func TestExceptionApprove_RejectsNonApproverTeamMember(t *testing.T) {
 	}
 }
 
+// TestExceptionApprove_AcceptsDistinctApproverOnTeam also goes through the
+// RequireTeam-wrapped route (see comment above) to prove the two checks
+// compose correctly end-to-end: a distinct, approver-team member succeeds.
 func TestExceptionApprove_AcceptsDistinctApproverOnTeam(t *testing.T) {
 	srv := fakeExceptionsGitea(t, "bob", true, map[string]string{"seed1.json": pendingRecordJSON})
 	defer srv.Close()
 
 	store := exceptions.NewStore(giteaclient.New(srv.URL, "token"), "gateadmin", "exceptions")
-	handler := ExceptionApprove(store, giteaclient.New(srv.URL, "bob-token"), "security-officers", "gateadmin")
+	gitea := giteaclient.New(srv.URL, "")
+	handler := RequireTeam(gitea, "gateadmin", "security-officers", ExceptionApprove(store, gitea))
 
 	form := url.Values{"repo": {"gateadmin/gate-demo"}, "fingerprint": {"f1"}}
 	req := httptest.NewRequest(http.MethodPost, "/exceptions/approve", strings.NewReader(form.Encode()))
@@ -174,7 +185,7 @@ func TestExceptionApprove_NoSuchPendingExceptionIs404(t *testing.T) {
 	defer srv.Close()
 
 	store := exceptions.NewStore(giteaclient.New(srv.URL, "token"), "gateadmin", "exceptions")
-	handler := ExceptionApprove(store, giteaclient.New(srv.URL, "bob-token"), "security-officers", "gateadmin")
+	handler := ExceptionApprove(store, giteaclient.New(srv.URL, "bob-token"))
 
 	form := url.Values{"repo": {"gateadmin/gate-demo"}, "fingerprint": {"does-not-exist"}}
 	req := httptest.NewRequest(http.MethodPost, "/exceptions/approve", strings.NewReader(form.Encode()))
@@ -193,7 +204,8 @@ func TestExceptionRequestSubmit_RejectsExpiryOver90Days(t *testing.T) {
 	srv := fakeExceptionsGitea(t, "alice", false, map[string]string{})
 	defer srv.Close()
 	store := exceptions.NewStore(giteaclient.New(srv.URL, "token"), "gateadmin", "exceptions")
-	handler := ExceptionRequestSubmit(store)
+	gitea := giteaclient.New(srv.URL, "")
+	handler := ExceptionRequestSubmit(store, gitea)
 
 	form := url.Values{
 		"repo": {"gateadmin/gate-demo"}, "fingerprint": {"f1"}, "severity": {"critical"},
@@ -202,12 +214,62 @@ func TestExceptionRequestSubmit_RejectsExpiryOver90Days(t *testing.T) {
 	}
 	req := httptest.NewRequest(http.MethodPost, "/exceptions/submit", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	ctx := context.WithValue(req.Context(), auth.ContextKeyToken, "alice-token")
+	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
 	handler(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want %d for an expiry more than 90 days out", rec.Code, http.StatusBadRequest)
 	}
+}
+
+// TestExceptionRequestSubmit_IgnoresForgedRequesterField is the regression
+// test for the requester-spoofing gap: a POST claiming to be from "eve"
+// while authenticated as "alice" must be recorded as requested by "alice"
+// -- the session-derived identity -- never the form's claimed value. If
+// the forged value survived into the record, an attacker could request an
+// exception "as" someone else, then approve it themselves under their own
+// (different) username, defeating ExceptionApprove's self-approval check
+// entirely.
+func TestExceptionRequestSubmit_IgnoresForgedRequesterField(t *testing.T) {
+	srv := fakeExceptionsGitea(t, "alice", false, map[string]string{})
+	defer srv.Close()
+	store := exceptions.NewStore(giteaclient.New(srv.URL, "token"), "gateadmin", "exceptions")
+	gitea := giteaclient.New(srv.URL, "")
+	handler := ExceptionRequestSubmit(store, gitea)
+
+	form := url.Values{
+		"repo": {"gateadmin/gate-demo"}, "fingerprint": {"f1"}, "severity": {"critical"},
+		"ticket": {"TICKET-1"}, "requester": {"eve"}, // forged: authenticated caller is "alice"
+		"expiry": {"2026-10-01"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/exceptions/submit", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	ctx := context.WithValue(req.Context(), auth.ContextKeyToken, "alice-token")
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusFound {
+		t.Fatalf("status = %d, body = %s, want 302 redirect on success", rec.Code, rec.Body.String())
+	}
+
+	records, err := store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List after submit: %v", err)
+	}
+	if len(records) != 1 || records[0].Requester != "alice" {
+		t.Errorf("record.Requester = %q, want %q (session identity, not the forged form value)",
+			recordsRequester(records), "alice")
+	}
+}
+
+func recordsRequester(records []exceptions.Record) string {
+	if len(records) == 0 {
+		return "<no records>"
+	}
+	return records[0].Requester
 }
 
 func TestExceptionsQueue_SeparatesPendingAndActive(t *testing.T) {

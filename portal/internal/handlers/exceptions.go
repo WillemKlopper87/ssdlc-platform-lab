@@ -20,26 +20,57 @@ var exceptionRequestTmpl = template.Must(template.ParseFiles(
 	filepath.Join(templateDir, "layout.html"), filepath.Join(templateDir, "exception_request.html"),
 ))
 
-func ExceptionRequestForm() http.HandlerFunc {
+// ExceptionRequestForm renders the request form, pre-filling Operator from
+// the caller's authenticated session (via their own token, like
+// ExceptionApprove and ExceptionsQueue do) purely for display -- it is
+// never trusted as the identity that gets written; ExceptionRequestSubmit
+// re-derives it independently from the session on submit.
+func ExceptionRequestForm(gitea *giteaclient.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var operator string
+		if token, ok := auth.TokenFromContext(r.Context()); ok {
+			caller := giteaclient.New(gitea.BaseURL(), token)
+			if username, err := caller.Username(r.Context()); err == nil {
+				operator = username
+			}
+		}
 		data := struct {
 			ActiveNav   string
 			Operator    string
 			Repo        string
 			Fingerprint string
-		}{ActiveNav: "exceptions", Repo: r.URL.Query().Get("repo"), Fingerprint: r.URL.Query().Get("fingerprint")}
+		}{ActiveNav: "exceptions", Operator: operator, Repo: r.URL.Query().Get("repo"), Fingerprint: r.URL.Query().Get("fingerprint")}
 		if err := exceptionRequestTmpl.ExecuteTemplate(w, "layout", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
 }
 
-func ExceptionRequestSubmit(store *exceptions.Store) http.HandlerFunc {
+// ExceptionRequestSubmit derives Requester from the caller's own
+// authenticated session -- never from the submitted form -- so a POST
+// can't forge a different requester identity. That forgery would
+// otherwise defeat ExceptionApprove's two-party rule entirely: approve
+// the exception under your real account, but have "requested" it under
+// someone else's forged name, and the self-approval check
+// (approver == target.Requester) would never trip.
+func ExceptionRequestSubmit(store *exceptions.Store, gitea *giteaclient.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "bad form", http.StatusBadRequest)
 			return
 		}
+		token, ok := auth.TokenFromContext(r.Context())
+		if !ok || token == "" {
+			http.Error(w, "not authenticated", http.StatusForbidden)
+			return
+		}
+		caller := giteaclient.New(gitea.BaseURL(), token)
+		requester, err := caller.Username(r.Context())
+		if err != nil {
+			http.Error(w, "could not identify requester: "+err.Error(), http.StatusBadGateway)
+			return
+		}
+
 		expiry, err := time.Parse("2006-01-02", r.FormValue("expiry"))
 		if err != nil {
 			http.Error(w, "invalid expiry date: "+err.Error(), http.StatusBadRequest)
@@ -55,7 +86,7 @@ func ExceptionRequestSubmit(store *exceptions.Store) http.HandlerFunc {
 			FindingFingerprint: r.FormValue("fingerprint"),
 			Severity:           r.FormValue("severity"),
 			Expiry:             expiry,
-			Requester:          r.FormValue("requester"),
+			Requester:          requester,
 			Ticket:             r.FormValue("ticket"),
 			Approved:           false,
 		}
@@ -67,11 +98,15 @@ func ExceptionRequestSubmit(store *exceptions.Store) http.HandlerFunc {
 	}
 }
 
-// ExceptionApprove enforces the two-party rule server-side: the approver
-// must not be the requester, and must belong to approverTeam (read live
-// from Gitea via the approver's OWN token, never cached) -- this is the
-// actual security property the whole feature exists for.
-func ExceptionApprove(store *exceptions.Store, gitea *giteaclient.Client, approverTeam, org string) http.HandlerFunc {
+// ExceptionApprove enforces the requester-cannot-approve-their-own-request
+// half of the two-party rule. The other half -- approver-team membership --
+// is NOT checked here: it is enforced by wrapping this handler in
+// handlers.RequireTeam (Task 7) at the routing layer in main.go, exactly
+// like /onboarding already does, rather than duplicating RequireTeam's
+// IsOnTeam check inline a second time. That's also why this signature no
+// longer takes approverTeam/org -- RequireTeam owns that check and those
+// parameters entirely.
+func ExceptionApprove(store *exceptions.Store, gitea *giteaclient.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "bad form", http.StatusBadRequest)
@@ -110,11 +145,6 @@ func ExceptionApprove(store *exceptions.Store, gitea *giteaclient.Client, approv
 		}
 		if approver == target.Requester {
 			http.Error(w, "the requester cannot also approve their own exception", http.StatusForbidden)
-			return
-		}
-		onTeam, err := caller.IsOnTeam(r.Context(), org, approverTeam)
-		if err != nil || !onTeam {
-			http.Error(w, "approver is not a member of the "+approverTeam+" team", http.StatusForbidden)
 			return
 		}
 
