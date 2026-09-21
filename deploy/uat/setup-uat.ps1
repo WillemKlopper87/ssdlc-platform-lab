@@ -73,9 +73,19 @@ function Merge-Output($lines) {
     Save-Env
 }
 function New-Secret([int]$len = 24) {
+    # GetInt32 is .NET Core only; Windows PowerShell 5.1 needs GetBytes.
+    # Rejection sampling keeps the choice unbiased (chars.Length = 57).
     $chars = [char[]]('abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789')
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    $limit = 256 - (256 % $chars.Length)
+    $buf = New-Object byte[] 1
     do {
-        $s = -join (1..$len | ForEach-Object { $chars[[Security.Cryptography.RandomNumberGenerator]::GetInt32($chars.Length)] })
+        $sb = New-Object Text.StringBuilder
+        while ($sb.Length -lt $len) {
+            $rng.GetBytes($buf)
+            if ($buf[0] -lt $limit) { [void]$sb.Append($chars[$buf[0] % $chars.Length]) }
+        }
+        $s = $sb.ToString()
     } until ($s -cmatch '[a-z]' -and $s -cmatch '[A-Z]' -and $s -match '\d')
     $s
 }
