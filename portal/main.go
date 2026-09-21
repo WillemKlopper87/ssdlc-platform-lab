@@ -28,6 +28,11 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+	// Bare "/" has no page of its own; send visitors to the dashboard (which
+	// itself redirects to Gitea sign-in when there is no session).
+	mux.HandleFunc("/{$}", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/dashboard", http.StatusFound)
+	})
 	mux.HandleFunc("/login", authHandler.Login)
 	mux.HandleFunc("/oauth/callback", authHandler.Callback)
 	mux.HandleFunc("/logout", authHandler.Logout)
