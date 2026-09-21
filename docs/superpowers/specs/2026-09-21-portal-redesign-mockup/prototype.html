@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SSDLC Portal - interactive prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:oklch(0.165 0.012 265);--surface:oklch(0.198 0.013 265);--surface2:oklch(0.24 0.012 265);
+  --border:oklch(0.27 0.012 265);--border2:oklch(0.32 0.012 265);
+  --t1:oklch(0.9 0.008 265);--t2:oklch(0.74 0.01 265);--t3:oklch(0.6 0.012 265);--t4:oklch(0.5 0.012 265);
+  --ok:oklch(0.72 0.15 152);--ok-bg:oklch(0.25 0.05 152);
+  --crit:oklch(0.66 0.17 22);--crit-bg:oklch(0.25 0.06 22);
+  --warn:oklch(0.78 0.13 68);--warn-bg:oklch(0.26 0.05 68);
+  --acc:oklch(0.7 0.14 258);--acc-bg:oklch(0.28 0.06 258);
+  --bot:oklch(0.72 0.13 300);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--t1);font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-size:14px}
+code,.mono{font-family:'IBM Plex Mono',monospace}
+button{font:inherit;color:inherit;cursor:pointer}
+.shell{display:flex;min-height:100vh}
+aside{width:236px;flex:none;background:var(--surface);border-right:1px solid var(--border);padding:18px 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{padding:0 20px 18px;font-weight:600;font-size:16px;display:flex;gap:10px;align-items:center}
+.brand i{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--acc),var(--bot));display:inline-block}
+nav a{display:flex;align-items:center;gap:10px;padding:10px 20px;color:var(--t2);text-decoration:none;cursor:pointer;border-left:3px solid transparent;transition:.15s}
+nav a:hover{background:var(--surface2);color:var(--t1)}
+nav a.on{color:var(--t1);background:var(--surface2);border-left-color:var(--acc)}
+nav .ico{width:18px;text-align:center;opacity:.9}
+.badge{margin-left:auto;background:var(--acc);color:#0b1020;border-radius:10px;font-size:11px;font-weight:600;padding:1px 7px}
+.help-hero{background:linear-gradient(135deg,var(--acc-bg),var(--surface));border:1px solid var(--border2);border-radius:14px;padding:26px 28px;margin-bottom:8px}
+.help-hero input{max-width:520px;margin-top:12px;padding:11px 14px;font-size:15px}
+.qs{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.qs .step{margin:0;color:var(--t2)}
+.qs .step .n{flex:none}
+.topic{border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:8px;overflow:hidden;transition:.15s}
+.topic:hover{border-color:var(--border2)}
+.topic .q{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;font-weight:500}
+.topic .q .car{margin-left:auto;transition:.2s;color:var(--t3)}
+.topic.open .q .car{transform:rotate(90deg)}
+.topic .a{max-height:0;overflow:hidden;transition:max-height .3s ease;color:var(--t2);line-height:1.65;padding:0 16px}
+.topic.open .a{max-height:420px;padding:0 16px 14px}
+.tag{font-size:11px;border:1px solid var(--border2);border-radius:5px;padding:0 6px;color:var(--t3)}
+.kb{display:inline-block;border:1px solid var(--border2);border-bottom-width:2px;border-radius:5px;padding:0 7px;font-size:12px;background:var(--bg);margin:0 2px}
+.ai{border:1px solid var(--bot);border-radius:12px;padding:14px 16px;margin-top:16px;background:linear-gradient(180deg,oklch(0.24 0.05 300/.55),var(--surface))}
+.ai .hd{display:flex;align-items:center;gap:8px;font-weight:600}
+.ai .beta{font-size:10px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--bot);color:var(--bot);border-radius:5px;padding:0 5px}
+.ai .meta{font-size:11.5px;color:var(--t3);margin-top:6px}
+.ai .warn{font-size:12px;color:var(--warn);margin-top:10px}
+.spin{width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--bot);border-radius:50%;display:inline-block;animation:sp .8s linear infinite;vertical-align:-3px;margin-right:8px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.shim{height:10px;border-radius:5px;margin:8px 0;background:linear-gradient(90deg,var(--surface2),var(--border2),var(--surface2));background-size:200% 100%;animation:shim 1.2s infinite}
+@keyframes shim{from{background-position:200% 0}to{background-position:-200% 0}}
+.diff .rm{background:var(--crit-bg);color:oklch(0.82 0.08 22)}.diff .ad{background:var(--ok-bg);color:var(--ok)}
+.diff .ln{padding:0 12px}
+.launch{margin-top:auto}.role{padding:14px 16px;border-top:1px solid var(--border)}
+.role label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.seg{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-top:6px;overflow:hidden}
+.seg button{flex:1;background:none;border:0;padding:7px 4px;font-size:12px;color:var(--t3)}
+.seg button.on{background:var(--acc-bg);color:var(--t1)}
+main{flex:1;min-width:0;padding:26px 34px 60px;max-width:1240px}
+.top{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.top h1{font-size:22px;margin:0;font-weight:600}
+.top .sub{color:var(--t3)}
+.search{margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--t3);min-width:230px;display:flex;justify-content:space-between;cursor:pointer}
+.kbd{border:1px solid var(--border2);border-radius:5px;padding:0 6px;font-size:11px;color:var(--t3)}
+.grid{display:grid;gap:16px}
+.g4{grid-template-columns:repeat(4,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:1.6fr 1fr}
+@media(max-width:1000px){.g4{grid-template-columns:repeat(2,1fr)}.g2,.g3{grid-template-columns:1fr}aside{width:190px}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;transition:.18s}
+.card.hover:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stat{cursor:pointer;position:relative;overflow:hidden}
+.stat .n{font-size:30px;font-weight:600;letter-spacing:-.02em}
+.stat .l{color:var(--t3);font-size:12px;margin-top:2px}
+.stat svg{position:absolute;right:10px;bottom:10px;opacity:.9}
+h2{font-size:15px;margin:26px 0 12px;font-weight:600;display:flex;align-items:center;gap:10px}
+h2 .lnk{margin-left:auto;font-weight:400;font-size:13px;color:var(--acc);cursor:pointer}
+.att{display:flex;align-items:center;gap:12px;border-radius:10px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);border-left-width:4px;background:var(--surface);animation:in .35s both}
+.att.c{border-left-color:var(--crit)}.att.w{border-left-color:var(--warn)}.att.a{border-left-color:var(--acc)}
+.att .t{flex:1}.att .t small{display:block;color:var(--t3);margin-top:2px}
+.btn{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;transition:.15s}
+.btn:hover{background:var(--border)}
+.btn.pri{background:var(--acc);color:#0b1020;border-color:var(--acc);font-weight:500}
+.btn.pri:hover{filter:brightness(1.1)}
+.btn.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.btn.no{background:var(--crit-bg);border-color:var(--crit);color:var(--crit)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.chip{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.02em}
+.s-critical{background:oklch(0.95 0.04 22);color:oklch(0.42 0.14 22)}
+.s-high{background:oklch(0.92 0.08 78);color:oklch(0.42 0.09 68)}
+.s-medium{background:oklch(0.82 0.008 265);color:oklch(0.3 0.012 265)}
+.s-low{background:oklch(0.72 0.008 265);color:oklch(0.27 0.012 265)}
+.st{border-radius:999px;padding:2px 10px;font-size:12px}
+.st-open{background:var(--crit-bg);color:var(--crit)}.st-requested{background:var(--warn-bg);color:var(--warn)}
+.st-accepted{background:var(--ok-bg);color:var(--ok)}.st-declined{background:var(--crit-bg);color:var(--crit)}.st-fixed{background:var(--ok-bg);color:var(--ok)}
+.st-blocked{background:var(--crit-bg);color:var(--crit)}.st-passed{background:var(--ok-bg);color:var(--ok)}.st-healthy{background:var(--ok-bg);color:var(--ok)}
+table{width:100%;border-collapse:collapse}
+th{font-weight:500;color:var(--t3);font-size:12px;text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);cursor:default}
+th.s{cursor:pointer}th.s:hover{color:var(--t1)}
+td{padding:11px 12px;border-bottom:1px solid var(--border)}
+tbody tr{transition:.12s;cursor:pointer}tbody tr:hover{background:var(--surface2)}
+.bar{height:6px;background:var(--bg);border-radius:4px;overflow:hidden;min-width:90px}
+.bar i{display:block;height:100%;border-radius:4px;width:0;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin:6px 0 16px}
+.tabs button{background:none;border:0;padding:9px 14px;color:var(--t3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--t1);border-bottom-color:var(--acc)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.fc{background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:13px;color:var(--t2);transition:.12s}
+.fc:hover{border-color:var(--border2)}.fc.on{background:var(--acc-bg);border-color:var(--acc);color:var(--t1)}
+input[type=text],textarea{background:var(--bg);border:1px solid var(--border2);border-radius:8px;color:var(--t1);padding:9px 11px;font:inherit;width:100%}
+input:focus,textarea:focus{outline:2px solid var(--acc-bg);border-color:var(--acc)}
+.drawer-bg{position:fixed;inset:0;background:#0008;opacity:0;pointer-events:none;transition:.2s;z-index:20}
+.drawer-bg.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(860px,96vw);background:var(--surface);border-left:1px solid var(--border2);transform:translateX(102%);transition:transform .28s cubic-bezier(.2,.8,.2,1);z-index:21;overflow:auto;padding:24px 28px}
+.drawer.on{transform:none}
+.codebox{background:var(--bg);border:1px solid var(--border);border-radius:9px;overflow:hidden;font-size:12.5px}
+.codebox .fn{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--t3)}
+.codebox pre{margin:0;padding:8px 0}
+.codebox .ln{display:block;padding:0 12px;white-space:pre}
+.codebox .ln b{color:var(--t4);font-weight:400;display:inline-block;width:28px}
+.codebox .hit{background:var(--crit-bg);border-left:3px solid var(--crit);padding-left:9px}
+.side{border-left:1px solid var(--border);padding-left:20px}
+.row2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(210px,1fr);gap:24px}.row2>*{min-width:0}.codebox pre{overflow-x:auto}
+@media(max-width:900px){.row2{grid-template-columns:1fr}.side{border:0;padding:0}}
+.tl{margin:0;padding:0;list-style:none}
+.tl li{padding:0 0 12px 20px;position:relative;color:var(--t2)}
+.tl li:before{content:"";position:absolute;left:3px;top:6px;width:9px;height:9px;border-radius:50%;background:var(--acc)}
+.tl li:after{content:"";position:absolute;left:7px;top:16px;bottom:-2px;width:1px;background:var(--border2)}
+.tl li:last-child:after{display:none}
+.toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,30px);background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:11px 18px;opacity:0;transition:.3s;z-index:40;box-shadow:0 8px 30px #0006}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.pal-bg{position:fixed;inset:0;background:#000a;display:none;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:50}
+.pal-bg.on{display:flex}
+.pal{width:min(560px,92vw);background:var(--surface);border:1px solid var(--border2);border-radius:12px;overflow:hidden}
+.pal input{border:0;border-bottom:1px solid var(--border);border-radius:0;padding:14px 16px;font-size:15px}
+.pal .it{padding:10px 16px;cursor:pointer;display:flex;gap:10px}
+.pal .it.on,.pal .it:hover{background:var(--surface2)}
+.empty{text-align:center;padding:38px 10px;color:var(--t2)}
+.empty .big{font-size:38px;animation:pop .6s both}
+.hl{display:flex;gap:10px;align-items:center;margin:6px 0}.dot{width:9px;height:9px;border-radius:50%;background:var(--ok);display:inline-block}
+.pulse{animation:pulse 2s infinite}
+.step{display:flex;gap:10px;align-items:center;color:var(--t3);margin:0 0 6px}
+.step .n{width:24px;height:24px;border-radius:50%;background:var(--surface2);display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+.step.on{color:var(--t1)}.step.on .n{background:var(--acc);color:#0b1020}.step.done .n{background:var(--ok);color:#0b1020}.step>span{flex:1;min-width:0;line-height:1.5}.step b:not(.n){color:var(--t1);font-weight:600}
+.repo{border:1px solid var(--border);border-radius:9px;padding:11px 14px;margin:6px 0;cursor:pointer;display:flex;gap:10px;align-items:center;transition:.12s}
+.repo:hover{border-color:var(--border2)}.repo.on{border-color:var(--acc);background:var(--acc-bg)}
+.log{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:12px;min-height:150px;font-size:12.5px;line-height:1.8}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 oklch(0.72 0.15 152/.6)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.muted{color:var(--t3)}.right{margin-left:auto}
+a.ext{color:var(--acc);text-decoration:none;font-size:12px;white-space:nowrap;border:1px solid var(--border2);border-radius:6px;padding:2px 7px;display:inline-block;margin-right:4px}
+a.ext:hover{background:var(--acc-bg);border-color:var(--acc)}
+a.ext.big{font-size:13px;padding:6px 11px;border-radius:8px}
+.launch{padding:12px 16px;border-top:1px solid var(--border)}
+.launch label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.launch a{display:flex;justify-content:space-between;color:var(--t2);text-decoration:none;padding:6px 0}
+.launch a:hover{color:var(--t1)}
+.gr{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;font-weight:700;font-size:14px}
+.gr-A{background:var(--ok-bg);color:var(--ok)}.gr-B{background:oklch(0.27 0.06 130);color:oklch(0.78 0.14 130)}
+.gr-C{background:var(--warn-bg);color:var(--warn)}.gr-D{background:oklch(0.27 0.07 45);color:oklch(0.74 0.15 45)}.gr-F{background:var(--crit-bg);color:var(--crit)}
+.st-falsepos{background:var(--surface2);color:var(--t3)}
+.sla{font-size:12px;white-space:nowrap}
+.sla.late{color:var(--crit);font-weight:600}.sla.soon{color:var(--warn)}
+.flags{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 14px}
+.flag{border:1px solid var(--border2);border-radius:6px;padding:2px 8px;font-size:12px;color:var(--t4)}
+.flag.on{background:var(--acc-bg);border-color:var(--acc);color:var(--t1)}
+.flag.bad{background:var(--crit-bg);border-color:var(--crit);color:var(--crit)}.flag.good{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.bulk{position:sticky;top:10px;z-index:5;background:var(--acc-bg);border:1px solid var(--acc);border-radius:10px;padding:10px 14px;display:flex;gap:10px;align-items:center;margin-bottom:12px;animation:in .25s both;box-shadow:0 6px 24px #0005}
+.bulk input[type=text]{max-width:260px;padding:6px 9px}
+input[type=checkbox]{width:16px;height:16px;accent-color:var(--acc);cursor:pointer}
+
+.ring text{fill:var(--t1);font-size:11px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="brand"><i></i>SSDLC</div>
+    <nav id="nav"></nav>
+    <div class="launch"><label>Quick launch</label>
+      <a href="http://192.168.1.28:3500" target="_blank" rel="noopener">Gitea (code, PRs) <span>↗</span></a>
+      <a href="http://192.168.1.28:8000" target="_blank" rel="noopener">Woodpecker (CI) <span>↗</span></a></div>
+    <div class="role">
+      <label>Viewing as</label>
+      <div class="seg" id="roleSeg">
+        <button data-r="dev">Developer</button><button data-r="approver">Approver</button><button data-r="admin">Admin</button>
+      </div>
+      <div class="muted" style="margin-top:8px;font-size:12px" id="who"></div>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+
+<div class="drawer-bg" id="dbg"></div>
+<div class="drawer" id="drawer"></div>
+<div class="toast" id="toast"></div>
+<div class="pal-bg" id="palbg"><div class="pal"><input id="palin" type="text" placeholder="Jump to a page, project or issue..."><div id="palres"></div></div></div>
+
+<script>
+// ---------- data ----------
+const USERS={dev:'dev2',approver:'dev1',admin:'gateadmin'};
+const SEVRANK={critical:0,high:1,medium:2,low:3};
+const projects=[
+ {name:'pilot-app',desc:'Customer login service',owner:'dev2',trend:[9,8,8,7,7,6,6,5,5,5,4,4,4,3]},
+ {name:'billing',desc:'Invoices and payments',owner:'dev3',trend:[4,4,5,5,4,4,3,3,3,3,2,2,2,2]},
+ {name:'web',desc:'Public website',owner:'dev1',trend:[2,2,2,1,1,1,1,1,1,0,0,0,0,0]},
+];
+const prs=[
+ {n:3,project:'pilot-app',title:'Add login form',author:'dev2',age:'2h ago'},
+ {n:2,project:'pilot-app',title:'Update dependencies',author:'dev3',age:'1d ago'},
+ {n:7,project:'billing',title:'Invoice export',author:'dev3',age:'5h ago'},
+ {n:12,project:'web',title:'Footer links',author:'dev1',age:'3d ago'},
+];
+const issues=[
+ {id:118,sev:'critical',title:'Hard-coded AWS access key',project:'pilot-app',where:'PR 3',author:'dev2',file:'config.py',line:5,tool:'gitleaks',status:'open',
+  code:['import os','','def connect():','    AWS_KEY = "AKIAIOSFODNN7EXAMPLE"','    return client(AWS_KEY)'],hit:3,
+  why:'A leaked access key lets anyone who can read this repository act as your AWS account. Keys committed to git stay in history even after deletion.',
+  fix:'Delete the key from the code, rotate it in AWS now, and load the new one from a secret store or environment variable.',
+  fixcode:'AWS_KEY = os.environ["AWS_KEY"]'},
+ {id:121,sev:'high',title:'SQL injection in invoice search',project:'billing',where:'PR 7',author:'dev3',file:'search.py',line:42,tool:'semgrep',status:'requested',requester:'dev3',reason:'Input is validated upstream by the gateway.',expires:30,
+  code:['def find(term):','    sql = "SELECT * FROM invoices WHERE name = \'" + term + "\'"','    return db.execute(sql)'],hit:1,
+  why:'User input is concatenated into a query, so an attacker can change what the query does and read or delete other customers\' data.',
+  fix:'Use a parameterised query so the database treats the input as data, never as SQL.',
+  fixcode:'db.execute("SELECT * FROM invoices WHERE name = %s", (term,))'},
+ {id:123,sev:'medium',title:'Weak hash function (md5)',project:'pilot-app',where:'PR 3',author:'dev2',file:'tokens.py',line:12,tool:'semgrep',status:'requested',requester:'dev2',reason:'Used only for cache keys in test code, no user data.',expires:30,
+  code:['import hashlib','def cache_key(s):','    return hashlib.md5(s.encode()).hexdigest()'],hit:2,
+  why:'MD5 is broken for security use: different inputs can be crafted to produce the same hash.',
+  fix:'Use SHA-256 (or a keyed hash if the value must not be guessable).',fixcode:'hashlib.sha256(s.encode()).hexdigest()'},
+ {id:109,sev:'high',title:'flask 0.12 has known vulnerabilities (CVE-2018-1000656)',project:'pilot-app',where:'PR 3',author:'dev2',file:'requirements.txt',line:1,tool:'trivy',status:'open',
+  code:['flask==0.12','requests==2.31.0'],hit:0,
+  why:'This version of Flask can be made to consume excessive resources with crafted JSON, taking the service down.',
+  fix:'Upgrade to Flask 2.2.5 or later and re-run the tests.',fixcode:'flask>=2.2.5'},
+ {id:97,sev:'medium',title:'Cookie missing Secure flag',project:'web',where:'main',author:'dev1',file:'session.py',line:8,tool:'semgrep',status:'accepted',requester:'dev2',reason:'Site is internal-only over VPN.',expires:21,
+  code:['resp.set_cookie("sid", token)'],hit:0,
+  why:'Without the Secure flag the browser may send the session cookie over plain HTTP.',fix:'Pass secure=True (and httponly=True).',fixcode:'resp.set_cookie("sid", token, secure=True, httponly=True)'},
+ {id:88,sev:'low',title:'Verbose error message reveals stack trace',project:'pilot-app',where:'baseline',author:'-',file:'errors.py',line:30,tool:'semgrep',status:'open',baseline:true,
+  code:['return str(traceback.format_exc())'],hit:0,why:'Stack traces show internals to attackers.',fix:'Log the trace, return a generic message.',fixcode:'return "Something went wrong"'},
+ {id:85,sev:'low',title:'Debug mode enabled',project:'billing',where:'baseline',author:'-',file:'app.py',line:3,tool:'semgrep',status:'open',baseline:true,
+  code:['app.run(debug=True)'],hit:0,why:'Debug mode exposes an interactive console.',fix:'Disable debug outside local development.',fixcode:'app.run(debug=False)'},
+];
+const AGE={118:1,121:5,123:1,109:9,97:12,88:400,85:300};
+const SLA={critical:2,high:7,medium:30,low:90};
+const TOPICS=[
+ {id:'blocked',q:'Why was my pull request blocked?',roles:['Developer'],a:'The gate found at least one <b>new Critical or High</b> issue in the code you changed. Open the pull request in the portal to see each issue, why it matters and how to fix it. Existing problems in the <b>baseline</b> never block you. The PR unblocks automatically once the issues are fixed or an exception is approved.',go:'issues:blocking',goLabel:'Show blocked issues'},
+ {id:'fix',q:'How do I fix an issue?',roles:['Developer'],a:'Open the issue: the panel shows the exact line, an explanation and a suggested change you can copy. Push the fix to your branch and the gate runs again in about a minute. If the fix is not possible right now, request an exception instead.',go:'issues',goLabel:'Open Issues'},
+ {id:'exception',q:'When should I request an exception?',roles:['Developer'],a:'Only when an issue is real but acceptable for now, for example test-only code or a control that exists elsewhere. Explain <b>why</b>, choose an expiry (7 to 90 days) and send it. It needs one approver who is not you, and it always expires, after which the issue blocks again.'},
+ {id:'approve',q:'Who can approve my exception?',roles:['Developer','Approver'],a:'Anyone in the <b>approvers</b> team except the person who asked. You can never approve your own request; the buttons are replaced by "Waiting for another approver". Approvers see a badge next to Exceptions in the sidebar.'},
+ {id:'review',q:'How do I review an exception?',roles:['Approver'],a:'Open <b>Exceptions</b> then <b>Waiting for me</b>. Read the reason and check the issue (Open issue). Approve if the risk is understood and temporary, decline if it should be fixed. You can also decide from the issue panel, or handle several at once with the checkboxes on the Issues list.',go:'exceptions',goLabel:'Open the queue'},
+ {id:'setup',q:'How do I add a project to the gate?',roles:['Admin'],a:'Go to <b>Admin</b> then <b>Set up a project</b>. Pick a repository, review what will be added (pipeline, baseline scan, branch protection) and run setup. It takes a couple of minutes and ends with a link to the new project page.',go:'admin',goLabel:'Set up a project'},
+ {id:'grade',q:'What do the letter grades mean?',roles:['Developer','Approver','Admin'],a:'Each project gets a grade from its open issues, weighted by severity: <b>A</b> is 90 or above, <b>B</b> 75, <b>C</b> 60, <b>D</b> 40 and <b>F</b> below 40. One open Critical issue is enough to drop a project to a D or F, which is intentional.'},
+ {id:'sla',q:'What is the "fix within" countdown?',roles:['Developer','Approver','Admin'],a:'Each severity has a target: Critical 2 days, High 7, Medium 30, Low 90. The clock starts when the issue is first found. Overdue issues turn red. The clock pauses while an approved exception is in force and does not apply to baseline issues.'},
+ {id:'baseline',q:'What is the baseline?',roles:['Developer','Approver','Admin'],a:'When a project joins the gate, everything already in the code is recorded as the baseline. It never blocks merges, and it can only shrink: you cannot add to it. Secrets are never baselined. You can hide baseline issues from the Issues list with one click.'},
+ {id:'fp',q:'What does "false positive" mean?',roles:['Approver'],a:'The scanner reported something that is not actually a problem. An approver can mark an issue as a false positive from its panel. It is recorded in the history and the issue stops counting.'},
+ {id:'signin',q:'Do I need to sign in again for Gitea or Woodpecker?',roles:['Developer','Approver','Admin'],a:'No separate account is needed: it is the same Gitea account. The links open in a new tab. If Woodpecker asks you to authorise the first time, click <b>Authorize</b> once. After that it signs you in automatically.'},
+ {id:'ai',q:'What is the AI suggestion on an issue?',roles:['Developer','Approver','Admin'],a:'An optional helper that proposes a rewrite of the flagged code using a <b>small model running on your own server</b>. Your code never leaves the platform, and secret values are removed before anything is sent. It is a suggestion only: read it, test it, and remember it can be wrong. It never affects whether a pull request passes.'},
+ {id:'keys',q:'Keyboard shortcuts',roles:['Developer','Approver','Admin'],a:'<span class="kb">Ctrl</span><span class="kb">K</span> jump to any page, project or issue &nbsp; <span class="kb">/</span> filter the current list &nbsp; <span class="kb">Esc</span> close a panel.'},
+];
+const AIDATA={
+ 118:{note:'Secrets were redacted before the request: 1 value hidden. The rewrite uses an environment variable, so the key never lives in code.',why:'Reading the value at runtime keeps it out of git history. Rotating the leaked key is still required, because deleting it from the code does not remove it from past commits.',rm:['AWS_KEY = "<redacted>"'],ad:['AWS_KEY = os.environ["AWS_KEY"]  # set from your secret store','if not AWS_KEY:','    raise RuntimeError("AWS_KEY is not configured")']},
+ 121:{note:'No secrets found in the snippet.',why:'A parameterised query sends the value separately from the SQL text, so it can never be interpreted as SQL. This also removes the manual quote handling.',rm:['sql = "SELECT * FROM invoices WHERE name = \'" + term + "\'"','return db.execute(sql)'],ad:['return db.execute(','    "SELECT * FROM invoices WHERE name = %s", (term,)',')']},
+ 123:{note:'No secrets found in the snippet.',why:'SHA-256 is fine for cache keys and has no known collision attacks. If the key must not be guessable, use HMAC with a secret instead.',rm:['return hashlib.md5(s.encode()).hexdigest()'],ad:['return hashlib.sha256(s.encode()).hexdigest()']},
+ 109:{note:'No secrets found in the snippet.',why:'Flask 2.2.5 fixes the reported issue. Check the release notes for removed APIs, then run your tests before merging.',rm:['flask==0.12'],ad:['flask>=2.2.5']},
+};
+const activity=[
+ ['dev3','requested an exception for SQL injection in billing','12 min ago'],
+ ['gate-bot','approved PR 2 in pilot-app (gate passed)','1 h ago'],
+ ['dev2','opened PR 3 in pilot-app','2 h ago'],
+ ['gateadmin','set up project web','1 d ago'],
+];
+const repos=['gateadmin/gate-demo','ssdlc/inventory-api','ssdlc/mobile-app','ssdlc/docs-site'];
+
+const URLS={gitea:'http://192.168.1.28:3500',wp:'http://192.168.1.28:8000'};
+const ext=(href,label,cls='')=>`<a class="ext ${cls}" href="${href}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${label} ↗</a>`;
+const gRepo=n=>`${URLS.gitea}/ssdlc/${n}`, wRepo=n=>`${URLS.wp}/repos/ssdlc/${n}`;
+const S={role:'approver',view:'overview',project:null,ptab:'prs',sev:new Set(),stat:new Set(),q:'',sort:'sev',dir:1,drawer:null,extab:'wait',
+  setup:{step:1,repo:null,log:[],running:false,done:false},showBase:true,sel:new Set(),bulkReason:'',hq:'',hopen:new Set(['blocked']),ai:{},aiOn:true};
+
+// ---------- helpers ----------
+const $=(s,e=document)=>e.querySelector(s);
+const me=()=>USERS[S.role], isAppr=()=>S.role!=='dev';
+const openish=i=>['open','requested','declined'].includes(i.status);
+function slaInfo(i){if(i.baseline)return{t:'n/a (baseline)',c:'',pct:0,left:null};
+  if(i.status==='accepted')return{t:'paused (accepted)',c:'',pct:0,left:null};
+  if(!openish(i))return{t:'done',c:'',pct:100,left:null};
+  const left=SLA[i.sev]-AGE[i.id],c=left<0?'late':left<=2?'soon':'';
+  return{t:left<0?(-left)+'d overdue':left+'d left of '+SLA[i.sev]+'d',c,pct:Math.max(0,Math.min(100,(AGE[i.id]/SLA[i.sev])*100)),left}}
+const sla=i=>{const x=slaInfo(i);return `<span class="sla ${x.c}">${x.t}</span>`};
+function grade(n){const c=counts(n),sc=100-c.critical*35-c.high*18-c.medium*6-c.low*2;return sc>=90?'A':sc>=75?'B':sc>=60?'C':sc>=40?'D':'F'}
+const gr=n=>{const g=grade(n);return `<span class="gr gr-${g}" title="Security grade ${g}">${g}</span>`};
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+const chip=s=>`<span class="chip s-${s}">${s.toUpperCase()}</span>`;
+const stLabel={open:'Open',requested:'Exception requested',accepted:'Accepted',declined:'Declined',fixed:'Fixed',falsepos:'False positive'};
+const st=s=>`<span class="st st-${s}">${stLabel[s]||cap(s)}</span>`;
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),2600)}
+function pending(){return issues.filter(i=>i.status==='requested'&&i.requester!==me())}
+function prState(p){return issues.some(i=>i.project===p.project&&i.where==='PR '+p.n&&(i.status==='open'||i.status==='declined')&&(i.sev==='critical'||i.sev==='high'))?'blocked':'passed'}
+function projState(n){return prs.some(p=>p.project===n&&prState(p)==='blocked')?'blocked':'healthy'}
+function counts(n){const c={critical:0,high:0,medium:0,low:0};issues.filter(i=>i.project===n&&openish(i)).forEach(i=>c[i.sev]++);return c}
+function spark(a,w=96,h=30,color='var(--acc)'){const mx=Math.max(...a,1),step=w/(a.length-1);
+  const pts=a.map((v,i)=>[i*step,h-3-(v/mx)*(h-8)]);const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  return `<svg width="${w}" height="${h}"><path d="${d} L${w} ${h} L0 ${h}Z" fill="${color}" opacity=".13"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/></svg>`}
+function ring(pct,color,size=54){const r=(size-8)/2,c=2*Math.PI*r;
+  return `<svg class="ring" width="${size}" height="${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" stroke="var(--bg)" stroke-width="6" fill="none"/><circle cx="${size/2}" cy="${size/2}" r="${r}" stroke="${color}" stroke-width="6" fill="none" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c}" transform="rotate(-90 ${size/2} ${size/2})" data-off="${c*(1-pct/100)}" style="transition:stroke-dashoffset 1s ease"/><text x="50%" y="54%" text-anchor="middle">${Math.round(pct)}%</text></svg>`}
+function donut(data){const tot=data.reduce((a,d)=>a+d.v,0)||1,r=42,c=2*Math.PI*r;let off=0;
+  const segs=data.map(d=>{const len=d.v/tot*c,s=`<circle cx="60" cy="60" r="${r}" fill="none" stroke="${d.c}" stroke-width="16" stroke-dasharray="${len} ${c-len}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`;off+=len;return s}).join('');
+  return `<svg width="120" height="120"><circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--bg)" stroke-width="16"/>${segs}<text x="60" y="58" text-anchor="middle" fill="var(--t1)" font-size="22" font-weight="600">${tot}</text><text x="60" y="76" text-anchor="middle" fill="var(--t3)" font-size="11">open</text></svg>`}
+function area(a,w=560,h=140){const mx=Math.max(...a)*1.15,step=(w-20)/(a.length-1),pts=a.map((v,i)=>[10+i*step,h-16-(v/mx)*(h-30)]);
+  const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const grid=[0,1,2,3].map(i=>`<line x1="10" x2="${w-10}" y1="${10+i*(h-26)/3}" y2="${10+i*(h-26)/3}" stroke="var(--border)"/>`).join('');
+  return `<svg width="100%" viewBox="0 0 ${w} ${h}">${grid}<path d="${d} L${w-10} ${h-16} L10 ${h-16}Z" fill="var(--acc)" opacity=".14"/><path d="${d}" fill="none" stroke="var(--acc)" stroke-width="2.5" stroke-linejoin="round"/>${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="var(--acc)"/>`).join('')}</svg>`}
+function animate(){document.querySelectorAll('[data-off]').forEach(e=>setTimeout(()=>e.setAttribute('stroke-dashoffset',e.dataset.off),60));
+  document.querySelectorAll('.bar i[data-w]').forEach(e=>setTimeout(()=>e.style.width=e.dataset.w+'%',60));
+  document.querySelectorAll('[data-count]').forEach(e=>{const to=+e.dataset.count;let n=0;const t=setInterval(()=>{n+=Math.max(1,Math.ceil(to/14));if(n>=to){n=to;clearInterval(t)}e.textContent=n},28)})}
+
+// ---------- nav ----------
+function renderNav(){const p=pending().length;
+  const items=[['overview','Overview','◈'],['projects','Projects','▤'],['issues','Issues','⚑'],['exceptions','Exceptions','✓',isAppr()?p:0],['admin','Admin','⚙'],['help','Help','?']].filter(x=>x[0]!=='admin'||S.role==='admin');
+  $('#nav').innerHTML=items.map(x=>`<a data-v="${x[0]}" class="${S.view===x[0]||(x[0]==='projects'&&S.view==='project')?'on':''}"><span class="ico">${x[2]}</span>${x[1]}${x[3]?`<span class="badge">${x[3]}</span>`:''}</a>`).join('');
+  document.querySelectorAll('#roleSeg button').forEach(b=>b.classList.toggle('on',b.dataset.r===S.role));
+  $('#who').textContent='Signed in as '+me()+(S.role==='dev'?'':' (approver)')}
+
+// ---------- views ----------
+function vOverview(){
+  const open=issues.filter(openish),blocked=prs.filter(p=>prState(p)==='blocked'),pend=pending();
+  const mineBlocked=blocked.filter(p=>S.role==='admin'||p.author===me()||S.role==='approver');
+  const att=[];
+  if(isAppr()&&pend.length)att.push(`<div class="att a"><div class="t"><b>${pend.length} exception${pend.length>1?'s':''} waiting for your approval</b><small>${pend.map(i=>i.title).join(' · ')}</small></div><button class="btn pri" data-go="exceptions">Review</button></div>`);
+  mineBlocked.forEach(p=>att.push(`<div class="att c"><div class="t"><b>PR ${p.n} in ${p.project} is blocked</b><small>${p.title} · ${p.author} · ${p.age}</small></div><a class="ext" style="cursor:pointer" data-topic-go="blocked">Why?</a><button class="btn" data-go="project:${p.project}">Open project</button></div>`));
+  issues.filter(i=>i.status==='accepted').forEach(i=>att.push(`<div class="att w"><div class="t"><b>Exception "${i.title}" expires in ${i.expires} days</b><small>${i.project} · requested by ${i.requester}</small></div><button class="btn" data-issue="${i.id}">View</button></div>`));
+  if(S.role==='admin')att.push(`<div class="att a"><div class="t"><b>Add another project to the gate</b><small>Pick a repository and the platform does the rest</small></div><button class="btn pri" data-go="admin">Set up a project</button></div>`);
+  const sev={critical:0,high:0,medium:0,low:0};open.forEach(i=>sev[i.sev]++);
+  const trend=[16,15,15,14,14,13,12,12,11,11,10,9,9,open.length];
+  return `<div class="top"><div><h1>Good morning, ${me()}</h1><div class="sub">Here is where things stand across ${projects.length} projects</div></div>
+    <div class="search" data-pal>Search or jump to... <span class="kbd">Ctrl K</span></div></div>
+   <div class="grid g4">
+    <div class="card hover stat" data-go="issues:blocking"><div class="n" style="color:var(--crit)" data-count="${blocked.length}">0</div><div class="l">blocked pull requests</div>${spark([2,3,2,2,1,2,1,1,2,1,1,1,1,blocked.length],80,28,'var(--crit)')}</div>
+    <div class="card hover stat" data-go="issues:open"><div class="n" data-count="${open.length}">0</div><div class="l">open issues</div>${spark(trend,80,28)}</div>
+    <div class="card hover stat" data-go="exceptions"><div class="n" style="color:var(--warn)" data-count="${issues.filter(i=>i.status==='requested').length}">0</div><div class="l">exceptions pending</div>${spark([0,1,1,2,1,1,2,3,2,2,1,2,2,2],80,28,'var(--warn)')}</div>
+    <div class="card stat"><div class="n" style="color:var(--ok)" data-count="94">0</div><div class="l">% PRs passing, last 7 days</div>${spark([80,82,85,84,88,90,91,90,92,93,92,94,94,94],80,28,'var(--ok)')}</div>
+   </div>
+   <h2>Needs your attention</h2>
+   ${att.length?att.join(''):`<div class="card empty"><div class="big">🎉</div><b>You're all caught up</b><div class="muted" style="margin-top:4px">Nothing needs your attention right now.</div></div>`}
+   <div class="grid g2" style="margin-top:4px">
+     <div><h2>Open issues over time <span class="muted" style="font-weight:400">last 14 days</span></h2><div class="card">${area(trend)}</div></div>
+     <div><h2>By severity</h2><div class="card" style="display:flex;gap:18px;align-items:center">${donut([{v:sev.critical,c:'var(--crit)'},{v:sev.high,c:'var(--warn)'},{v:sev.medium,c:'oklch(0.7 0.02 265)'},{v:sev.low,c:'oklch(0.5 0.02 265)'}])}
+       <div>${['critical','high','medium','low'].map(k=>`<div class="hl"><span class="dot" style="background:${{critical:'var(--crit)',high:'var(--warn)',medium:'oklch(0.7 0.02 265)',low:'oklch(0.5 0.02 265)'}[k]}"></span>${cap(k)} <b class="right" style="margin-left:18px">${sev[k]}</b></div>`).join('')}</div></div></div>
+   </div>
+   <h2>Projects <span class="muted" style="font-weight:400">worst first</span><span class="lnk" data-go="projects">View all →</span></h2>
+   ${projTable()}
+   <h2>Recent activity</h2><div class="card">${activity.map(a=>`<div class="hl"><span class="dot" style="background:var(--acc)"></span><span><b>${a[0]}</b> ${a[1]}</span><span class="muted right">${a[2]}</span></div>`).join('')}</div>`}
+
+function projTable(){
+  const rows=[...projects].sort((a,b)=>(projState(a.name)==='blocked'?0:1)-(projState(b.name)==='blocked'?0:1));
+  return `<div class="card" style="padding:4px 8px"><table><thead><tr><th>Project</th><th>Grade</th><th>Gate</th><th>Open issues</th><th style="width:22%">Health</th><th>14-day trend</th><th>Open in</th></tr></thead><tbody>${rows.map(p=>{const c=counts(p.name),tot=c.critical+c.high+c.medium+c.low,h=Math.max(8,100-c.critical*35-c.high*18-c.medium*6-c.low*2);
+    return `<tr data-go="project:${p.name}"><td><b>${p.name}</b><div class="muted" style="font-size:12px">${p.desc}</div></td><td>${gr(p.name)}</td><td>${st(projState(p.name))}</td><td>${tot?`${c.critical?`<b style="color:var(--crit)">${c.critical} crit</b> `:''}${c.high?`${c.high} high `:''}${c.medium?`${c.medium} med `:''}${c.low?`${c.low} low`:''}`:'<span class="muted">none</span>'}</td>
+    <td><div class="bar"><i data-w="${h}" style="background:${h>75?'var(--ok)':h>45?'var(--warn)':'var(--crit)'}"></i></div></td><td>${spark(p.trend,90,26)}</td><td>${ext(gRepo(p.name),'Gitea')}${ext(wRepo(p.name),'CI')}</td></tr>`}).join('')}</tbody></table></div>`}
+
+function vProjects(){return `<div class="top"><div><h1>Projects</h1><div class="sub">Every repository behind the gate</div></div>${S.role==='admin'?'<button class="btn pri right" data-go="admin">+ Set up a project</button>':''}</div>
+  <div class="grid g3">${projects.map(p=>{const c=counts(p.name),tot=c.critical+c.high+c.medium+c.low,h=Math.max(8,100-c.critical*35-c.high*18-c.medium*6-c.low*2);
+   return `<div class="card hover" style="cursor:pointer" data-go="project:${p.name}"><div style="display:flex;justify-content:space-between;align-items:center"><div><b style="font-size:16px">${gr(p.name)} ${p.name}</b><div class="muted" style="margin:6px 0 8px">${p.desc}</div>${st(projState(p.name))}</div>${ring(h,h>75?'var(--ok)':h>45?'var(--warn)':'var(--crit)')}</div>
+   <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:end"><div class="muted" style="font-size:12px">${tot} open issue${tot===1?'':'s'}<br>${prs.filter(x=>x.project===p.name).length} open PR(s)</div>${spark(p.trend,110,34)}</div>
+   <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">${ext(gRepo(p.name),'Gitea')}${ext(wRepo(p.name),'Woodpecker')}</div></div>`}).join('')}</div>`}
+
+function vProject(){const p=projects.find(x=>x.name===S.project),c=counts(p.name);
+  const base=issues.filter(i=>i.project===p.name&&i.baseline);
+  const tabs=[['prs','Pull requests'],['issues','Issues'],['baseline','Baseline'],['settings','Settings']];
+  let body='';
+  if(S.ptab==='prs')body=`<div class="card" style="padding:4px 8px"><table><thead><tr><th>PR</th><th>Title</th><th>Gate</th><th>Author</th><th>Updated</th><th>Open in</th></tr></thead><tbody>${prs.filter(x=>x.project===p.name).map(x=>`<tr data-pr="${x.n}"><td class="mono">#${x.n}</td><td>${x.title}</td><td>${st(prState(x))}</td><td>${x.author}</td><td class="muted">${x.age}</td><td>${ext(gRepo(p.name)+'/pulls/'+x.n,'PR')}${ext(wRepo(p.name)+'/pipeline/'+x.n,'Pipeline')}</td></tr>`).join('')||'<tr><td colspan=6 class="muted">No open pull requests</td></tr>'}</tbody></table></div>`;
+  if(S.ptab==='issues')body=issueTable(issues.filter(i=>i.project===p.name&&!i.baseline));
+  if(S.ptab==='baseline')body=`<div class="grid g2"><div class="card"><b>Existing debt is burning down</b><div class="muted" style="margin:2px 0 10px">The baseline only ever shrinks: nothing can be added to it.</div>${area([24,24,22,21,21,19,18,18,16,15,15,13,12,base.length])}</div><div class="card"><b>${base.length} baseline issue${base.length===1?'':'s'}</b>${base.map(i=>`<div class="hl" style="cursor:pointer" data-issue="${i.id}">${chip(i.sev)} ${i.title}</div>`).join('')||'<div class="muted">None</div>'}</div></div>`;
+  if(S.ptab==='settings')body=`<div class="card"><b>Gate rules in force</b><div class="hl"><span class="dot"></span>Blocks merge on new Critical and High findings</div><div class="hl"><span class="dot"></span>Requires 2 approvals: the gate bot plus one human who is not the author</div><div class="hl"><span class="dot"></span>Secrets are never baselined</div><div class="hl"><span class="dot"></span>Approvers: dev1, gateadmin</div></div>`;
+  return `<div class="top"><div><div class="muted" style="cursor:pointer" data-go="projects">Projects ›</div><h1>${gr(p.name)} ${p.name} ${st(projState(p.name))}</h1><div class="sub">${p.desc} · ${c.critical} critical, ${c.high} high, ${c.medium} medium, ${c.low} low</div></div>
+   <div class="right">${ext(gRepo(p.name),'Open in Gitea','big')}${ext(wRepo(p.name),'Open in Woodpecker','big')}</div></div>
+   <div class="tabs">${tabs.map(t=>`<button data-ptab="${t[0]}" class="${S.ptab===t[0]?'on':''}">${t[1]}</button>`).join('')}</div>${body}`}
+
+function filtered(list){let l=list.filter(i=>(!S.sev.size||S.sev.has(i.sev))&&(!S.stat.size||S.stat.has(i.status)||(S.stat.has('open*')&&openish(i)))&&(!S.q||(i.title+i.project+i.file+i.tool).toLowerCase().includes(S.q.toLowerCase()))&&(S.showBase||!i.baseline));
+  const k=S.sort;l.sort((a,b)=>S.dir*(k==='sev'?SEVRANK[a.sev]-SEVRANK[b.sev]:k==='project'?a.project.localeCompare(b.project):k==='status'?a.status.localeCompare(b.status):k==='sla'?((slaInfo(a).left??9999)-(slaInfo(b).left??9999)):a.title.localeCompare(b.title)));return l}
+function bulkBar(){const n=S.sel.size;if(!n)return '';
+  const items=[...S.sel].map(id=>issues.find(x=>x.id===id)).filter(Boolean);
+  const canReq=items.filter(i=>(i.status==='open'||i.status==='declined')&&!i.baseline).length;
+  const canDec=items.filter(i=>i.status==='requested'&&i.requester!==me()).length;
+  return `<div class="bulk"><b>${n} selected</b><input type="text" id="bulkrsn" placeholder="Reason (for exception requests)" value="${S.bulkReason||''}">
+   <button class="btn" data-bulk="req" ${canReq?'':'disabled'}>Request exception (${canReq})</button>
+   ${isAppr()?`<button class="btn ok" data-bulk="approve" ${canDec?'':'disabled'}>Approve (${canDec})</button><button class="btn no" data-bulk="decline" ${canDec?'':'disabled'}>Decline (${canDec})</button>`:''}
+   <button class="btn right" data-bulk="clear">Clear</button></div>`}
+function issueTable(list){const l=filtered(list),th=(k,t)=>`<th class="s" data-sort="${k}">${t}${S.sort===k?(S.dir>0?' ▲':' ▼'):''}</th>`;
+  const allSel=l.length&&l.every(i=>S.sel.has(i.id));
+  return `<div class="filters">${['critical','high','medium','low'].map(s=>`<button class="fc ${S.sev.has(s)?'on':''}" data-fsev="${s}">${cap(s)}</button>`).join('')}<span class="muted">|</span>${['open','requested','accepted','declined'].map(s=>`<button class="fc ${S.stat.has(s)?'on':''}" data-fstat="${s}">${stLabel[s]}</button>`).join('')}<span class="muted">|</span><button class="fc ${S.showBase?'on':''}" data-base>Include baseline</button>
+   <input type="text" id="q" placeholder="Filter by title, project, file, tool ( / )" value="${S.q}" style="max-width:300px;margin-left:auto"></div>
+   ${bulkBar()}
+   <div class="card" style="padding:4px 8px"><table><thead><tr><th style="width:34px"><input type="checkbox" data-selall ${allSel?'checked':''}></th>${th('sev','Severity')}${th('title','Issue')}${th('project','Project')}<th>Where</th>${th('sla','Fix within (SLA)')}${th('status','Status')}</tr></thead><tbody>${l.map(i=>`<tr data-issue="${i.id}"><td><input type="checkbox" data-sel="${i.id}" ${S.sel.has(i.id)?'checked':''}></td><td>${chip(i.sev)}</td><td><b>${i.title}</b><div class="mono muted" style="font-size:12px">${i.file}:${i.line} · ${i.tool}</div></td><td>${i.project}</td><td class="muted">${i.where}</td><td>${sla(i)}</td><td>${st(i.status)}</td></tr>`).join('')||`<tr><td colspan=7><div class="empty"><div class="big">🔍</div>No issues match these filters</div></td></tr>`}</tbody></table></div>`}
+function vIssues(){return `<div class="top"><div><h1>Issues</h1><div class="sub">${issues.filter(openish).length} open across all projects</div></div><div class="search" data-pal>Search or jump to... <span class="kbd">Ctrl K</span></div></div>${issueTable(issues)}`}
+
+function exCard(i,mode){const mine=i.requester===me();
+  return `<div class="card hover" style="margin-bottom:10px"><div style="display:flex;gap:10px;align-items:center">${chip(i.sev)}<b>${i.title}</b><span class="muted">${i.project}</span><span class="right">${st(i.status)}</span></div>
+   <div style="margin:8px 0;color:var(--t2)">Requested by <b>${i.requester}</b>: "${i.reason}" · expires in ${i.expires} days</div>
+   <div style="display:flex;gap:8px;align-items:center">${i.status==='requested'?(isAppr()&&!mine?`<button class="btn ok" data-approve="${i.id}">Approve</button><button class="btn no" data-decline="${i.id}">Decline</button>`:`<span class="muted">${mine?'Waiting for another approver':'Only approvers can decide'}</span>`):''}<button class="btn right" data-issue="${i.id}">Open issue</button></div></div>`}
+function vExceptions(){const all=issues.filter(i=>i.requester);
+  const wait=all.filter(i=>i.status==='requested'&&isAppr()&&i.requester!==me()),mine=all.filter(i=>i.requester===me());
+  const tabs=[['wait',`Waiting for me (${wait.length})`],['mine',`My requests (${mine.length})`],['all',`All (${all.length})`]];
+  const list=S.extab==='wait'?wait:S.extab==='mine'?mine:all;
+  return `<div class="top"><div><h1>Exceptions</h1><div class="sub">Risk acceptances need a second person and always expire</div></div></div>
+   <div class="tabs">${tabs.map(t=>`<button data-extab="${t[0]}" class="${S.extab===t[0]?'on':''}">${t[1]}</button>`).join('')}</div>
+   ${list.length?list.map(i=>exCard(i)).join(''):`<div class="card empty"><div class="big">${S.extab==='wait'?'☕':'📭'}</div><b>${S.extab==='wait'?'Nothing to approve':'Nothing here yet'}</b><div class="muted">${S.extab==='wait'?'New requests will show up here and in the sidebar.':'Requests you make from an issue page appear here.'}</div></div>`}`}
+
+function vHelp(){
+  const role=cap(S.role==='dev'?'developer':S.role),q=S.hq.toLowerCase();
+  const first={Developer:['Open a pull request as usual in Gitea','Watch the gate result here or on the PR','If blocked: open the issue, fix it or request an exception','Merge once the gate passes and a second person approves'],
+    Approver:['Check <b>Exceptions → Waiting for me</b> each morning','Open the issue, judge the reason and the expiry','Approve or decline (never your own requests)','Skim the Overview for anything overdue'],
+    Admin:['Open <b>Admin → Set up a project</b>','Pick a repository and run setup','Share the project link with the team','Watch Platform health for anything red']}[role];
+  const list=TOPICS.filter(t=>(!q||(t.q+' '+t.a).toLowerCase().includes(q)));
+  return `<div class="top"><div><h1>Help</h1><div class="sub">How the gate works and what to do next</div></div><div class="search" data-pal>Search or jump to... <span class="kbd">Ctrl K</span></div></div>
+   <div class="help-hero"><b style="font-size:18px">How can we help?</b><div class="muted">Showing guidance for the <b style="color:var(--t1)">${role}</b> role. Switch role at the bottom left to see the others.</div>
+     <input type="text" id="hq" placeholder="Search: blocked, exception, grade, SLA..." value="${S.hq}"></div>
+   <div class="grid g2" style="grid-template-columns:1fr 1fr;margin-top:16px">
+     <div class="card"><b>Your first steps as ${/^[AEIOU]/.test(role)?'an':'a'} ${role.toLowerCase()}</b><div class="qs">${first.map((t,n)=>`<div class="step on"><b class="n">${n+1}</b><span>${t}</span></div>`).join('')}</div></div>
+     <div class="card"><b>Need something else?</b><div class="muted" style="margin:6px 0 10px">Ask your platform admin, or look at the source of truth:</div>${ext(URLS.gitea,'Gitea')}${ext(URLS.wp,'Woodpecker')}<div style="margin-top:12px" class="muted">Tip: press <span class="kb">Ctrl</span><span class="kb">K</span> to search everything.</div></div>
+   </div>
+   <h2>${q?`Results for "${S.hq}"`:'Common questions'} <span class="muted" style="font-weight:400">${list.length}</span></h2>
+   ${list.map(t=>`<div class="topic ${S.hopen.has(t.id)||q?'open':''}"><div class="q" data-topic="${t.id}">${t.q}${t.roles.map(r=>`<span class="tag">${r}</span>`).join('')}<span class="car">›</span></div>
+     <div class="a">${t.a}${t.go?`<div style="margin-top:10px"><button class="btn pri" data-go="${t.go}">${t.goLabel} →</button></div>`:''}</div></div>`).join('')||`<div class="card empty"><div class="big">🤔</div>No topics match "${S.hq}"<div class="muted">Try a shorter word, or ask your platform admin.</div></div>`}`}
+function vAdmin(){const s=S.setup,steps=['Pick a repository','Review what will be added','Run setup'];
+  const health=[['Gitea','12 ms'],['Woodpecker','8 ms'],['Pipeline agent','seen 4 s ago'],['Reporting service','ok'],['Address redirect','active'],['AI assistant (local model)',S.aiOn?'ready · qwen2.5-coder 7b':'not enabled on this server',S.aiOn]];
+  let body='';
+  if(s.step===1)body=`<div class="muted" style="margin-bottom:8px">Repositories you can administer that are not behind the gate yet:</div>${repos.map(r=>`<div class="repo ${s.repo===r?'on':''}" data-repo="${r}"><span class="mono">${r}</span><span class="muted right">private</span></div>`).join('')}<div style="margin-top:12px"><button class="btn pri" data-next ${s.repo?'':'disabled'}>Continue</button></div>`;
+  if(s.step===2)body=`<div class="card" style="margin-bottom:12px"><b class="mono">${s.repo}</b><div style="margin-top:10px;line-height:2">✔ Activate the repository in the CI system<br>✔ Scan the default branch and record today's findings as the baseline (it can only shrink)<br>✔ Commit the gate pipeline and policy files<br>✔ Turn on branch protection: 2 approvals, gate must pass<br>✔ Add the gate bot as a collaborator</div></div><button class="btn" data-back>Back</button> <button class="btn pri" data-next>Run setup</button>`;
+  if(s.step===3)body=`<div class="log mono">${s.log.map(l=>`<div>${l}</div>`).join('')||'<span class="muted">starting...</span>'}${s.running?'<div class="pulse" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--acc)"></div>':''}</div>${s.done?`<div class="card" style="margin-top:12px;border-color:var(--ok)"><b>🎉 ${s.repo} is now protected</b><div class="muted" style="margin:4px 0 10px">214 existing findings were recorded as baseline. New pull requests will be gated.</div><button class="btn pri" data-go="project:${s.repo.split('/')[1]}">Open project</button> <button class="btn" data-reset>Set up another</button></div>`:''}`;
+  return `<div class="top"><div><h1>Admin</h1><div class="sub">Set up projects and watch platform health</div></div></div>
+   <div class="grid g2"><div class="card"><h2 style="margin-top:0">Set up a project</h2><div style="margin-bottom:14px">${steps.map((t,i)=>`<div class="step ${s.step===i+1?'on':s.step>i+1||s.done?'done':''}"><b class="n">${s.step>i+1||s.done?'✓':i+1}</b><span>${t}</span></div>`).join('')}</div>${body}</div>
+    <div class="card"><h2 style="margin-top:0">Platform health</h2>${health.map(h=>`<div class="hl"><span class="dot ${h[2]===false?'':'pulse'}" style="${h[2]===false?'background:var(--t4)':''}"></span>${h[0]}<span class="muted right">${h[1]}</span></div>`).join('')}<button class="btn" style="margin-top:12px" data-aitoggle>${S.aiOn?'Turn AI assistant off (demo)':'Turn AI assistant on (demo)'}</button><div class="muted" style="margin-top:14px;font-size:12px">Server tier: <b style="color:var(--t1)">core</b>. Metrics, logs and findings history unlock on larger servers.</div></div></div>`}
+
+// ---------- issue drawer ----------
+function aiBlock(i){
+  if(!S.aiOn)return `<div class="muted" style="margin-top:16px;font-size:12px">AI suggestions are not enabled on this server.</div>`;
+  const st=S.ai[i.id]||'idle',d=AIDATA[i.id]||{note:'No secrets found in the snippet.',why:'Apply the suggested change above and run your tests.',rm:[i.code[i.hit]||''],ad:[i.fixcode]};
+  const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  let body='';
+  if(st==='idle')body=`<div class="muted" style="margin:6px 0 10px;font-size:13px">Get a suggested rewrite of this code from a small local model. Takes a few seconds.</div><button class="btn pri" style="background:var(--bot);border-color:var(--bot)" data-ai="${i.id}">✦ Suggest a rewrite</button>`;
+  if(st==='loading')body=`<div style="margin:10px 0"><span class="spin"></span>Thinking on the local model...</div><div class="shim" style="width:92%"></div><div class="shim" style="width:76%"></div><div class="shim" style="width:84%"></div>`;
+  if(st==='done')body=`<div style="margin:8px 0;color:var(--t2);line-height:1.6">${d.why}</div>
+    <div class="codebox diff"><div class="fn">proposed rewrite for ${i.file}:${i.line}</div><pre class="mono">${d.rm.map(l=>`<span class="ln rm">- ${esc(l)}</span>`).join('')}${d.ad.map(l=>`<span class="ln ad">+ ${esc(l)}</span>`).join('')}</pre></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px"><button class="btn" data-aicopy="${i.id}">Copy rewrite</button><span class="muted right" style="font-size:12px">Was this useful?</span><button class="btn" data-aifb="up">👍</button><button class="btn" data-aifb="down">👎</button></div>
+    <div class="warn">AI-generated. Read it and test it before using it: it can be wrong.</div>`;
+  return `<div class="ai"><div class="hd">✦ AI suggestion <span class="beta">beta</span></div><div class="meta">qwen2.5-coder 7b · runs on this server · your code is not sent anywhere${st==='done'?' · '+d.note:''}</div>${body}</div>`}
+function drawer(){const d=$('#drawer'),bg=$('#dbg');
+  if(!S.drawer){d.classList.remove('on');bg.classList.remove('on');return}
+  const i=issues.find(x=>x.id===S.drawer),mine=i.requester===me(),canReq=(i.status==='open'||i.status==='declined')&&!i.baseline;
+  const tl=[`Found in ${i.where} by the gate (${i.tool})`];
+  if(i.requester)tl.push(`Exception requested by <b>${i.requester}</b>: "${i.reason}"`);
+  if(i.status==='requested')tl.push(`<span style="color:var(--warn)">Waiting for an approver other than ${i.requester}</span>`);
+  if(i.status==='accepted')tl.push(`Approved by dev1 · expires in ${i.expires} days`);
+  if(i.status==='declined')tl.push(`Declined by an approver`);
+  let panel='';
+  if(canReq)panel=`<div style="margin-top:14px"><b>Request an exception</b><div class="muted" style="margin:4px 0 8px;font-size:12px">Needs one approver who is not you. Expires automatically.</div><textarea id="rsn" rows="3" placeholder="Why is this acceptable?"></textarea><div style="margin:10px 0 4px;font-size:12px" class="muted">Expires in <b id="expv" style="color:var(--t1)">30</b> days</div><input type="range" id="exp" min="7" max="90" value="30" style="width:100%"><button class="btn pri" style="width:100%;margin-top:10px" data-req="${i.id}">Send request</button></div>`;
+  else if(i.status==='requested')panel=isAppr()&&!mine?`<div style="margin-top:14px;display:flex;gap:8px"><button class="btn ok" style="flex:1" data-approve="${i.id}">Approve</button><button class="btn no" style="flex:1" data-decline="${i.id}">Decline</button></div>`:`<div class="muted" style="margin-top:14px">${mine?'Your request is waiting for another approver.':'Only approvers can decide.'}</div>`;
+  else if(i.baseline)panel=`<div class="muted" style="margin-top:14px">This is existing debt in the baseline. It does not block merges; fix it to shrink the baseline.</div>`;
+  const x=slaInfo(i);
+  const flags=[['Active',openish(i),'on'],['Verified',true,'on'],['False positive',i.status==='falsepos','good'],['Duplicate',false,'on'],['Risk accepted',i.status==='accepted','good'],['Baseline',!!i.baseline,'on'],['Overdue',x.c==='late','bad']];
+  const fpBtn=isAppr()&&openish(i)&&!i.baseline&&i.status!=='requested'?`<button class="btn" style="width:100%;margin-top:8px" data-fp="${i.id}">Mark as false positive</button>`:'';
+  d.innerHTML=`<div style="display:flex;align-items:center;gap:10px"><span class="muted">${i.project} › ${i.where}</span><button class="btn right" data-close>Close ✕</button></div>
+   <div style="margin:12px 0 4px">${chip(i.sev)} <span class="mono muted">#${i.id}</span></div><h1 style="margin:0 0 10px;font-size:21px">${i.title}</h1>
+   <div class="flags">${flags.map(f=>`<span class="flag ${f[1]?f[2]:''}">${f[0]}</span>`).join('')}</div>
+   <div class="row2"><div>
+     <div class="codebox"><div class="fn mono">${i.file}:${i.line}</div><pre class="mono">${i.code.map((c,n)=>`<span class="ln ${n===i.hit?'hit':''}"><b>${i.line-i.hit+n}</b>${c.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>`).join('')}</pre></div>
+     <div style="margin-top:8px">${ext(gRepo(i.project)+'/src/branch/main/'+i.file+'#L'+i.line,'View file in Gitea')}${i.where.startsWith('PR')?ext(gRepo(i.project)+'/pulls/'+i.where.slice(3),'Pull request')+ext(wRepo(i.project)+'/pipeline/'+i.where.slice(3),'Pipeline run'):''}</div>
+     <h3 style="margin:18px 0 6px;font-size:14px">Why it matters</h3><div style="color:var(--t2);line-height:1.6">${i.why}</div>
+     <h3 style="margin:18px 0 6px;font-size:14px">How to fix</h3><div style="color:var(--t2);line-height:1.6">${i.fix}</div>
+     <div class="codebox" style="margin-top:8px"><div class="fn" style="display:flex">suggested change<button class="btn right" style="padding:1px 8px;font-size:12px" data-copy="${i.id}">Copy</button></div><pre class="mono"><span class="ln" style="color:var(--ok)">+ ${i.fixcode.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span></pre></div>
+     ${aiBlock(i)}
+   </div><div class="side"><b>Status</b><div style="margin:6px 0 12px">${st(i.status)}</div>
+     <b>Fix within (SLA)</b><div style="margin:6px 0 4px">${sla(i)}</div><div class="bar"><i data-w="${x.pct}" style="background:${x.c==='late'?'var(--crit)':x.c==='soon'?'var(--warn)':'var(--ok)'}"></i></div>${panel}${fpBtn}
+     <h3 style="margin:22px 0 10px;font-size:14px">History</h3><ul class="tl">${tl.map(t=>`<li>${t}</li>`).join('')}</ul></div></div>`;
+  d.classList.add('on');bg.classList.add('on');const e=$('#exp');if(e)e.oninput=()=>$('#expv').textContent=e.value}
+
+// ---------- render/actions ----------
+function render(){renderNav();const v=S.view,m=$('#main');
+  m.innerHTML=v==='overview'?vOverview():v==='projects'?vProjects():v==='project'?vProject():v==='issues'?vIssues():v==='exceptions'?vExceptions():v==='help'?vHelp():vAdmin();
+  drawer();animate();const q=$('#q');if(q&&S.qfocus){q.focus();q.setSelectionRange(q.value.length,q.value.length)}const hq=$('#hq');if(hq&&S.hfocus){hq.focus();hq.setSelectionRange(hq.value.length,hq.value.length);S.hfocus=false}}
+function go(t){S.qfocus=false;
+  if(t.startsWith('project:')){S.view='project';S.project=t.split(':')[1];S.ptab='prs'}
+  else if(t.startsWith('issues:')){S.view='issues';S.sev.clear();S.stat.clear();S.q='';if(t.endsWith('open'))S.stat=new Set(['open','requested','declined']);if(t.endsWith('blocking')){S.sev=new Set(['critical','high']);S.stat=new Set(['open','declined'])}}
+  else S.view=t;
+  S.drawer=null;window.scrollTo(0,0);render()}
+function bulk(kind){
+  if(kind==='clear'){S.sel.clear();return render()}
+  const items=[...S.sel].map(id=>issues.find(x=>x.id===id)).filter(Boolean);let n=0;
+  if(kind==='req'){const r=($('#bulkrsn')||{}).value?.trim();if(!r){$('#bulkrsn').focus();return toast('Please give a reason for the exceptions')}
+    items.filter(i=>(i.status==='open'||i.status==='declined')&&!i.baseline).forEach(i=>{i.status='requested';i.requester=me();i.reason=r;i.expires=30;n++});
+    activity.unshift([me(),'requested '+n+' exceptions in bulk','just now']);toast(n+' exception request(s) sent')}
+  else{items.filter(i=>i.status==='requested'&&i.requester!==me()).forEach(i=>{i.status=kind==='approve'?'accepted':'declined';n++});
+    activity.unshift([me(),(kind==='approve'?'approved ':'declined ')+n+' exceptions in bulk','just now']);toast(n+' exception(s) '+(kind==='approve'?'approved':'declined'))}
+  S.sel.clear();render()}
+function act(id,status,msg){const i=issues.find(x=>x.id===id);i.status=status;activity.unshift([me(),msg+' '+i.title,'just now']);toast(msg==='approved'?'Exception approved. It will expire automatically.':msg==='declined'?'Exception declined.':'Marked as false positive.');render()}
+
+document.addEventListener('click',e=>{const t=e.target.closest('[data-go],[data-issue],[data-pr],[data-ptab],[data-extab],[data-fsev],[data-fstat],[data-base],[data-sort],[data-approve],[data-decline],[data-req],[data-close],[data-ai],[data-aicopy],[data-aifb],[data-aitoggle],[data-topic],[data-topic-go],[data-copy],[data-fp],[data-sel],[data-selall],[data-bulk],[data-repo],[data-next],[data-back],[data-reset],[data-pal],#nav a,#roleSeg button,#dbg');if(!t)return;
+  const d=t.dataset;
+  if(t.matches('#nav a'))return go(d.v);
+  if(t.matches('#roleSeg button')){S.role=d.r;S.extab='wait';if(S.view==='admin'&&S.role!=='admin')S.view='overview';S.drawer=null;render();return toast('Now viewing as '+USERS[S.role])}
+  if(t.id==='dbg'||'close' in d){S.drawer=null;return render()}
+  if('pal' in d)return openPal();
+  if(d.go)return go(d.go);
+  if(d.issue){S.drawer=+d.issue;return render()}
+  if(d.pr){S.ptab='issues';S.q='PR '+d.pr;S.q='';S.sev.clear();S.stat.clear();return render()}
+  if(d.ptab){S.ptab=d.ptab;return render()}
+  if(d.extab){S.extab=d.extab;return render()}
+  if(d.fsev){S.sev.has(d.fsev)?S.sev.delete(d.fsev):S.sev.add(d.fsev);S.qfocus=false;return render()}
+  if(d.fstat){S.stat.has(d.fstat)?S.stat.delete(d.fstat):S.stat.add(d.fstat);return render()}
+  if('base' in d){S.showBase=!S.showBase;return render()}
+  if(d.sort){S.dir=S.sort===d.sort?-S.dir:1;S.sort=d.sort;return render()}
+  if(d.ai){const id=+d.ai;S.ai[id]='loading';setTimeout(()=>{S.ai[id]='done';if(S.drawer===id)render()},2300);return render()}
+  if(d.aicopy){const dd=AIDATA[+d.aicopy];navigator.clipboard&&dd&&navigator.clipboard.writeText(dd.ad.join('\n'));return toast('Rewrite copied to clipboard')}
+  if(d.aifb){return toast(d.aifb==='up'?'Thanks, noted.':'Thanks. We will use this to improve suggestions.')}
+  if('aitoggle' in d){S.aiOn=!S.aiOn;render();return toast('AI assistant '+(S.aiOn?'enabled':'disabled')+' (demo)')}
+  if(d.topic){S.hopen.has(d.topic)?S.hopen.delete(d.topic):S.hopen.add(d.topic);return render()}
+  if(d.topicGo){S.hopen=new Set([d.topicGo]);S.hq='';S.view='help';S.drawer=null;window.scrollTo(0,0);return render()}
+  if('sel' in d){const id=+d.sel;S.sel.has(id)?S.sel.delete(id):S.sel.add(id);S.qfocus=false;return render()}
+  if('selall' in d){const l=filtered(S.view==='project'?issues.filter(i=>i.project===S.project&&!i.baseline):issues);const all=l.every(i=>S.sel.has(i.id));l.forEach(i=>all?S.sel.delete(i.id):S.sel.add(i.id));return render()}
+  if(d.bulk)return bulk(d.bulk);
+  if(d.fp)return act(+d.fp,'falsepos','marked as false positive:');
+  if(d.approve)return act(+d.approve,'accepted','approved');
+  if(d.decline)return act(+d.decline,'declined','declined');
+  if(d.req){const r=$('#rsn').value.trim();if(!r){$('#rsn').focus();return toast('Please give a reason')}const i=issues.find(x=>x.id===+d.req);i.status='requested';i.requester=me();i.reason=r;i.expires=+$('#exp').value;activity.unshift([me(),'requested an exception for '+i.title,'just now']);toast('Request sent. An approver has been notified.');return render()}
+  if(d.copy){const i=issues.find(x=>x.id===+d.copy);navigator.clipboard&&navigator.clipboard.writeText(i.fixcode);return toast('Copied to clipboard')}
+  if(d.repo){S.setup.repo=d.repo;return render()}
+  if('back' in d){S.setup.step--;return render()}
+  if('reset' in d){S.setup={step:1,repo:null,log:[],running:false,done:false};return render()}
+  if('next' in d){S.setup.step++;if(S.setup.step===3)runSetup();return render()}});
+document.addEventListener('input',e=>{if(e.target.id==='q'){S.q=e.target.value;S.qfocus=true;render()}if(e.target.id==='bulkrsn')S.bulkReason=e.target.value;if(e.target.id==='hq'){S.hq=e.target.value;S.hfocus=true;render()}});
+function runSetup(){const s=S.setup;s.running=true;s.log=[];const name=s.repo.split('/')[1];
+  const lines=['Activating '+s.repo+' in Woodpecker ... ok','Scanning default branch (Semgrep, Trivy, Gitleaks) ...','214 existing findings recorded as baseline','Committing .woodpecker.yml and policy files ... ok','Enabling branch protection on main (2 approvals) ... ok','Adding gate-bot as collaborator ... ok','Done.'];
+  lines.forEach((l,n)=>setTimeout(()=>{s.log.push(l);if(n===lines.length-1){s.running=false;s.done=true;if(!projects.find(p=>p.name===name))projects.push({name,desc:'Newly protected repository',owner:me(),trend:[5,5,5,5,5,5,5,5,5,5,5,5,5,5]});activity.unshift([me(),'set up project '+name,'just now'])}if(S.view==='admin')render()},600*(n+1)))}
+
+// command palette
+let palSel=0;
+function palItems(q){const base=[['Overview','overview'],['Projects','projects'],['Issues','issues'],['Exceptions','exceptions'],['Help','help'],...(S.role==='admin'?[['Admin','admin']]:[])].map(x=>({t:x[0],sub:'page',a:()=>go(x[1])}));
+  const pj=projects.map(p=>({t:p.name,sub:'project',a:()=>go('project:'+p.name)}));
+  const hp=TOPICS.map(t=>({t:t.q,sub:'help',a:()=>{S.hopen=new Set([t.id]);S.hq='';go('help')}}));
+  const is=issues.map(i=>({t:i.title,sub:'issue · '+i.project,a:()=>{S.view==='overview'&&go('issues');S.drawer=i.id;render()}}));
+  return [...base,...pj,...hp,...is].filter(x=>!q||(x.t+x.sub).toLowerCase().includes(q.toLowerCase())).slice(0,9)}
+function palRender(){const q=$('#palin').value,l=palItems(q);palSel=Math.min(palSel,l.length-1);$('#palres').innerHTML=l.map((x,n)=>`<div class="it ${n===palSel?'on':''}" data-n="${n}"><b>${x.t}</b><span class="muted right">${x.sub}</span></div>`).join('');$('#palres').onclick=ev=>{const it=ev.target.closest('.it');if(it){palItems($('#palin').value)[+it.dataset.n].a();closePal()}}}
+function openPal(){$('#palbg').classList.add('on');$('#palin').value='';palSel=0;palRender();$('#palin').focus()}
+function closePal(){$('#palbg').classList.remove('on')}
+$('#palin').addEventListener('input',()=>{palSel=0;palRender()});
+$('#palbg').addEventListener('mousedown',e=>{if(e.target.id==='palbg')closePal()});
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();return openPal()}
+  if($('#palbg').classList.contains('on')){const l=palItems($('#palin').value);
+    if(e.key==='Escape')return closePal();if(e.key==='ArrowDown'){palSel=Math.min(palSel+1,l.length-1);e.preventDefault();return palRender()}
+    if(e.key==='ArrowUp'){palSel=Math.max(palSel-1,0);e.preventDefault();return palRender()}
+    if(e.key==='Enter'&&l[palSel]){l[palSel].a();closePal()}return}
+  if(e.key==='Escape'&&S.drawer){S.drawer=null;return render()}
+  if(e.key==='/'&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName)){const q=$('#q');if(q){e.preventDefault();q.focus()}}});
+(function(){const h=new URLSearchParams(location.hash.slice(1));
+  if(h.get('role'))S.role=h.get('role');if(h.get('view'))S.view=h.get('view');
+  if(h.get('project')){S.project=h.get('project');if(S.view==='overview')S.view='project'}
+  if(h.get('tab'))S.ptab=h.get('tab');if(h.get('drawer'))S.drawer=+h.get('drawer');
+  if(h.get('sel'))h.get('sel').split(',').forEach(x=>S.sel.add(+x));
+  if(h.get('extab'))S.extab=h.get('extab');
+  if(h.get('ai')&&S.drawer)S.ai[S.drawer]=h.get('ai');if(h.get('aioff'))S.aiOn=false;
+  if(h.get('step')){S.setup.repo='ssdlc/inventory-api';S.setup.step=+h.get('step')}})();
+render();
+</script>
+</body>
+</html>
