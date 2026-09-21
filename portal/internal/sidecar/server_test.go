@@ -11,6 +11,8 @@ import (
 
 	"ssdlc-portal/internal/giteaclient"
 	"ssdlc-portal/internal/metrics"
+	"ssdlc-portal/internal/projects"
+	"ssdlc-portal/internal/report"
 	"ssdlc-portal/internal/woodpeckerclient"
 )
 
@@ -110,5 +112,45 @@ func TestServerHealthEndpoint(t *testing.T) {
 	var res []HealthResult
 	if err := json.Unmarshal(rec.Body.Bytes(), &res); err != nil || len(res) != 3 {
 		t.Errorf("health = %v %v", res, err)
+	}
+}
+
+func TestProjectsEndpoint(t *testing.T) {
+	now := time.Unix(3000, 0)
+	d := &APIDeps{Token: "s3cret", Now: func() time.Time { return now }, Metrics: &metrics.Store{},
+		Latest: func() Latest {
+			return Latest{
+				GeneratedAt: now, PollOK: true, Repos: []string{"ssdlc/pilot-app"},
+				Reports: []report.Report{{Repo: "ssdlc/pilot-app", MergeBlocked: true,
+					Summary: report.Summary{Critical: 1}}},
+			}
+		}}
+	srv := NewServer(d)
+
+	if rec := do(srv, "/api/v1/projects", ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("no token: status %d", rec.Code)
+	}
+	rec := do(srv, "/api/v1/projects", "s3cret")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		PollOK   bool               `json:"poll_ok"`
+		Projects []projects.Project `json:"projects"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if !body.PollOK || len(body.Projects) != 1 || body.Projects[0].Grade != "C" || body.Projects[0].BlockedPRs != 1 {
+		t.Errorf("unexpected body: %s", rec.Body.String())
+	}
+
+	d.Latest = func() Latest { return Latest{} }
+	if rec := do(NewServer(d), "/api/v1/projects", "s3cret"); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("before the first poll want 503, got %d", rec.Code)
+	}
+	d.Latest = nil
+	if rec := do(NewServer(d), "/api/v1/projects", "s3cret"); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("nil Latest want 503, got %d", rec.Code)
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"ssdlc-portal/internal/metrics"
+	"ssdlc-portal/internal/projects"
 	"ssdlc-portal/internal/report"
 )
 
@@ -18,6 +19,7 @@ type APIDeps struct {
 	Woodpecker report.Woodpecker
 	Health     *HealthChecker
 	Now        func() time.Time
+	Latest     func() Latest
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -60,6 +62,22 @@ func NewServer(d *APIDeps) http.Handler {
 	}))
 	mux.HandleFunc("GET /api/v1/health", d.auth(func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, d.Health.Run(r.Context()))
+	}))
+	mux.HandleFunc("GET /api/v1/projects", d.auth(func(w http.ResponseWriter, r *http.Request) {
+		if d.Latest == nil {
+			http.Error(w, "no poll has completed yet", http.StatusServiceUnavailable)
+			return
+		}
+		l := d.Latest()
+		if l.GeneratedAt.IsZero() {
+			http.Error(w, "no poll has completed yet", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"generated_at": l.GeneratedAt.UTC().Format(time.RFC3339),
+			"poll_ok":      l.PollOK,
+			"projects":     projects.Aggregate(l.Repos, l.Failed, l.Reports),
+		})
 	}))
 	return mux
 }

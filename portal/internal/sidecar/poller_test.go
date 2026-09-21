@@ -278,3 +278,73 @@ func TestCollectorZeroCreatedAtHasNoVerdictSample(t *testing.T) {
 		t.Errorf("zero CreatedAt must not produce a verdict sample:\n%s", out)
 	}
 }
+
+func TestPollerLatestRecordsReposAndReports(t *testing.T) {
+	g := fakeGitea{prs: map[string][]giteaclient.PRDetail{
+		"ssdlc/pilot-app": {{Number: 3, Title: "t", State: "open", HeadSHA: "abc", CreatedAt: time.Unix(900, 0)}},
+	}}
+	w := fakeWP{repos: []woodpeckerclient.Repo{
+		{ID: 7, FullName: "ssdlc/pilot-app"}, {ID: 8, FullName: "ssdlc/billing-api"},
+		{ID: 9, FullName: "someone-else/not-ours"},
+	}}
+	p, _ := newPoller(g, w)
+	if !p.Latest().GeneratedAt.IsZero() {
+		t.Fatal("before the first poll GeneratedAt must be zero")
+	}
+	if err := p.Once(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	l := p.Latest()
+	if !l.PollOK || len(l.Reports) != 1 || l.Reports[0].Repo != "ssdlc/pilot-app" {
+		t.Errorf("latest wrong: %+v", l)
+	}
+	if len(l.Repos) != 2 || l.Repos[0] != "ssdlc/pilot-app" || l.Repos[1] != "ssdlc/billing-api" {
+		t.Errorf("repos must be the org's repos in list order: %v", l.Repos)
+	}
+	l.Repos[0] = "mutated"
+	if p.Latest().Repos[0] == "mutated" {
+		t.Error("Latest must return a copy")
+	}
+}
+
+func TestPollerLatestMarksFailedRepo(t *testing.T) {
+	g := fakeGitea{prs: map[string][]giteaclient.PRDetail{}, failRepo: "ssdlc/pilot-app"}
+	w := fakeWP{repos: []woodpeckerclient.Repo{{ID: 7, FullName: "ssdlc/pilot-app"}}}
+	p, _ := newPoller(g, w)
+	if err := p.Once(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	l := p.Latest()
+	if l.PollOK || !l.Failed["ssdlc/pilot-app"] {
+		t.Errorf("a repo whose PR list failed must be Failed and PollOK false: %+v", l)
+	}
+}
+
+func TestPollerLatestKeepsDataOnListFailure(t *testing.T) {
+	fail := false
+	w := fakeWP{
+		repos: []woodpeckerclient.Repo{{ID: 7, FullName: "ssdlc/pilot-app"}},
+		reposErrFn: func() error {
+			if fail {
+				return errors.New("down")
+			}
+			return nil
+		},
+	}
+	g := fakeGitea{prs: map[string][]giteaclient.PRDetail{
+		"ssdlc/pilot-app": {{Number: 3, Title: "t", State: "open", HeadSHA: "abc", CreatedAt: time.Unix(900, 0)}},
+	}}
+	p, _ := newPoller(g, w)
+	if err := p.Once(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	before := p.Latest()
+	fail = true
+	if err := p.Once(context.Background()); err == nil {
+		t.Fatal("repo-list failure must be an error")
+	}
+	after := p.Latest()
+	if after.PollOK || len(after.Repos) != 1 || len(after.Reports) != len(before.Reports) || len(after.Reports) != 1 {
+		t.Errorf("list failure must keep the previous repos/reports and clear PollOK: before=%+v after=%+v", before, after)
+	}
+}

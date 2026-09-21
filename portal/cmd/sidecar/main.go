@@ -53,7 +53,7 @@ func main() {
 	srv := &http.Server{
 		Addr: cfg.ListenAddr,
 		Handler: sidecar.NewServer(&sidecar.APIDeps{
-			Token: cfg.APIToken, Metrics: store, Gitea: gitea, Woodpecker: wp, Now: time.Now,
+			Token: cfg.APIToken, Metrics: store, Gitea: gitea, Woodpecker: wp, Now: time.Now, Latest: poller.Latest,
 			Health: &sidecar.HealthChecker{
 				HTTP:          &http.Client{Timeout: 5 * time.Second},
 				GiteaURL:      cfg.GiteaURL,

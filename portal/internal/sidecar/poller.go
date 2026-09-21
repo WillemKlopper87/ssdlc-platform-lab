@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"ssdlc-portal/internal/giteaclient"
@@ -24,6 +25,16 @@ type Backends struct {
 	}
 }
 
+// Latest is the poller's most recent view, for the projects endpoint. A zero
+// GeneratedAt means no poll has completed yet.
+type Latest struct {
+	GeneratedAt time.Time
+	PollOK      bool
+	Repos       []string        // the org's repositories, in Woodpecker's order
+	Failed      map[string]bool // repositories whose pull requests could not be listed
+	Reports     []report.Report
+}
+
 type Poller struct {
 	B     Backends
 	Org   string
@@ -38,6 +49,30 @@ type Poller struct {
 	// single goroutine (Run), so no locking is needed.
 	lastReports []report.Report
 	lastTime    time.Time
+
+	// mu guards latest, which the HTTP handler reads while Once writes it.
+	mu     sync.RWMutex
+	latest Latest
+}
+
+// Latest returns a copy of the most recent snapshot; safe for concurrent use.
+func (p *Poller) Latest() Latest {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	l := p.latest
+	l.Repos = append([]string(nil), l.Repos...)
+	l.Reports = append([]report.Report(nil), l.Reports...)
+	l.Failed = make(map[string]bool, len(p.latest.Failed))
+	for k, v := range p.latest.Failed {
+		l.Failed[k] = v
+	}
+	return l
+}
+
+func (p *Poller) setLatest(l Latest) {
+	p.mu.Lock()
+	p.latest = l
+	p.mu.Unlock()
 }
 
 // Once performs a single poll. It returns an error only when the repository
@@ -50,21 +85,28 @@ func (p *Poller) Once(ctx context.Context) error {
 		// Keep serving the last good data (with its own timestamp) rather
 		// than an empty snapshot that would read as "no open PRs".
 		p.Store.Set(BuildSnapshot(p.lastReports, p.lastTime, false))
+		prev := p.Latest()
+		prev.PollOK = false
+		p.setLatest(prev)
 		return fmt.Errorf("sidecar: list repositories: %w", err)
 	}
 
 	var reports []report.Report
+	var orgRepos []string
+	failed := map[string]bool{}
 	allOK := true
 	prefix := p.Org + "/"
 	for _, repo := range repos {
 		if !strings.HasPrefix(repo.FullName, prefix) {
 			continue
 		}
+		orgRepos = append(orgRepos, repo.FullName)
 		owner, name, _ := strings.Cut(repo.FullName, "/")
 		prs, err := p.B.Gitea.ListOpenPullRequests(ctx, owner, name)
 		if err != nil {
 			p.Log.Printf("poll: list PRs for %s: %v", repo.FullName, err)
 			allOK = false
+			failed[repo.FullName] = true
 			continue
 		}
 		for _, pr := range prs {
@@ -72,6 +114,7 @@ func (p *Poller) Once(ctx context.Context) error {
 			if err != nil {
 				p.Log.Printf("poll: report for %s#%d: %v", repo.FullName, pr.Number, err)
 				allOK = false
+				failed[repo.FullName] = true
 				continue
 			}
 			if r.FindingsUnavailable {
@@ -81,6 +124,7 @@ func (p *Poller) Once(ctx context.Context) error {
 		}
 	}
 	p.lastReports, p.lastTime = reports, now
+	p.setLatest(Latest{GeneratedAt: now, PollOK: allOK, Repos: orgRepos, Failed: failed, Reports: reports})
 	p.Store.Set(BuildSnapshot(reports, now, allOK))
 	// Hooks run after publication so a slow or panicking hook cannot hold
 	// back metrics.
