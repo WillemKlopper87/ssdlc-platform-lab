@@ -32,8 +32,8 @@ var onboardingTmpl = template.Must(template.ParseFiles(
 func OnboardingForm() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		data := struct {
-			ActiveNav, Operator string
-			Shell               shell.Shell
+			ActiveNav string
+			Shell     shell.Shell
 		}{ActiveNav: "onboarding", Shell: shell.FromContext(r.Context())}
 		if err := onboardingTmpl.ExecuteTemplate(w, "layout", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

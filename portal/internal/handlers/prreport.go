@@ -92,14 +92,8 @@ func prLinks(s shell.Shell, owner, repo, number string, woodpeckerRepoID, pipeli
 type prReportData struct {
 	// Links open the pull request and its pipeline run in Gitea and
 	// Woodpecker; empty when the public URLs are unknown.
-	Links     prLinkSet
-	ActiveNav string
-	// Operator is read by layout.html's sidebar ({{if .Operator}}); every
-	// page data type rendered through "layout" needs this field or the
-	// template execution fails outright rather than silently hiding the
-	// sidebar note. This handler doesn't otherwise need the operator's
-	// username, so it's left unset here.
-	Operator     string
+	Links        prLinkSet
+	ActiveNav    string
 	Shell        shell.Shell
 	RepoFullName string
 	PR           struct {
