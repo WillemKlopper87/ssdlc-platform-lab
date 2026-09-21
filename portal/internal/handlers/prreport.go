@@ -6,10 +6,13 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"time"
 
 	"ssdlc-portal/internal/auth"
 	"ssdlc-portal/internal/findings"
 	"ssdlc-portal/internal/giteaclient"
+	"ssdlc-portal/internal/report"
 	"ssdlc-portal/internal/woodpeckerclient"
 )
 
@@ -103,95 +106,55 @@ func PRReport(giteaBaseURL, woodpeckerBaseURL, woodpeckerToken string) http.Hand
 	return func(w http.ResponseWriter, r *http.Request) {
 		owner := r.PathValue("owner")
 		repo := r.PathValue("repo")
-		number := r.PathValue("number")
+		number, err := strconv.Atoi(r.PathValue("number"))
+		if err != nil || number < 1 {
+			http.Error(w, "pull request number must be a positive integer", http.StatusBadRequest)
+			return
+		}
 
 		token, _ := auth.TokenFromContext(r.Context())
 		gitea := giteaclient.New(giteaBaseURL, token)
+		wp := woodpeckerclient.New(woodpeckerBaseURL, woodpeckerToken)
 
-		var pr struct {
-			Number int    `json:"number"`
-			Title  string `json:"title"`
-			Head   struct {
-				SHA string `json:"sha"`
-			} `json:"head"`
-		}
-		if _, err := gitea.RawGet(r.Context(), "/api/v1/repos/"+owner+"/"+repo+"/pulls/"+number, &pr); err != nil {
+		rep, err := report.Build(r.Context(), gitea, wp, owner, repo, number, time.Now())
+		if err != nil {
 			http.Error(w, "could not load pull request: "+err.Error(), http.StatusBadGateway)
 			return
 		}
 
-		var repoInfo struct {
-			ID int `json:"id"`
-		}
-		if _, err := gitea.RawGet(r.Context(), "/api/v1/repos/"+owner+"/"+repo, &repoInfo); err != nil {
-			http.Error(w, "could not resolve repo id: "+err.Error(), http.StatusBadGateway)
-			return
-		}
-
-		wp := woodpeckerclient.New(woodpeckerBaseURL, woodpeckerToken)
-		pipelines, err := wp.ListPipelines(r.Context(), repoInfo.ID)
-		if err != nil {
-			http.Error(w, "could not load pipelines: "+err.Error(), http.StatusBadGateway)
-			return
-		}
-
 		var active, baselined, excepted []reportFinding
-		var summary findings.Summary
-		for _, p := range pipelines {
-			if p.Commit != pr.Head.SHA {
-				continue
+		for _, f := range rep.Findings {
+			rf := reportFinding{
+				Finding: findings.Finding{
+					Category: findings.Category(f.Category), Severity: f.Severity, Tool: f.Tool,
+					RuleID: f.RuleID, Location: f.Location, Description: f.Description,
+				},
+				SeverityClass: severityClass(f.Severity),
 			}
-			steps, err := wp.ListSteps(r.Context(), repoInfo.ID, p.Number)
-			if err != nil {
-				continue
-			}
-			for _, s := range steps {
-				if s.Name != "policy-eval-findings" {
-					continue
-				}
-				log, err := wp.GetStepLog(r.Context(), repoInfo.ID, p.Number, s.ID)
-				if err != nil {
-					continue
-				}
-				parsed, parsedSummary, err := findings.Parse(log)
-				if err != nil {
-					continue
-				}
-				summary = parsedSummary
-				for _, f := range parsed {
-					rf := reportFinding{Finding: f, SeverityClass: severityClass(f.Severity)}
-					switch f.Category {
-					case findings.CategoryBaselined:
-						baselined = append(baselined, rf)
-					case findings.CategoryExcepted:
-						excepted = append(excepted, rf)
-					default:
-						active = append(active, rf)
-					}
-				}
-			}
-			break
-		}
-
-		mergeBlocked := false
-		for _, f := range active {
-			if f.Category == findings.CategoryBlocking {
-				mergeBlocked = true
-				break
+			switch rf.Category {
+			case findings.CategoryBaselined:
+				baselined = append(baselined, rf)
+			case findings.CategoryExcepted:
+				excepted = append(excepted, rf)
+			default:
+				active = append(active, rf)
 			}
 		}
 
 		data := prReportData{
 			ActiveNav:    "dashboard",
 			RepoFullName: owner + "/" + repo,
-			Summary:      summary,
-			MergeBlocked: mergeBlocked,
+			Summary: findings.Summary{
+				Critical: rep.Summary.Critical, High: rep.Summary.High,
+				Medium: rep.Summary.Medium, Low: rep.Summary.Low,
+			},
+			MergeBlocked: rep.MergeBlocked,
 			Active:       groupByTool(active),
 			Baselined:    groupByTool(baselined),
 			Excepted:     groupByTool(excepted),
 		}
-		data.PR.Number = pr.Number
-		data.PR.Title = pr.Title
+		data.PR.Number = rep.Number
+		data.PR.Title = rep.Title
 
 		if err := prReportTmpl.ExecuteTemplate(w, "layout", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

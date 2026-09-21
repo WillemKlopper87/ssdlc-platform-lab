@@ -17,8 +17,8 @@ func TestPRReport_RendersFindings(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v1/repos/gateadmin/gate-demo/pulls/12":
 			w.Write([]byte(`{"number":12,"title":"Add feature X","head":{"sha":"abc123"}}`))
-		case "/api/v1/repos/gateadmin/gate-demo":
-			w.Write([]byte(`{"id":1}`))
+		case "/api/v1/repos/gateadmin/gate-demo/commits/abc123/status":
+			w.Write([]byte(`{"statuses":[]}`))
 		default:
 			t.Fatalf("unexpected gitea path %s", r.URL.Path)
 		}
@@ -30,6 +30,8 @@ func TestPRReport_RendersFindings(t *testing.T) {
 			"policy-eval: 1 finding(s) normalized -- critical=1 high=0 medium=0 low=0\n"))
 	fakeWoodpecker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case r.URL.Path == "/api/repos/lookup/gateadmin/gate-demo":
+			w.Write([]byte(`{"id":1}`))
 		case strings.HasSuffix(r.URL.Path, "/pipelines"):
 			w.Write([]byte(`[{"number":5,"status":"failure","commit":"abc123","event":"pr"}]`))
 		case strings.HasSuffix(r.URL.Path, "/pipelines/5"):
@@ -67,8 +69,8 @@ func TestPRReport_GroupsByToolAndShowsBaselinedAndExcepted(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v1/repos/gateadmin/gate-demo/pulls/12":
 			w.Write([]byte(`{"number":12,"title":"Add feature X","head":{"sha":"abc123"}}`))
-		case "/api/v1/repos/gateadmin/gate-demo":
-			w.Write([]byte(`{"id":1}`))
+		case "/api/v1/repos/gateadmin/gate-demo/commits/abc123/status":
+			w.Write([]byte(`{"statuses":[]}`))
 		default:
 			t.Fatalf("unexpected gitea path %s", r.URL.Path)
 		}
@@ -83,6 +85,8 @@ func TestPRReport_GroupsByToolAndShowsBaselinedAndExcepted(t *testing.T) {
 			"policy-eval: 4 finding(s) normalized -- critical=1 high=1 medium=1 low=0\n"))
 	fakeWoodpecker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case r.URL.Path == "/api/repos/lookup/gateadmin/gate-demo":
+			w.Write([]byte(`{"id":1}`))
 		case strings.HasSuffix(r.URL.Path, "/pipelines"):
 			w.Write([]byte(`[{"number":5,"status":"failure","commit":"abc123","event":"pr"}]`))
 		case strings.HasSuffix(r.URL.Path, "/pipelines/5"):
@@ -131,8 +135,8 @@ func TestPRReport_NoMatchingPipelineIsNotAnError(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v1/repos/gateadmin/gate-demo/pulls/12":
 			w.Write([]byte(`{"number":12,"title":"Add feature X","head":{"sha":"zzz999"}}`))
-		case "/api/v1/repos/gateadmin/gate-demo":
-			w.Write([]byte(`{"id":1}`))
+		case "/api/v1/repos/gateadmin/gate-demo/commits/zzz999/status":
+			w.Write([]byte(`{"statuses":[]}`))
 		default:
 			t.Fatalf("unexpected gitea path %s", r.URL.Path)
 		}
@@ -140,6 +144,10 @@ func TestPRReport_NoMatchingPipelineIsNotAnError(t *testing.T) {
 	defer fakeGitea.Close()
 
 	fakeWoodpecker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/repos/lookup/gateadmin/gate-demo" {
+			w.Write([]byte(`{"id":1}`))
+			return
+		}
 		w.Write([]byte(`[{"number":5,"status":"failure","commit":"abc123","event":"pr"}]`))
 	}))
 	defer fakeWoodpecker.Close()
@@ -159,5 +167,49 @@ func TestPRReport_NoMatchingPipelineIsNotAnError(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "No findings") {
 		t.Error("expected the no-findings empty state when no pipeline matches the PR's head SHA")
+	}
+}
+
+func TestPRReport_UsesWoodpeckerRepoIDNotGiteasRepoID(t *testing.T) {
+	fakeGitea := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/repos/gateadmin/gate-demo/pulls/12":
+			w.Write([]byte(`{"number":12,"title":"t","head":{"sha":"abc123"}}`))
+		case "/api/v1/repos/gateadmin/gate-demo/commits/abc123/status":
+			w.Write([]byte(`{"statuses":[]}`))
+		default:
+			t.Fatalf("unexpected gitea path %s", r.URL.Path)
+		}
+	}))
+	defer fakeGitea.Close()
+
+	var pipelineIDs []string
+	fakeWoodpecker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/repos/lookup/gateadmin/gate-demo":
+			w.Write([]byte(`{"id":42}`))
+		case strings.HasSuffix(r.URL.Path, "/pipelines"):
+			pipelineIDs = append(pipelineIDs, r.URL.Path)
+			w.Write([]byte(`[]`))
+		default:
+			t.Fatalf("unexpected woodpecker path %s", r.URL.Path)
+		}
+	}))
+	defer fakeWoodpecker.Close()
+
+	handler := PRReport(fakeGitea.URL, fakeWoodpecker.URL, "wp-token")
+	req := httptest.NewRequest(http.MethodGet, "/pr/gateadmin/gate-demo/12", nil)
+	req.SetPathValue("owner", "gateadmin")
+	req.SetPathValue("repo", "gate-demo")
+	req.SetPathValue("number", "12")
+	req = req.WithContext(context.WithValue(req.Context(), auth.ContextKeyToken, "fake-token"))
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if len(pipelineIDs) != 1 || pipelineIDs[0] != "/api/repos/42/pipelines" {
+		t.Errorf("pipelines were requested at %v, want /api/repos/42/pipelines", pipelineIDs)
 	}
 }

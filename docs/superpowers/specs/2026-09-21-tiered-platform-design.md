@@ -42,7 +42,7 @@ A second binary in the existing `ssdlc-portal` Go module, so it reuses `giteacli
 
 It does four things:
 
-- **Report data.** For a PR it assembles gate state, findings and their explanations from Woodpecker's step logs (the parser the portal already uses) and serves it as JSON at `GET /api/v1/reports/{owner}/{repo}/{pr}`. The portal's PR report page switches to this API so there is one implementation.
+- **Report data.** For a PR it assembles gate state, findings and their explanations from Woodpecker's step logs (the parser the portal already uses) and serves it as JSON at `GET /api/v1/reports/{owner}/{repo}/{pr}`. The portal's PR report page calls the same shared report.Build function in-process, so there is one implementation and the page keeps working if the sidecar is down.
 - **Metrics.** `GET /metrics` in Prometheus format: PR gate outcomes by repo and result, blocking-findings count by severity and tool, pipeline duration, time from PR open to first verdict. It rebuilds them from Gitea and Woodpecker on start and refreshes on a poll (default 60 s), so it holds no state that can be lost.
 - **Sticky PR comment.** One comment per PR, edited in place, summarising the gate result and linking the portal report. Uses a dedicated `gate-reporter` token (already created by setup). Best effort: failure is logged and retried, never surfaced as a gate failure.
 - **DefectDojo push** (tier `full` only). See component 3.
