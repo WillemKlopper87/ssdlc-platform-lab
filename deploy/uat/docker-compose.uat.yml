@@ -1,0 +1,89 @@
+# UAT overlay for compose/minimal/docker-compose.yml. Never run on its own;
+# setup-uat.ps1 invokes:
+#   docker compose -p ssdlc-uat --env-file state/uat.env \
+#     -f compose/minimal/docker-compose.yml -f deploy/uat/docker-compose.uat.yml up -d
+#
+# What changes versus the loopback-only lab profile:
+#   * Gitea's public address is the server's fixed LAN IP instead of "gitea".
+#     Pipeline steps still reach Gitea as http://gitea:3500 over the
+#     ssdlc-minimal network (the pipeline template hard-codes that name).
+#   * Woodpecker is open to any *existing* Gitea user (registration is
+#     disabled in Gitea, so that is exactly the 4 UAT accounts).
+#   * Adds the portal and the bot approver.
+#
+# REPO_VM is the repository path as the Docker daemon sees it
+# (/run/desktop/mnt/host/<drive>/...). The portal and onboarding tooling run
+# `docker run -v <path>` for Semgrep/Trivy; mounting the repo at the daemon's
+# own view of the path makes those nested bind mounts resolve to real files.
+
+services:
+  gitea:
+    environment:
+      - GITEA__server__DOMAIN=${SERVER_IP:?}
+      - GITEA__server__ROOT_URL=http://${SERVER_IP:?}:3500/
+      - GITEA__server__DISABLE_SSH=true
+
+  woodpecker-server:
+    environment:
+      - WOODPECKER_OPEN=true
+      - WOODPECKER_HOST=http://${SERVER_IP:?}:${WOODPECKER_PORT:-8000}
+      - WOODPECKER_GITEA_URL=http://${SERVER_IP:?}:3500
+
+  portal:
+    build:
+      context: ${REPO_ROOT:?}
+      dockerfile: deploy/uat/Dockerfile
+      target: portal
+    image: ssdlc-uat-portal
+    container_name: ssdlc-uat-portal
+    restart: unless-stopped
+    depends_on:
+      - gitea
+      - woodpecker-server
+    working_dir: ${REPO_VM:?}/portal
+    volumes:
+      - ${REPO_ROOT}:${REPO_VM}
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8181:8181"
+    environment:
+      - TMPDIR=${REPO_VM}/deploy/uat/state/tmp
+      - PORTAL_GITEA_URL=http://${SERVER_IP}:3500
+      - PORTAL_WOODPECKER_URL=http://${SERVER_IP}:${WOODPECKER_PORT:-8000}
+      - PORTAL_WOODPECKER_TOKEN=${WOODPECKER_TOKEN:-unset}
+      - PORTAL_GITEA_ADMIN_TOKEN=${GITEA_ADMIN_TOKEN:-unset}
+      - PORTAL_OAUTH_CLIENT_ID=${PORTAL_OAUTH_CLIENT_ID:-unset}
+      - PORTAL_OAUTH_CLIENT_SECRET=${PORTAL_OAUTH_CLIENT_SECRET:-unset}
+      - PORTAL_SESSION_KEY=${PORTAL_SESSION_KEY:-unsetunsetunsetunsetunsetunsetunset}
+      - PORTAL_APPROVER_TEAM=approvers
+      - PORTAL_EXCEPTIONS_REPO_OWNER=ssdlc
+      - PORTAL_EXCEPTIONS_REPO_NAME=exceptions
+      - PORTAL_PUBLIC_URL=http://${SERVER_IP}:8181
+      - PORTAL_BOT_LOGIN=gate-bot
+      - PORTAL_LISTEN_ADDR=:8181
+
+  bot-approver:
+    image: ssdlc-uat-ops
+    build:
+      context: ${REPO_ROOT}
+      dockerfile: deploy/uat/Dockerfile
+      target: ops
+    container_name: ssdlc-uat-bot-approver
+    restart: unless-stopped
+    depends_on:
+      - gitea
+      - woodpecker-server
+    working_dir: /app
+    volumes:
+      - ${REPO_ROOT}:/app:ro
+    command: ["python", "scripts/bot-approver.py"]
+    environment:
+      - GITEA_URL=http://${SERVER_IP}:3500
+      - WOODPECKER_URL=http://${SERVER_IP}:${WOODPECKER_PORT:-8000}
+      - GITEA_BOT_TOKEN=${GITEA_BOT_TOKEN:-unset}
+      - WOODPECKER_TOKEN=${WOODPECKER_TOKEN:-unset}
+      - REPO_OWNER=ssdlc
+      - REPO_NAME=pilot-app
+      - WOODPECKER_REPO_ID=${PILOT_REPO_ID:-0}
+      - GITEA_BOT_LOGIN=gate-bot
+      - POLL_INTERVAL_SECONDS=15
