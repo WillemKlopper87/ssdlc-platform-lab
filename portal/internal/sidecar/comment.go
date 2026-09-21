@@ -43,7 +43,7 @@ func sanitizeInline(s string, max int) string {
 				result = append(result, '&', 'g', 't', ';')
 			} else if r == '@' {
 				// Insert zero-width space after @ to prevent mentions
-				result = append(result, '@', '​')
+				result = append(result, '@', '\u200b')
 			} else {
 				result = append(result, r)
 			}

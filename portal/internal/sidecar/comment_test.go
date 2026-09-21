@@ -163,9 +163,9 @@ func TestRenderCommentSanitizesInlineText(t *testing.T) {
 	if strings.Contains(body, "@evil") {
 		t.Error("comment should not contain raw @evil mention")
 	}
-	// Should contain @​evil (with zero-width space after @)
-	if !strings.Contains(body, "@​evil") {
-		t.Error("comment should contain @​evil with zero-width space after @")
+	// Should contain @ followed by a zero-width space before evil
+	if !strings.Contains(body, "@\u200bevil") {
+		t.Error("comment should contain @ followed by a zero-width space before evil")
 	}
 
 	// Count lines starting with "- **" should equal the number of blocking findings (1)
@@ -232,7 +232,7 @@ func TestSanitizeInline_WhitespaceCollapsing(t *testing.T) {
 
 	// Test 5: @ followed by zero-width space
 	got = sanitizeInline("@x", 1000)
-	if got != "@​x" {
+	if got != "@\u200bx" {
 		t.Errorf("@ should be followed by zero-width space: expected '@\\u200bx', got %q", got)
 	}
 }
