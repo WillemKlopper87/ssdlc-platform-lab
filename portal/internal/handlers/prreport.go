@@ -78,7 +78,7 @@ type prLinkSet struct{ Gitea, Woodpecker string }
 func prLinks(s shell.Shell, owner, repo, number string, woodpeckerRepoID, pipeline int) prLinkSet {
 	var l prLinkSet
 	if s.GiteaURL != "" {
-		l.Gitea = s.GiteaURL + "/" + url.PathEscape(owner) + "/" + url.PathEscape(repo) + "/pulls/" + url.PathEscape(number)
+		l.Gitea = strings.TrimRight(s.GiteaURL, "/") + "/" + url.PathEscape(owner) + "/" + url.PathEscape(repo) + "/pulls/" + url.PathEscape(number)
 	}
 	if s.WoodpeckerURL != "" && woodpeckerRepoID > 0 {
 		l.Woodpecker = fmt.Sprintf("%s/repos/%d", s.WoodpeckerURL, woodpeckerRepoID)

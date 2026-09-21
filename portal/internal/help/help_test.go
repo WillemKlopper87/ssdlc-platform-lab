@@ -96,20 +96,23 @@ func TestUnbuiltFeatureTopicsAreHedged(t *testing.T) {
 }
 
 func TestAppliesTo(t *testing.T) {
-	dev := Topic{Roles: []string{"Developer"}}
-	adm := Topic{Roles: []string{"Admin"}}
+	setup := Topic{GoTo: "/onboarding"}
+	exc := Topic{GoTo: "/exceptions"}
 	for _, c := range []struct {
-		tp    Topic
-		label string
-		want  bool
+		name string
+		tp   Topic
+		s    shell.Shell
+		want bool
 	}{
-		{dev, "Developer", true},
-		{dev, "Approver", false},
-		{adm, "Admin", true},
-		{adm, "Developer", false},
+		{"developer, setup", setup, shell.Shell{}, false},
+		{"approver, setup", setup, shell.Shell{IsApprover: true}, false},
+		{"admin outside approvers, setup", setup, shell.Shell{IsAdmin: true}, false},
+		{"admin in approvers, setup", setup, shell.Shell{IsAdmin: true, IsApprover: true}, true},
+		{"developer, exceptions", exc, shell.Shell{}, true},
+		{"admin outside approvers, exceptions", exc, shell.Shell{IsAdmin: true}, true},
 	} {
-		if got := c.tp.AppliesTo(c.label); got != c.want {
-			t.Errorf("%v.AppliesTo(%q) = %v, want %v", c.tp.Roles, c.label, got, c.want)
+		if got := c.tp.AppliesTo(c.s); got != c.want {
+			t.Errorf("%s: AppliesTo = %v, want %v", c.name, got, c.want)
 		}
 	}
 }

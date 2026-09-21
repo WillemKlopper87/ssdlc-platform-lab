@@ -79,4 +79,11 @@ func TestHelp_ActionButtonsAreRoleGated(t *testing.T) {
 	if !strings.Contains(adm, `href="/onboarding"`) {
 		t.Error("an admin should get the setup button")
 	}
+	outside := getHelp(t, "/help", shell.Shell{Operator: "siteadmin", Role: shell.RoleAdmin, IsAdmin: true})
+	if strings.Contains(outside, `href="/onboarding"`) {
+		t.Error("an admin outside the approvers team gets a 403 there, so no button")
+	}
+	if !strings.Contains(adm, `href="/exceptions"`) || !strings.Contains(outside, `href="/exceptions"`) {
+		t.Error("admins should keep the Exceptions action buttons")
+	}
 }

@@ -152,6 +152,34 @@ func (f flakyIdentity) IsOnTeam(ctx context.Context, org, team string) (bool, er
 	return false, nil
 }
 
+type flakyTeam struct {
+	calls *int
+}
+
+func (f flakyTeam) CurrentUser(ctx context.Context) (string, bool, error) {
+	return "gateadmin", true, nil
+}
+func (f flakyTeam) IsOnTeam(ctx context.Context, org, team string) (bool, error) {
+	*f.calls++
+	if *f.calls == 1 {
+		return false, errors.New("transient")
+	}
+	return true, nil
+}
+
+func TestFor_DoesNotCacheTeamLookupFailure(t *testing.T) {
+	calls := 0
+	b := builder(fakeIdentity{}, nil, nil)
+	b.NewIdentity = func(string) Identity { return flakyTeam{calls: &calls} }
+	ctx := context.Background()
+	if first := b.For(ctx, "tok"); first.IsApprover || !first.IsAdmin {
+		t.Fatalf("first call should fail soft: %+v", first)
+	}
+	if second := b.For(ctx, "tok"); !second.IsApprover || calls != 2 {
+		t.Errorf("team failure was cached: %+v calls=%d", second, calls)
+	}
+}
+
 func TestFor_DoesNotCacheIdentityFailure(t *testing.T) {
 	calls := 0
 	b := builder(fakeIdentity{}, nil, nil)

@@ -67,8 +67,9 @@ func Dashboard(giteaBaseURL string) http.HandlerFunc {
 		if sh.GiteaURL != "" {
 			base := strings.TrimRight(sh.GiteaURL, "/")
 			for i := range rows {
-				owner, repo := splitRepo(rows[i].Repo)
-				rows[i].Link = fmt.Sprintf("%s/%s/%s/pulls/%d", base, url.PathEscape(owner), url.PathEscape(repo), rows[i].Number)
+				if l, ok := publicPRLink(base, rows[i].Repo, rows[i].Number); ok {
+					rows[i].Link = l
+				}
 			}
 		}
 
@@ -82,6 +83,17 @@ func Dashboard(giteaBaseURL string) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
+}
+
+// publicPRLink builds <base>/<owner>/<repo>/pulls/<n> from a "owner/repo"
+// name. It reports false when the name has no owner/repo split, so the
+// caller keeps Gitea's own html_url instead of emitting "owner//pulls".
+func publicPRLink(base, fullName string, number int) (string, bool) {
+	owner, repo := splitRepo(fullName)
+	if owner == "" || repo == "" {
+		return "", false
+	}
+	return fmt.Sprintf("%s/%s/%s/pulls/%d", strings.TrimRight(base, "/"), url.PathEscape(owner), url.PathEscape(repo), number), true
 }
 
 func splitRepo(fullName string) (owner, repo string) {

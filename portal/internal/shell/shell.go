@@ -97,9 +97,16 @@ func (b *Builder) For(ctx context.Context, token string) Shell {
 		return s
 	}
 	s.Operator, s.IsAdmin = login, admin
-	if member, err := id.IsOnTeam(ctx, b.Org, b.Team); err == nil {
-		s.IsApprover = member
+	member, err := id.IsOnTeam(ctx, b.Org, b.Team)
+	if err != nil {
+		// Same rule: do not cache a guess that would hide the Admin entry.
+		s.Operator, s.IsAdmin = login, admin
+		if admin {
+			s.Role = RoleAdmin
+		}
+		return s
 	}
+	s.IsApprover = member
 	switch {
 	case s.IsAdmin:
 		s.Role = RoleAdmin

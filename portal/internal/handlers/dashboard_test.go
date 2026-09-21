@@ -102,6 +102,25 @@ func dashboardLinkBody(t *testing.T, s shell.Shell) string {
 	return rec.Body.String()
 }
 
+func TestPublicPRLink(t *testing.T) {
+	for _, c := range []struct {
+		base, name string
+		want       string
+		ok         bool
+	}{
+		{"http://h:3500", "o/r", "http://h:3500/o/r/pulls/5", true},
+		{"http://h:3500/", "o/r", "http://h:3500/o/r/pulls/5", true},
+		{"http://h:3500", "o/my repo?", "http://h:3500/o/my%20repo%3F/pulls/5", true},
+		{"http://h:3500", "norepo", "", false},
+		{"http://h:3500", "o/", "", false},
+	} {
+		got, ok := publicPRLink(c.base, c.name, 5)
+		if got != c.want || ok != c.ok {
+			t.Errorf("publicPRLink(%q,%q) = %q,%v want %q,%v", c.base, c.name, got, ok, c.want, c.ok)
+		}
+	}
+}
+
 func TestDashboard_LinksUsePublicGiteaURL(t *testing.T) {
 	body := dashboardLinkBody(t, shell.Shell{GiteaURL: "http://192.168.1.28:3500"})
 	if !strings.Contains(body, `href="http://192.168.1.28:3500/o/r/pulls/5"`) {

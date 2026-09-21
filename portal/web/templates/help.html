@@ -29,7 +29,7 @@
 {{range .Topics}}
 <details class="ssdlc-topic" id="{{.ID}}" {{if $.Open}}open{{end}}>
   <summary>{{.Question}}{{range .Roles}}<span class="ssdlc-tag">{{.}}</span>{{end}}</summary>
-  <div class="a">{{.Answer}}{{if and .GoTo (.AppliesTo $.Shell.RoleLabel)}}<div style="margin-top:10px;"><a class="ssdlc-btn ssdlc-btn-primary" href="{{.GoTo}}">{{.GoLabel}} &rarr;</a></div>{{end}}</div>
+  <div class="a">{{.Answer}}{{if and .GoTo (.AppliesTo $.Shell)}}<div style="margin-top:10px;"><a class="ssdlc-btn ssdlc-btn-primary" href="{{.GoTo}}">{{.GoLabel}} &rarr;</a></div>{{end}}</div>
 </details>
 {{else}}
 <div class="ssdlc-card" style="text-align:center;color:var(--ssdlc-text-2);">No topics match &ldquo;{{.Query}}&rdquo;. Try a shorter word, or ask your platform admin.</div>

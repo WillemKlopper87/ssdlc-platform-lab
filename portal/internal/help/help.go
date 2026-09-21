@@ -102,13 +102,14 @@ func FirstSteps(role shell.Role) []string {
 	}
 }
 
-// AppliesTo reports whether the topic is written for the given role label
-// (as returned by shell.Shell.RoleLabel).
-func (t Topic) AppliesTo(roleLabel string) bool {
-	for _, r := range t.Roles {
-		if r == roleLabel {
-			return true
-		}
+// AppliesTo reports whether the viewer can actually open the topic's GoTo
+// target. /onboarding is guarded by the approvers team, so it needs an admin
+// who is also a member (the same rule as the sidebar's Admin entry);
+// /exceptions is open to every signed-in user. The topic itself stays
+// visible to everyone: only the action button is gated.
+func (t Topic) AppliesTo(s shell.Shell) bool {
+	if t.GoTo == "/onboarding" {
+		return s.IsAdmin && s.IsApprover
 	}
-	return false
+	return true
 }
