@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"ssdlc-portal/internal/auth"
@@ -119,6 +120,10 @@ func PRReport(giteaBaseURL, woodpeckerBaseURL, woodpeckerToken string) http.Hand
 		rep, err := report.Build(r.Context(), gitea, wp, owner, repo, number, time.Now())
 		if err != nil {
 			http.Error(w, "could not load pull request: "+err.Error(), http.StatusBadGateway)
+			return
+		}
+		if rep.FindingsUnavailable {
+			http.Error(w, "findings unavailable: "+strings.Join(rep.Notes, "; "), http.StatusBadGateway)
 			return
 		}
 

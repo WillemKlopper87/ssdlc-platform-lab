@@ -30,19 +30,21 @@ type fakeWP struct {
 	pipelines []woodpeckerclient.Pipeline
 	steps     []woodpeckerclient.Step
 	log       string
+
+	pipelinesErr, stepsErr, logErr error
 }
 
 func (f fakeWP) LookupRepo(ctx context.Context, owner, repo string) (int, error) {
 	return f.repoID, f.lookupErr
 }
 func (f fakeWP) ListPipelines(ctx context.Context, repoID int) ([]woodpeckerclient.Pipeline, error) {
-	return f.pipelines, nil
+	return f.pipelines, f.pipelinesErr
 }
 func (f fakeWP) ListSteps(ctx context.Context, repoID, n int) ([]woodpeckerclient.Step, error) {
-	return f.steps, nil
+	return f.steps, f.stepsErr
 }
 func (f fakeWP) GetStepLog(ctx context.Context, repoID, n, stepID int) (string, error) {
-	return f.log, nil
+	return f.log, f.logErr
 }
 
 var now = time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
@@ -113,6 +115,36 @@ func TestBuild_WoodpeckerLookupFailureBecomesANote(t *testing.T) {
 	}
 	if len(r.Notes) == 0 || r.Findings == nil {
 		t.Errorf("report = %+v", r)
+	}
+	if !r.FindingsUnavailable {
+		t.Error("FindingsUnavailable must be true when the repo lookup fails")
+	}
+}
+
+func TestBuild_FindingsUnavailableFlag(t *testing.T) {
+	pl := []woodpeckerclient.Pipeline{{Number: 5, Commit: "abc"}}
+	st := []woodpeckerclient.Step{{ID: 59, Name: "policy-eval-findings"}}
+	boom := errors.New("boom")
+	cases := []struct {
+		name string
+		w    fakeWP
+		want bool
+	}{
+		{"pipelines failure", fakeWP{repoID: 7, pipelinesErr: boom}, true},
+		{"steps failure", fakeWP{repoID: 7, pipelines: pl, stepsErr: boom}, true},
+		{"log failure", fakeWP{repoID: 7, pipelines: pl, steps: st, logErr: boom}, true},
+		{"unparseable log", fakeWP{repoID: 7, pipelines: pl, steps: st, log: "policy-eval: 1 finding(s) normalized -- critical=99999999999999999999 high=0 medium=0 low=0\n"}, true},
+		{"no pipeline for commit", fakeWP{repoID: 7, pipelines: []woodpeckerclient.Pipeline{{Number: 5, Commit: "other"}}}, false},
+		{"blocked normal run", fakeWP{repoID: 7, pipelines: pl, steps: st, log: blockedLog}, false},
+	}
+	for _, c := range cases {
+		r, err := Build(context.Background(), fakeGitea{pr: basePR()}, c.w, "o", "r", 12, now)
+		if err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if r.FindingsUnavailable != c.want {
+			t.Errorf("%s: FindingsUnavailable = %v, want %v (notes %v)", c.name, r.FindingsUnavailable, c.want, r.Notes)
+		}
 	}
 }
 

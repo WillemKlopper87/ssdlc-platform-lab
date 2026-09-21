@@ -65,7 +65,10 @@ type Report struct {
 	PipelineStarted  int64     `json:"pipeline_started"`
 	PipelineFinished int64     `json:"pipeline_finished"`
 	Notes            []string  `json:"notes"`
-	GeneratedAt      time.Time `json:"generated_at"`
+	// FindingsUnavailable is true when Woodpecker could not be read, so an
+	// empty Findings list must not be taken to mean "clean".
+	FindingsUnavailable bool      `json:"findings_unavailable"`
+	GeneratedAt         time.Time `json:"generated_at"`
 }
 
 // GateState collapses the security-gate commit statuses into one value.
@@ -122,11 +125,13 @@ func Build(ctx context.Context, g Gitea, w Woodpecker, owner, repo string, numbe
 	repoID, err := w.LookupRepo(ctx, owner, repo)
 	if err != nil {
 		r.Notes = append(r.Notes, "findings unavailable: "+err.Error())
+		r.FindingsUnavailable = true
 		return r, nil
 	}
 	pipelines, err := w.ListPipelines(ctx, repoID)
 	if err != nil {
 		r.Notes = append(r.Notes, "findings unavailable: "+err.Error())
+		r.FindingsUnavailable = true
 		return r, nil
 	}
 
@@ -140,6 +145,7 @@ func Build(ctx context.Context, g Gitea, w Woodpecker, owner, repo string, numbe
 		steps, err := w.ListSteps(ctx, repoID, p.Number)
 		if err != nil {
 			r.Notes = append(r.Notes, "pipeline steps unavailable: "+err.Error())
+			r.FindingsUnavailable = true
 			break
 		}
 		for _, s := range steps {
@@ -149,11 +155,13 @@ func Build(ctx context.Context, g Gitea, w Woodpecker, owner, repo string, numbe
 			log, err := w.GetStepLog(ctx, repoID, p.Number, s.ID)
 			if err != nil {
 				r.Notes = append(r.Notes, "findings log unavailable: "+err.Error())
+				r.FindingsUnavailable = true
 				continue
 			}
 			parsed, sum, err := findings.Parse(log)
 			if err != nil {
 				r.Notes = append(r.Notes, "findings log unreadable: "+err.Error())
+				r.FindingsUnavailable = true
 				continue
 			}
 			r.Summary = Summary{Critical: sum.Critical, High: sum.High, Medium: sum.Medium, Low: sum.Low}

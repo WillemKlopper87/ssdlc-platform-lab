@@ -213,3 +213,57 @@ func TestPRReport_UsesWoodpeckerRepoIDNotGiteasRepoID(t *testing.T) {
 		t.Errorf("pipelines were requested at %v, want /api/repos/42/pipelines", pipelineIDs)
 	}
 }
+
+func TestPRReport_WoodpeckerFailureIsBadGatewayNotEmptyState(t *testing.T) {
+	fakeGitea := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/repos/gateadmin/gate-demo/pulls/12":
+			w.Write([]byte(`{"number":12,"title":"t","head":{"sha":"abc123"}}`))
+		case "/api/v1/repos/gateadmin/gate-demo/commits/abc123/status":
+			w.Write([]byte(`{"statuses":[]}`))
+		default:
+			t.Fatalf("unexpected gitea path %s", r.URL.Path)
+		}
+	}))
+	defer fakeGitea.Close()
+
+	fakeWoodpecker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer fakeWoodpecker.Close()
+
+	handler := PRReport(fakeGitea.URL, fakeWoodpecker.URL, "wp-token")
+	req := httptest.NewRequest(http.MethodGet, "/pr/gateadmin/gate-demo/12", nil)
+	req.SetPathValue("owner", "gateadmin")
+	req.SetPathValue("repo", "gate-demo")
+	req.SetPathValue("number", "12")
+	req = req.WithContext(context.WithValue(req.Context(), auth.ContextKeyToken, "fake-token"))
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502; body = %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "findings unavailable") {
+		t.Errorf("body should say findings unavailable: %s", body)
+	}
+	if strings.Contains(body, "No findings") {
+		t.Errorf("must not render the clean empty state when Woodpecker is down: %s", body)
+	}
+}
+
+func TestPRReport_RejectsNonPositiveOrNonNumericPRNumber(t *testing.T) {
+	handler := PRReport("http://unused.invalid", "http://unused.invalid", "wp-token")
+	for _, num := range []string{"abc", "0"} {
+		req := httptest.NewRequest(http.MethodGet, "/pr/gateadmin/gate-demo/"+num, nil)
+		req.SetPathValue("owner", "gateadmin")
+		req.SetPathValue("repo", "gate-demo")
+		req.SetPathValue("number", num)
+		rec := httptest.NewRecorder()
+		handler(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("number %q: status = %d, want 400", num, rec.Code)
+		}
+	}
+}
