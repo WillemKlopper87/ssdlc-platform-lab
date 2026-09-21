@@ -2,6 +2,7 @@ package giteaclient
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -94,5 +95,85 @@ func TestIssueComments(t *testing.T) {
 	}
 	if gotMethod != http.MethodPatch || gotPath != "/api/v1/repos/o/r/issues/comments/5" || !strings.Contains(gotBody, `"body":"edited"`) {
 		t.Errorf("edit = %s %s %s", gotMethod, gotPath, gotBody)
+	}
+}
+
+func TestListIssueComments_Pagination(t *testing.T) {
+	var pageRequests []int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Fatalf("unexpected method %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/repos/o/r/issues/12/comments" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		page := r.URL.Query().Get("page")
+		if page == "" {
+			t.Fatal("page query parameter missing")
+		}
+		limit := r.URL.Query().Get("limit")
+		if limit != "50" {
+			t.Fatalf("limit query parameter should be 50, got %s", limit)
+		}
+		var pageNum int
+		fmt.Sscanf(page, "%d", &pageNum)
+		pageRequests = append(pageRequests, pageNum)
+
+		// Page 1 returns 50 comments, page 2 returns 2 comments
+		if pageNum == 1 {
+			comments := make([]string, 50)
+			for i := 0; i < 50; i++ {
+				comments[i] = fmt.Sprintf(`{"id":%d,"body":"comment %d","user":{"login":"u%d"}}`, i+1, i+1, i+1)
+			}
+			w.Write([]byte("[" + strings.Join(comments, ",") + "]"))
+		} else if pageNum == 2 {
+			w.Write([]byte(`[{"id":51,"body":"comment 51","user":{"login":"u51"}},{"id":52,"body":"comment 52","user":{"login":"u52"}}]`))
+		} else {
+			w.Write([]byte("[]"))
+		}
+	}))
+	defer srv.Close()
+
+	cs, err := New(srv.URL, "tok").ListIssueComments(context.Background(), "o", "r", 12)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cs) != 52 {
+		t.Errorf("expected 52 comments, got %d", len(cs))
+	}
+	if cs[0].ID != 1 || cs[50].ID != 51 || cs[51].ID != 52 {
+		t.Errorf("comment order or IDs wrong: first=%d, 51st=%d, 52nd=%d", cs[0].ID, cs[50].ID, cs[51].ID)
+	}
+	// Check that pages 1 and 2 were requested, but not page 3
+	if len(pageRequests) != 2 || pageRequests[0] != 1 || pageRequests[1] != 2 {
+		t.Errorf("expected requests for pages [1, 2], got %v", pageRequests)
+	}
+}
+
+func TestListIssueComments_MaxPages(t *testing.T) {
+	var requestCount int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if r.URL.Path != "/api/v1/repos/o/r/issues/12/comments" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		// Always return 50 comments to avoid stopping early
+		comments := make([]string, 50)
+		for i := 0; i < 50; i++ {
+			comments[i] = fmt.Sprintf(`{"id":%d,"body":"c","user":{"login":"u"}}`, i+1)
+		}
+		w.Write([]byte("[" + strings.Join(comments, ",") + "]"))
+	}))
+	defer srv.Close()
+
+	cs, err := New(srv.URL, "tok").ListIssueComments(context.Background(), "o", "r", 12)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requestCount > 20 {
+		t.Errorf("exceeded 20 page requests: got %d", requestCount)
+	}
+	if len(cs) != requestCount*50 {
+		t.Errorf("expected %d comments from %d pages, got %d", requestCount*50, requestCount, len(cs))
 	}
 }

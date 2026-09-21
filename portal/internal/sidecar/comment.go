@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"unicode"
 
 	"ssdlc-portal/internal/giteaclient"
 	"ssdlc-portal/internal/report"
@@ -14,6 +15,55 @@ import (
 const CommentMarker = "<!-- ssdlc-gate-report -->"
 
 const maxCommentFindings = 10
+
+// sanitizeInline replaces whitespace/newlines/control chars, escapes markdown/HTML,
+// prevents @mentions, and truncates to max runes with "..." if needed.
+func sanitizeInline(s string, max int) string {
+	// Convert to runes for proper truncation at rune boundaries
+	runes := []rune(s)
+
+	var result []rune
+	prevWasSpace := false
+
+	for _, r := range runes {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			if !prevWasSpace {
+				result = append(result, ' ')
+				prevWasSpace = true
+			}
+		} else {
+			// Replace backticks with single quotes
+			if r == '`' {
+				result = append(result, '\'')
+			} else if r == '<' {
+				// Replace < with &lt;
+				result = append(result, '&', 'l', 't', ';')
+			} else if r == '>' {
+				// Replace > with &gt;
+				result = append(result, '&', 'g', 't', ';')
+			} else if r == '@' {
+				// Insert zero-width space after @ to prevent mentions
+				result = append(result, '@', '​')
+			} else {
+				result = append(result, r)
+			}
+			prevWasSpace = false
+		}
+	}
+
+	// Trim trailing spaces
+	for len(result) > 0 && result[len(result)-1] == ' ' {
+		result = result[:len(result)-1]
+	}
+
+	// Truncate if necessary
+	if len(result) > max {
+		result = result[:max]
+		result = append(result, '.', '.', '.')
+	}
+
+	return string(result)
+}
 
 type CommentAPI interface {
 	ListIssueComments(ctx context.Context, owner, repo string, number int) ([]giteaclient.IssueComment, error)
@@ -51,7 +101,11 @@ func RenderComment(r report.Report, portalURL string) string {
 			b.WriteString("- ...and more (see the full report)\n")
 			break
 		}
-		fmt.Fprintf(&b, "- **%s** `%s` at `%s`: %s\n", f.Severity, f.RuleID, f.Location, f.Description)
+		severity := sanitizeInline(f.Severity, 200)
+		ruleID := sanitizeInline(f.RuleID, 120)
+		location := sanitizeInline(f.Location, 120)
+		description := sanitizeInline(f.Description, 200)
+		fmt.Fprintf(&b, "- **%s** `%s` at `%s`: %s\n", severity, ruleID, location, description)
 		shown++
 	}
 	if portalURL != "" {
@@ -83,7 +137,11 @@ func SyncComment(ctx context.Context, api CommentAPI, botLogin, owner, repo stri
 // comment current. Failures are logged and never propagate.
 func CommentHook(api CommentAPI, botLogin, portalURL string, lg *log.Logger) func(ctx context.Context, r report.Report) {
 	return func(ctx context.Context, r report.Report) {
-		owner, repo, _ := strings.Cut(r.Repo, "/")
+		owner, repo, ok := strings.Cut(r.Repo, "/")
+		if !ok {
+			lg.Printf("comment: malformed repo name %q", r.Repo)
+			return
+		}
 		if err := SyncComment(ctx, api, botLogin, owner, repo, r.Number, RenderComment(r, portalURL)); err != nil {
 			lg.Printf("comment: %s#%d: %v", r.Repo, r.Number, err)
 		}

@@ -72,25 +72,38 @@ type IssueComment struct {
 }
 
 func (c *Client) ListIssueComments(ctx context.Context, owner, repo string, number int) ([]IssueComment, error) {
-	path := fmt.Sprintf("/api/v1/repos/%s/%s/issues/%d/comments", owner, repo, number)
-	var raw []struct {
-		ID   int64  `json:"id"`
-		Body string `json:"body"`
-		User struct {
-			Login string `json:"login"`
-		} `json:"user"`
+	const pageSize = 50
+	const maxPages = 20
+	var out []IssueComment
+
+	for page := 1; page <= maxPages; page++ {
+		path := fmt.Sprintf("/api/v1/repos/%s/%s/issues/%d/comments?limit=%d&page=%d", owner, repo, number, pageSize, page)
+		var raw []struct {
+			ID   int64  `json:"id"`
+			Body string `json:"body"`
+			User struct {
+				Login string `json:"login"`
+			} `json:"user"`
+		}
+		status, err := c.do(ctx, http.MethodGet, path, nil, &raw)
+		if err != nil {
+			return nil, err
+		}
+		if err := statusError(http.MethodGet, path, status); err != nil {
+			return nil, err
+		}
+
+		// Append this page's comments
+		for _, r := range raw {
+			out = append(out, IssueComment{ID: r.ID, Body: r.Body, Author: r.User.Login})
+		}
+
+		// Stop if this page returned fewer than pageSize items
+		if len(raw) < pageSize {
+			break
+		}
 	}
-	status, err := c.do(ctx, http.MethodGet, path, nil, &raw)
-	if err != nil {
-		return nil, err
-	}
-	if err := statusError(http.MethodGet, path, status); err != nil {
-		return nil, err
-	}
-	out := make([]IssueComment, 0, len(raw))
-	for _, r := range raw {
-		out = append(out, IssueComment{ID: r.ID, Body: r.Body, Author: r.User.Login})
-	}
+
 	return out, nil
 }
 

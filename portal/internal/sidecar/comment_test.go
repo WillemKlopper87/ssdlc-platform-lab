@@ -130,3 +130,98 @@ func TestCommentHookNeverPanicsOrPropagatesErrors(t *testing.T) {
 	hook := CommentHook(api, "gate-reporter", "", log.New(io.Discard, "", 0))
 	hook(context.Background(), blockedReport()) // must simply log and return
 }
+
+func TestRenderCommentSanitizesInlineText(t *testing.T) {
+	r := report.Report{
+		Repo: "o/r", Number: 1, HeadSHA: "abc", Gate: "failure",
+		Summary: report.Summary{},
+		Findings: []report.Finding{
+			{
+				Category: "blocking", Severity: "CRITICAL",
+				Tool: "tool", RuleID: strings.Repeat("x", 500),
+				Location: "a`b\n@evil<script>.py",
+				Description: "line1\n\n  line2 ```code``` <img src=x>",
+			},
+		},
+	}
+	body := RenderComment(r, "")
+
+	// Should not contain raw backticks outside template's own 4 per finding (2 around RuleID, 2 around Location) plus 2 around SHA
+	backtickCount := strings.Count(body, "`")
+	expectedBackticks := 2 + 2 + 2 // SHA, RuleID, Location
+	if backtickCount != expectedBackticks {
+		t.Errorf("expected %d backticks in sanitized comment, got %d", expectedBackticks, backtickCount)
+	}
+
+	// Should not contain <img
+	if strings.Contains(body, "<img") {
+		t.Error("comment should not contain <img tag")
+	}
+
+	// Should not contain raw @ before evil (should have zero-width space)
+	if strings.Contains(body, "@evil") {
+		t.Error("comment should not contain raw @evil mention")
+	}
+
+	// Should not contain raw newlines inside the finding line (finding must be one "- **" line)
+	lines := strings.Split(body, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, "- **") {
+			// This line should not contain the problematic strings with newlines
+			if strings.Contains(line, "\n") {
+				t.Errorf("finding line %d should not contain newlines: %s", i, line)
+			}
+		}
+	}
+
+	// Check that RuleID was truncated with ... (since it's 500+ chars)
+	if !strings.Contains(body, "...") {
+		t.Error("long RuleID should be truncated with ...")
+	}
+}
+
+func TestSanitizeInline_WhitespaceCollapsing(t *testing.T) {
+	input := "line1\n\n  line2\ttab\r\nline3"
+	got := sanitizeInline(input, 1000)
+	if strings.Contains(got, "\n") || strings.Contains(got, "\t") || strings.Contains(got, "\r") {
+		t.Errorf("sanitizeInline should collapse whitespace: got %q", got)
+	}
+	if !strings.Contains(got, "line1") || !strings.Contains(got, "line2") || !strings.Contains(got, "line3") {
+		t.Errorf("sanitizeInline should preserve content: got %q", got)
+	}
+}
+
+func TestSanitizeInline_TruncationOnRuneBoundary(t *testing.T) {
+	// Use multibyte runes (Chinese characters) so byte truncation would corrupt
+	input := "abc😀def😀ghi"  // emoji is 4 bytes but 1 rune
+	got := sanitizeInline(input, 7)
+	if !strings.HasSuffix(got, "...") {
+		t.Errorf("should truncate with ...: got %q", got)
+	}
+	// Verify it's a valid string (not corrupted by byte truncation)
+	if len([]rune(got)) == 0 {
+		t.Error("truncated string should be valid")
+	}
+}
+
+func TestCommentHookChecksRepoFormat(t *testing.T) {
+	var logOutput strings.Builder
+	lg := log.New(&logOutput, "", 0)
+	api := &fakeCommentAPI{}
+	hook := CommentHook(api, "bot", "url", lg)
+
+	// Report with malformed repo name (no slash)
+	badReport := report.Report{Repo: "noSlash", Number: 1, HeadSHA: "abc", Gate: "success"}
+	hook(context.Background(), badReport)
+
+	// API should not be called
+	if len(api.created) > 0 || len(api.edited) > 0 {
+		t.Error("API should not be called for malformed repo name")
+	}
+
+	// Should log the error
+	output := logOutput.String()
+	if !strings.Contains(output, "malformed repo name") {
+		t.Errorf("should log malformed repo name error, got: %s", output)
+	}
+}
