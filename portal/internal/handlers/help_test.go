@@ -55,4 +55,14 @@ func TestHelp_QueryIsEscaped(t *testing.T) {
 	if strings.Contains(body, "<script>alert(1)</script>") {
 		t.Error("the search term must be HTML-escaped")
 	}
+	if !strings.Contains(body, "&lt;script&gt;") {
+		t.Error("expected the escaped form of the term")
+	}
+}
+
+func TestHelp_BlankQueryIsNormalPage(t *testing.T) {
+	body := getHelp(t, "/help?q=%20%20", shell.Shell{Role: shell.RoleDeveloper})
+	if !strings.Contains(body, "Common questions") || strings.Contains(body, "Results for") {
+		t.Error("a blank query should show the normal page")
+	}
 }

@@ -5,6 +5,7 @@ package help
 
 import (
 	"html/template"
+	"regexp"
 	"strings"
 
 	"ssdlc-portal/internal/shell"
@@ -26,7 +27,7 @@ func Topics() []Topic {
 		{ID: "blocked", Question: "Why was my pull request blocked?", Roles: []string{"Developer"},
 			Answer: "The gate found at least one <b>new Critical or High</b> issue in the code you changed. Open the pull request to see each issue, why it matters and how to fix it. Existing problems in the <b>baseline</b> never block you. The pull request unblocks once the issues are fixed or an exception is approved."},
 		{ID: "fix", Question: "How do I fix an issue?", Roles: []string{"Developer"},
-			Answer: "Read the explanation and the suggested change, fix the code and push to your branch. The gate runs again in about a minute. If a fix is not possible right now, request an exception instead."},
+			Answer: "Read the explanation and the suggested change, fix the code and push to your branch. The gate runs again within a few minutes. If a fix is not possible right now, request an exception instead."},
 		{ID: "exception", Question: "When should I request an exception?", Roles: []string{"Developer"},
 			Answer: "Only when an issue is real but acceptable for now, for example test-only code, or a control that exists elsewhere. Explain <b>why</b>, choose an expiry (at most 90 days) and send it. It needs one approver who is not you, and it always expires, after which the issue blocks again.",
 			GoTo:   "/exceptions", GoLabel: "Open Exceptions"},
@@ -39,9 +40,9 @@ func Topics() []Topic {
 			Answer: "Open <b>Admin</b>, enter the repository owner and name, and start setup. The portal activates the repository in the CI system, records today's findings as the baseline, adds the gate pipeline and turns on branch protection.",
 			GoTo:   "/onboarding", GoLabel: "Set up a project"},
 		{ID: "grade", Question: "What do the letter grades mean?", Roles: all,
-			Answer: "Each project gets a grade from its open issues, weighted by severity: <b>A</b> is 90 or above, <b>B</b> 75, <b>C</b> 60, <b>D</b> 40 and <b>F</b> below 40. One open Critical issue is enough to drop a project to a D or F, on purpose. (Grades arrive with the Projects screens.)"},
+			Answer: "<b>Coming with the Projects screens.</b> Each project gets a grade from its open issues, weighted by severity: <b>A</b> is 90 or above, <b>B</b> 75, <b>C</b> 60, <b>D</b> 40 and <b>F</b> below 40. One open Critical issue is enough to drop a project to a D or F, on purpose. These values are proposals and are not enforced yet."},
 		{ID: "sla", Question: "What is the \"fix within\" countdown?", Roles: all,
-			Answer: "Each severity has a target: Critical 2 days, High 7, Medium 30, Low 90. The clock starts when the issue is first found and pauses while an approved exception is in force. Baseline issues have no clock. (The countdown arrives with the Issues screens.)"},
+			Answer: "<b>Coming with the Issues screens.</b> Each severity has a target: Critical 2 days, High 7, Medium 30, Low 90. The clock starts when the issue is first found and pauses while an approved exception is in force. Baseline issues have no clock. These targets are proposals and are not enforced yet."},
 		{ID: "baseline", Question: "What is the baseline?", Roles: all,
 			Answer: "When a project joins the gate, everything already in the code is recorded as the baseline. It never blocks merges, and it can only shrink: nothing can be added to it. Secrets are never baselined."},
 		{ID: "signin", Question: "Do I need to sign in again for Gitea or Woodpecker?", Roles: all,
@@ -49,6 +50,13 @@ func Topics() []Topic {
 		{ID: "shortcuts", Question: "Keyboard shortcuts", Roles: all,
 			Answer: "<kbd class=\"ssdlc-kbd\">Ctrl</kbd> <kbd class=\"ssdlc-kbd\">K</kbd> opens the jump palette to reach any page, or open Gitea or Woodpecker. <kbd class=\"ssdlc-kbd\">Esc</kbd> closes it."},
 	}
+}
+
+var tagRe = regexp.MustCompile(`<[^>]*>`)
+
+// plainText strips markup so searches match visible text only.
+func plainText(h template.HTML) string {
+	return tagRe.ReplaceAllString(string(h), "")
 }
 
 // Filter keeps the topics whose question or answer contains q
@@ -60,7 +68,7 @@ func Filter(topics []Topic, q string) []Topic {
 	}
 	var out []Topic
 	for _, t := range topics {
-		if strings.Contains(strings.ToLower(t.Question+" "+string(t.Answer)), q) {
+		if strings.Contains(strings.ToLower(t.Question+" "+plainText(t.Answer)), q) {
 			out = append(out, t)
 		}
 	}
@@ -75,7 +83,7 @@ func FirstSteps(role shell.Role) []string {
 			"Open <b>Exceptions</b> when the badge shows a number",
 			"Read the reason and the expiry, and judge the risk",
 			"Approve or decline (never your own requests)",
-			"Use the Overview to spot anything that is overdue",
+			"Use the Overview to check the pull requests you care about",
 		}
 	case shell.RoleAdmin:
 		return []string{

@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"ssdlc-portal/internal/help"
 	"ssdlc-portal/internal/shell"
@@ -18,7 +19,10 @@ var helpTmpl = template.Must(template.ParseFiles(
 func Help() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s := shell.FromContext(r.Context())
-		q := r.URL.Query().Get("q")
+		q := strings.TrimSpace(r.URL.Query().Get("q"))
+		if rs := []rune(q); len(rs) > 100 {
+			q = strings.TrimSpace(string(rs[:100]))
+		}
 
 		steps := make([]template.HTML, 0, 4)
 		for _, step := range help.FirstSteps(s.Role) {

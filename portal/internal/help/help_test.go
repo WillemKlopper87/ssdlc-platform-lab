@@ -52,7 +52,45 @@ func TestFirstSteps(t *testing.T) {
 			t.Errorf("%s: want at least 3 first steps, got %v", r, steps)
 		}
 	}
-	if FirstSteps("") == nil || len(FirstSteps("")) == 0 {
-		t.Error("an unknown role falls back to the developer steps")
+	fb, dev := FirstSteps(""), FirstSteps(shell.RoleDeveloper)
+	if len(fb) == 0 || len(fb) != len(dev) {
+		t.Fatalf("an unknown role falls back to the developer steps: %v vs %v", fb, dev)
+	}
+	for i := range fb {
+		if fb[i] != dev[i] {
+			t.Errorf("step %d differs: %q vs %q", i, fb[i], dev[i])
+		}
+	}
+}
+
+func TestFilterIgnoresMarkup(t *testing.T) {
+	all := Topics()
+	for _, q := range []string{"kbd", "class", "ssdlc"} {
+		if got := Filter(all, q); len(got) != 0 {
+			t.Errorf("%q matched markup in %d topics", q, len(got))
+		}
+	}
+	if got := Filter(all, "second person"); len(got) == 0 {
+		t.Error("plain answer text should still match")
+	}
+}
+
+func TestPlainText(t *testing.T) {
+	if got := plainText("a <b>bold</b> <kbd class=\"x\">k</kbd>"); got != "a bold k" {
+		t.Errorf("plainText = %q", got)
+	}
+}
+
+func TestUnbuiltFeatureTopicsAreHedged(t *testing.T) {
+	for _, tp := range Topics() {
+		text := plainText(tp.Answer)
+		if strings.Contains(text, "about a minute") {
+			t.Errorf("%s: unconfirmed timing", tp.ID)
+		}
+		if tp.ID == "grade" || tp.ID == "sla" {
+			if !strings.HasPrefix(text, "Coming with") || !strings.Contains(text, "not enforced yet") {
+				t.Errorf("%s: must be flagged as coming and not enforced: %q", tp.ID, text)
+			}
+		}
 	}
 }
