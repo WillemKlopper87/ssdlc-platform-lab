@@ -198,6 +198,27 @@ if ((Test-Path $tfState) -and -not $netExists) {
 $dockerHost = docker context inspect --format '{{.Endpoints.docker.Host}}'
 terraform "-chdir=$TfDir" init -input=false
 Assert-Native 'terraform init'
+# Resources left behind by an earlier (possibly failed) run exist in Docker
+# but may be missing from Terraform's state; adopt them instead of failing
+# with "network ... already exists".
+$tracked = @(Try-Native { terraform "-chdir=$TfDir" state list 2>$null })
+$adopt = [ordered]@{
+    'docker_network.minimal'                = @('network', 'ssdlc-minimal')
+    'docker_volume.postgres_data'           = @('volume', 'ssdlc-minimal-postgres-data')
+    'docker_volume.gitea_data'              = @('volume', 'ssdlc-minimal-gitea-data')
+    'docker_volume.woodpecker_server_data'  = @('volume', 'ssdlc-minimal-woodpecker-server-data')
+    'docker_volume.trivy_db_cache'          = @('volume', 'ssdlc-minimal-trivy-db-cache')
+}
+foreach ($addr in $adopt.Keys) {
+    if ($tracked -contains $addr) { continue }
+    $kind, $name = $adopt[$addr]
+    $id = Try-Native { docker $kind inspect --format '{{.Id}}' $name 2>$null }
+    if ($LASTEXITCODE -ne 0 -or -not $id) { continue }
+    if ($kind -eq 'volume') { $id = $name }
+    Info "adopting existing $kind $name into Terraform state"
+    terraform "-chdir=$TfDir" import -input=false -var "docker_host=$dockerHost" $addr $id
+    Assert-Native "terraform import $addr"
+}
 terraform "-chdir=$TfDir" apply -auto-approve -input=false -var "docker_host=$dockerHost"
 Assert-Native 'terraform apply'
 
