@@ -1,6 +1,7 @@
 package sidecar
 
 import (
+	"strconv"
 	"fmt"
 	"strings"
 	"time"
@@ -43,8 +44,12 @@ func LoadConfig(getenv func(string) string) (Config, error) {
 		ListenAddr:      orDefault("SIDECAR_LISTEN_ADDR", ":8282"),
 		PortalURL:       strings.TrimRight(getenv("SIDECAR_PORTAL_URL"), "/"),
 		CommentUser:     orDefault("SIDECAR_COMMENT_USER", "gate-reporter"),
-		Comments:        orDefault("SIDECAR_COMMENTS", "true") != "false",
 	}
+	comments, err := strconv.ParseBool(orDefault("SIDECAR_COMMENTS", "true"))
+	if err != nil {
+		problems = append(problems, "SIDECAR_COMMENTS must be a boolean (true/false)")
+	}
+	c.Comments = comments
 	if c.APIToken != "" && len(c.APIToken) < 16 {
 		problems = append(problems, "SIDECAR_API_TOKEN must be at least 16 characters")
 	}

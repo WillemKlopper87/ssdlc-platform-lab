@@ -53,3 +53,19 @@ func TestLoadConfigRejectsBadInput(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadConfigCommentsParseBool(t *testing.T) {
+	for _, v := range []string{"False", "0", "f"} {
+		m := validEnv()
+		m["SIDECAR_COMMENTS"] = v
+		c, err := LoadConfig(env(m))
+		if err != nil || c.Comments {
+			t.Errorf("%q: comments=%v err=%v", v, c.Comments, err)
+		}
+	}
+	m := validEnv()
+	m["SIDECAR_COMMENTS"] = "maybe"
+	if _, err := LoadConfig(env(m)); err == nil || !strings.Contains(err.Error(), "SIDECAR_COMMENTS") {
+		t.Errorf("expected SIDECAR_COMMENTS error, got %v", err)
+	}
+}

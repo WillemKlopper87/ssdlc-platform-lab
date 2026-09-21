@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -42,7 +43,12 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	go poller.Run(ctx, cfg.PollInterval)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		poller.Run(ctx, cfg.PollInterval)
+	}()
 
 	srv := &http.Server{
 		Addr: cfg.ListenAddr,
@@ -57,15 +63,22 @@ func main() {
 			},
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		srv.Shutdown(shutdown)
 	}()
 	lg.Printf("listening on %s (org %q, poll every %s, comments %v)", cfg.ListenAddr, cfg.Org, cfg.PollInterval, cfg.Comments)
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		stop()
 		log.Fatal(err)
 	}
+	<-shutdownDone
+	wg.Wait()
+	lg.Printf("stopped")
 }
