@@ -9,6 +9,7 @@ import (
 
 	"ssdlc-portal/internal/auth"
 	"ssdlc-portal/internal/giteaclient"
+	"ssdlc-portal/internal/shell"
 	"ssdlc-portal/internal/webutil"
 )
 
@@ -59,8 +60,9 @@ func Dashboard(giteaBaseURL string) http.HandlerFunc {
 		data := struct {
 			ActiveNav    string
 			Operator     string
+			Shell        shell.Shell
 			PullRequests []dashboardPRRow
-		}{ActiveNav: "dashboard", PullRequests: rows}
+		}{ActiveNav: "dashboard", PullRequests: rows, Shell: shell.FromContext(r.Context())}
 		if username, err := client.Username(r.Context()); err == nil {
 			data.Operator = username
 		}

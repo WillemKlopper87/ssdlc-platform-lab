@@ -14,6 +14,7 @@ import (
 	"ssdlc-portal/internal/findings"
 	"ssdlc-portal/internal/giteaclient"
 	"ssdlc-portal/internal/report"
+	"ssdlc-portal/internal/shell"
 	"ssdlc-portal/internal/woodpeckerclient"
 )
 
@@ -76,6 +77,7 @@ type prReportData struct {
 	// sidebar note. This handler doesn't otherwise need the operator's
 	// username, so it's left unset here.
 	Operator     string
+	Shell        shell.Shell
 	RepoFullName string
 	PR           struct {
 		Number int
@@ -148,6 +150,7 @@ func PRReport(giteaBaseURL, woodpeckerBaseURL, woodpeckerToken string) http.Hand
 
 		data := prReportData{
 			ActiveNav:    "dashboard",
+			Shell:        shell.FromContext(r.Context()),
 			RepoFullName: owner + "/" + repo,
 			Summary: findings.Summary{
 				Critical: rep.Summary.Critical, High: rep.Summary.High,

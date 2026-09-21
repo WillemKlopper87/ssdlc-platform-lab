@@ -10,6 +10,7 @@ import (
 	"ssdlc-portal/internal/auth"
 	"ssdlc-portal/internal/exceptions"
 	"ssdlc-portal/internal/giteaclient"
+	"ssdlc-portal/internal/shell"
 )
 
 // templateDir is declared in dashboard.go (Task 6) and reused here.
@@ -37,12 +38,14 @@ func ExceptionRequestForm(gitea *giteaclient.Client) http.HandlerFunc {
 		data := struct {
 			ActiveNav   string
 			Operator    string
+			Shell       shell.Shell
 			Repo        string
 			Fingerprint string
 			Severity    string
 		}{
 			ActiveNav:   "exceptions",
 			Operator:    operator,
+			Shell:       shell.FromContext(r.Context()),
 			Repo:        r.URL.Query().Get("repo"),
 			Fingerprint: r.URL.Query().Get("fingerprint"),
 			Severity:    r.URL.Query().Get("severity"),
@@ -242,11 +245,12 @@ func ExceptionsQueue(store *exceptions.Store, gitea *giteaclient.Client, owner s
 		data := struct {
 			ActiveNav string
 			Operator  string
+			Shell     shell.Shell
 			Pending   []exceptions.Record
 			Active    []exceptions.Record
 			Expired   []exceptions.Record
 			Declined  []exceptions.Record
-		}{ActiveNav: "exceptions", Operator: operator, Pending: pending, Active: active, Expired: expired, Declined: declined}
+		}{ActiveNav: "exceptions", Operator: operator, Pending: pending, Active: active, Expired: expired, Declined: declined, Shell: shell.FromContext(r.Context())}
 		if err := exceptionsTmpl.ExecuteTemplate(w, "layout", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}

@@ -13,6 +13,7 @@ import (
 
 	"ssdlc-portal/internal/auth"
 	"ssdlc-portal/internal/giteaclient"
+	"ssdlc-portal/internal/shell"
 )
 
 // giteaNamePattern enforces Gitea's own username/repo-name rules: it must
@@ -30,7 +31,10 @@ var onboardingTmpl = template.Must(template.ParseFiles(
 
 func OnboardingForm() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data := struct{ ActiveNav, Operator string }{ActiveNav: "onboarding"}
+		data := struct {
+			ActiveNav, Operator string
+			Shell               shell.Shell
+		}{ActiveNav: "onboarding", Shell: shell.FromContext(r.Context())}
 		if err := onboardingTmpl.ExecuteTemplate(w, "layout", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}

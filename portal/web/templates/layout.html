@@ -6,33 +6,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{block "title" .}}SSDLC Portal{{end}}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/fonts.css">
 <link rel="stylesheet" href="/static/tokens.css">
-<script src="https://unpkg.com/htmx.org@1.9.12"></script>
-<script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/sse.js"></script>
+<link rel="stylesheet" href="/static/shell.css">
+<script src="/static/vendor/htmx.min.js"></script>
+<script src="/static/vendor/htmx-sse.js"></script>
+<script src="/static/shell.js" defer></script>
 </head>
 <body>
 <div class="ssdlc-shell">
-  <nav class="ssdlc-sidebar">
-    <div style="padding: 0 20px 16px; font-weight: 700; color: var(--ssdlc-text-1);">SSDLC Portal</div>
-    <a href="/dashboard" class="{{if eq .ActiveNav "dashboard"}}active{{end}}">Dashboard</a>
-    <a href="/onboarding" class="{{if eq .ActiveNav "onboarding"}}active{{end}}">Onboarding</a>
-    <a href="/exceptions" class="{{if eq .ActiveNav "exceptions"}}active{{end}}">Exceptions</a>
-    <a class="disabled" title="Not available yet — needs the reporting sidecar and DefectDojo (DESIGN.md D10)">Report export</a>
-    <a class="disabled" title="Not available yet — planned as an embedded Grafana view (DESIGN.md D10)">Posture</a>
-    <a class="disabled" title="Not available yet — planned as scripts/doctor.sh exposed over HTTP (DESIGN.md D10)">Admin health</a>
-    {{if .Operator}}
-    <div style="margin-top: 24px; padding: 12px 20px; border-top: 1px solid var(--ssdlc-border); color: var(--ssdlc-text-3); font-size: 13px;">
-      {{.Operator}} · <a href="/logout" style="color: var(--ssdlc-text-3); text-decoration: underline;">sign out</a>
+  <nav class="ssdlc-sidebar" aria-label="Main">
+    <div class="ssdlc-brand"><i></i>SSDLC</div>
+    <button type="button" id="pal-open" class="ssdlc-pal-btn">Jump to&hellip; <kbd>Ctrl K</kbd></button>
+    <a href="/dashboard" data-pal-item data-pal-sub="page" class="{{if eq .ActiveNav "dashboard"}}active{{end}}">Overview</a>
+    <a class="disabled" title="Arrives in the next step of the portal redesign">Projects</a>
+    <a class="disabled" title="Arrives in the next step of the portal redesign">Issues</a>
+    <a href="/exceptions" data-pal-item data-pal-sub="page" class="{{if eq .ActiveNav "exceptions"}}active{{end}}">Exceptions{{if and .Shell.IsApprover (gt .Shell.PendingApprovals 0)}}<span class="ssdlc-nav-badge">{{.Shell.PendingApprovals}}</span>{{end}}</a>
+    {{if .Shell.IsAdmin}}<a href="/onboarding" data-pal-item data-pal-sub="page" class="{{if eq .ActiveNav "onboarding"}}active{{end}}">Admin</a>{{end}}
+    <a href="/help" data-pal-item data-pal-sub="page" class="{{if eq .ActiveNav "help"}}active{{end}}">Help</a>
+    {{if .Shell.GiteaURL}}
+    <div class="ssdlc-launch"><span class="lbl">Quick launch</span>
+      <a href="{{.Shell.GiteaURL}}" target="_blank" rel="noopener" data-pal-item data-pal-label="Open Gitea" data-pal-sub="new tab">Gitea (code, PRs) <span>&#8599;</span></a>
+      <a href="{{.Shell.WoodpeckerURL}}" target="_blank" rel="noopener" data-pal-item data-pal-label="Open Woodpecker" data-pal-sub="new tab">Woodpecker (CI) <span>&#8599;</span></a>
     </div>
+    {{end}}
+    {{if .Shell.Operator}}
+    <div class="ssdlc-who"><span class="lbl">Signed in</span><b>{{.Shell.Operator}}</b> &middot; {{.Shell.RoleLabel}}<br><a href="/logout">sign out</a></div>
     {{end}}
   </nav>
   <main class="ssdlc-main">
     {{block "content" .}}{{end}}
   </main>
 </div>
+<div class="ssdlc-pal-bg" id="pal-bg"><div class="ssdlc-pal"><input id="pal-input" type="text" placeholder="Jump to a page or open Gitea or Woodpecker..." autocomplete="off"><div id="pal-list"></div></div></div>
 </body>
 </html>
 {{end}}
