@@ -74,6 +74,10 @@ func BuildSnapshot(reports []report.Report, now time.Time, pollOK bool) *metrics
 		ok = 1
 	}
 	s.Gauge("ssdlc_sidecar_poll_ok", "1 when every repository was read successfully in the last poll.", nil, ok)
-	s.Gauge("ssdlc_sidecar_last_poll_timestamp_seconds", "Unix time of the last completed poll.", nil, float64(now.Unix()))
+	ts := 0.0
+	if !now.IsZero() {
+		ts = float64(now.Unix())
+	}
+	s.Gauge("ssdlc_sidecar_last_poll_timestamp_seconds", "Unix time of the last completed poll.", nil, ts)
 	return s
 }

@@ -33,6 +33,11 @@ type Poller struct {
 	// AfterReport, when set, is called for every successfully built report
 	// (the sticky-comment sync hooks in here). Its failures are its own to log.
 	AfterReport func(ctx context.Context, r report.Report)
+
+	// Last poll that reached the repository list. Once is only called from a
+	// single goroutine (Run), so no locking is needed.
+	lastReports []report.Report
+	lastTime    time.Time
 }
 
 // Once performs a single poll. It returns an error only when the repository
@@ -42,7 +47,9 @@ func (p *Poller) Once(ctx context.Context) error {
 	now := p.Now()
 	repos, err := p.B.Woodpecker.ListRepos(ctx)
 	if err != nil {
-		p.Store.Set(BuildSnapshot(nil, now, false))
+		// Keep serving the last good data (with its own timestamp) rather
+		// than an empty snapshot that would read as "no open PRs".
+		p.Store.Set(BuildSnapshot(p.lastReports, p.lastTime, false))
 		return fmt.Errorf("sidecar: list repositories: %w", err)
 	}
 
@@ -68,13 +75,27 @@ func (p *Poller) Once(ctx context.Context) error {
 				continue
 			}
 			reports = append(reports, r)
-			if p.AfterReport != nil {
-				p.AfterReport(ctx, r)
-			}
 		}
 	}
+	p.lastReports, p.lastTime = reports, now
 	p.Store.Set(BuildSnapshot(reports, now, allOK))
+	// Hooks run after publication so a slow or panicking hook cannot hold
+	// back metrics.
+	if p.AfterReport != nil {
+		for _, r := range reports {
+			p.runHook(ctx, r)
+		}
+	}
 	return nil
+}
+
+func (p *Poller) runHook(ctx context.Context, r report.Report) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			p.Log.Printf("poll: AfterReport panic for %s#%d: %v", r.Repo, r.Number, rec)
+		}
+	}()
+	p.AfterReport(ctx, r)
 }
 
 // Run polls immediately and then every interval until ctx is cancelled.

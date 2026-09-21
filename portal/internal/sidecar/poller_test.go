@@ -42,6 +42,9 @@ func (f fakeGitea) ListOpenPullRequests(ctx context.Context, owner, repo string)
 type fakeWP struct {
 	repos   []woodpeckerclient.Repo
 	reposEr error
+	// reposErrFn, when set, is consulted on every ListRepos call so a test
+	// can flip the failure on between polls.
+	reposErrFn func() error
 }
 
 func (f fakeWP) LookupRepo(ctx context.Context, owner, repo string) (int, error) { return 7, nil }
@@ -56,6 +59,11 @@ func (f fakeWP) GetStepLog(ctx context.Context, id, n, s int) (string, error) {
 		"policy-eval: 1 finding(s) normalized -- critical=1 high=0 medium=0 low=0\n", nil
 }
 func (f fakeWP) ListRepos(ctx context.Context) ([]woodpeckerclient.Repo, error) {
+	if f.reposErrFn != nil {
+		if err := f.reposErrFn(); err != nil {
+			return nil, err
+		}
+	}
 	return f.repos, f.reposEr
 }
 
@@ -149,5 +157,86 @@ func TestPollerCallsAfterReportHook(t *testing.T) {
 	}
 	if len(got) != 1 || got[0] != 4 {
 		t.Errorf("hook calls = %v", got)
+	}
+}
+
+func TestPollerRepoListFailureKeepsLastGoodReports(t *testing.T) {
+	g := fakeGitea{prs: map[string][]giteaclient.PRDetail{
+		"ssdlc/pilot-app": {{Number: 3, HeadSHA: "abc", CreatedAt: time.Unix(900, 0)}},
+	}}
+	down := false
+	w := fakeWP{repos: []woodpeckerclient.Repo{{ID: 7, FullName: "ssdlc/pilot-app"}},
+		reposErrFn: func() error {
+			if down {
+				return errors.New("woodpecker down")
+			}
+			return nil
+		}}
+	p, st := newPoller(g, w)
+	if err := p.Once(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	down = true
+	now := int64(3000)
+	p.Now = func() time.Time { return time.Unix(now, 0) }
+	if err := p.Once(context.Background()); err == nil {
+		t.Fatal("expected an error")
+	}
+	out := scrape(st)
+	for _, want := range []string{
+		`ssdlc_open_pull_requests{gate="failure",repo="ssdlc/pilot-app"} 1`,
+		`ssdlc_sidecar_poll_ok 0`,
+		`ssdlc_sidecar_last_poll_timestamp_seconds 2000`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in: %s", want, out)
+		}
+	}
+}
+
+func TestPollerNoPriorSuccessReportsZeroTimestamp(t *testing.T) {
+	p, st := newPoller(fakeGitea{}, fakeWP{reposEr: errors.New("down")})
+	_ = p.Once(context.Background())
+	out := scrape(st)
+	for _, want := range []string{`ssdlc_sidecar_poll_ok 0`, `ssdlc_sidecar_last_poll_timestamp_seconds 0`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in: %s", want, out)
+		}
+	}
+}
+
+func TestPollerHookRunsAfterMetricsPublished(t *testing.T) {
+	g := fakeGitea{prs: map[string][]giteaclient.PRDetail{"ssdlc/r": {{Number: 4, HeadSHA: "abc"}}}}
+	w := fakeWP{repos: []woodpeckerclient.Repo{{ID: 1, FullName: "ssdlc/r"}}}
+	p, st := newPoller(g, w)
+	seen := false
+	p.AfterReport = func(ctx context.Context, r report.Report) {
+		seen = strings.Contains(scrape(st), "ssdlc_open_pull_requests")
+	}
+	if err := p.Once(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !seen {
+		t.Error("hook ran before metrics were published")
+	}
+}
+
+func TestPollerHookPanicIsContained(t *testing.T) {
+	g := fakeGitea{prs: map[string][]giteaclient.PRDetail{"ssdlc/r": {{Number: 4, HeadSHA: "abc"}, {Number: 5, HeadSHA: "abc"}}}}
+	w := fakeWP{repos: []woodpeckerclient.Repo{{ID: 1, FullName: "ssdlc/r"}}}
+	p, st := newPoller(g, w)
+	var got []int
+	p.AfterReport = func(ctx context.Context, r report.Report) {
+		got = append(got, r.Number)
+		panic("hook blew up")
+	}
+	if err := p.Once(context.Background()); err != nil {
+		t.Fatalf("Once = %v", err)
+	}
+	if len(got) != 2 {
+		t.Errorf("hook calls = %v, want both reports", got)
+	}
+	if !strings.Contains(scrape(st), "ssdlc_open_pull_requests") {
+		t.Error("metrics not published")
 	}
 }
