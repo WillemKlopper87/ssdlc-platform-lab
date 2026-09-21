@@ -26,6 +26,13 @@ services:
       # upload any more files"). Dotted section names use _0X2E_ in env keys.
       - GITEA__repository_0X2E_upload__MAX_FILES=200
       - GITEA__repository_0X2E_upload__FILE_MAX_SIZE=200
+    # Bind explicitly on all interfaces: Docker Desktop's "port binding
+    # behaviour" can otherwise publish to 127.0.0.1 only, which hides the
+    # platform from the LAN. gRPC (9000) is only used by the local agent.
+    ports: !override
+      - "0.0.0.0:3500:3500"
+      - "0.0.0.0:${WOODPECKER_PORT:-8000}:${WOODPECKER_PORT:-8000}"
+      - "127.0.0.1:9000:9000"
 
   woodpecker-server:
     environment:
@@ -68,7 +75,7 @@ services:
       - ${REPO_ROOT}:${REPO_VM}
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
-      - "8181:8181"
+      - "0.0.0.0:8181:8181"
     environment:
       - TMPDIR=${REPO_VM}/deploy/uat/state/tmp
       - PORTAL_GITEA_URL=http://${SERVER_IP}:3500

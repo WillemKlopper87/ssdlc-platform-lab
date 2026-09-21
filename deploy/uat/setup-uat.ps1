@@ -329,12 +329,18 @@ function Ops {
     Assert-Native "ops: $($args -join ' ')"
 }
 function Wait-Http([string]$url, [int]$seconds = 240) {
-    $deadline = (Get-Date).AddSeconds($seconds)
+    $start = Get-Date
+    $deadline = $start.AddSeconds($seconds)
+    $lastNote = $start
     while ((Get-Date) -lt $deadline) {
         try { $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 5; if ($r.StatusCode -lt 500) { return } } catch { }
+        if (((Get-Date) - $lastNote).TotalSeconds -ge 15) {
+            Info "still waiting for $url ($([int]((Get-Date) - $start).TotalSeconds)s of ${seconds}s)"
+            $lastNote = Get-Date
+        }
         Start-Sleep -Seconds 3
     }
-    Fail "Timed out waiting for $url"
+    Fail "Timed out waiting for $url. Check: docker ps -a --filter name=ssdlc; docker logs --tail 30 <container>"
 }
 
 # ------------------------------------------- 6. gitea, accounts, oauth
@@ -343,7 +349,7 @@ Compose up -d hairpin
 
 Step 'Starting Postgres and Gitea'
 Compose up -d postgres gitea
-Wait-Http "$GiteaUrl/api/healthz"
+Wait-Http "http://127.0.0.1:3500/api/healthz"
 
 Step 'Verifying containers can reach the server address'
 $code = ''
@@ -357,6 +363,14 @@ if ($code -ne '200') {
           "The redirect container needs Docker Desktop's Linux engine and NET_ADMIN.")
 }
 Info "containers reach $GiteaUrl"
+try {
+    $null = Invoke-WebRequest -Uri "$GiteaUrl/api/healthz" -UseBasicParsing -TimeoutSec 8
+    Info "this machine reaches $GiteaUrl on its LAN address"
+} catch {
+    Write-Warning ("$GiteaUrl is not reachable on the LAN address. Other machines will not be able to connect. " +
+                   "Check: docker ps (ports must show 0.0.0.0, not 127.0.0.1), the Windows Firewall rule 'SSDLC UAT', " +
+                   "and Docker Desktop > Settings > Resources > Network > Port binding behavior = Open.")
+}
 
 function Gitea-Cli { docker exec -u git ssdlc-minimal-gitea gitea @args }
 function Ensure-GiteaUser([string]$name, [string]$pwKey, [switch]$Admin, [switch]$ForceChange) {
@@ -393,7 +407,7 @@ Merge-Output (Ops python deploy/uat/bootstrap.py gitea)
 # --------------------------------------------- 7. woodpecker + the rest
 Step 'Starting Woodpecker, DAST target'
 Compose up -d postgres gitea woodpecker-server woodpecker-agent staging-target
-Wait-Http "$WpUrl/healthz"
+Wait-Http "http://127.0.0.1:8000/healthz"
 
 Step 'Woodpecker API token for the admin'
 if (-not $Script:Cfg.Contains('WOODPECKER_TOKEN')) {
