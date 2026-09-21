@@ -66,3 +66,17 @@ func TestHelp_BlankQueryIsNormalPage(t *testing.T) {
 		t.Error("a blank query should show the normal page")
 	}
 }
+
+func TestHelp_ActionButtonsAreRoleGated(t *testing.T) {
+	dev := getHelp(t, "/help", shell.Shell{Operator: "dev2", Role: shell.RoleDeveloper})
+	if strings.Contains(dev, `href="/onboarding"`) {
+		t.Error("a developer must not get a button to the admin-only setup page")
+	}
+	if !strings.Contains(dev, "How do I add a project to the gate?") {
+		t.Error("the setup topic must stay visible to everyone")
+	}
+	adm := getHelp(t, "/help", shell.Shell{Operator: "gateadmin", Role: shell.RoleAdmin, IsAdmin: true, IsApprover: true})
+	if !strings.Contains(adm, `href="/onboarding"`) {
+		t.Error("an admin should get the setup button")
+	}
+}

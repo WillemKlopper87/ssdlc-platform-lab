@@ -94,3 +94,22 @@ func TestUnbuiltFeatureTopicsAreHedged(t *testing.T) {
 		}
 	}
 }
+
+func TestAppliesTo(t *testing.T) {
+	dev := Topic{Roles: []string{"Developer"}}
+	adm := Topic{Roles: []string{"Admin"}}
+	for _, c := range []struct {
+		tp    Topic
+		label string
+		want  bool
+	}{
+		{dev, "Developer", true},
+		{dev, "Approver", false},
+		{adm, "Admin", true},
+		{adm, "Developer", false},
+	} {
+		if got := c.tp.AppliesTo(c.label); got != c.want {
+			t.Errorf("%v.AppliesTo(%q) = %v, want %v", c.tp.Roles, c.label, got, c.want)
+		}
+	}
+}

@@ -101,3 +101,14 @@ func FirstSteps(role shell.Role) []string {
 		}
 	}
 }
+
+// AppliesTo reports whether the topic is written for the given role label
+// (as returned by shell.Shell.RoleLabel).
+func (t Topic) AppliesTo(roleLabel string) bool {
+	for _, r := range t.Roles {
+		if r == roleLabel {
+			return true
+		}
+	}
+	return false
+}

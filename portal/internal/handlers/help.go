@@ -51,7 +51,10 @@ func Help() http.HandlerFunc {
 			Steps     []template.HTML
 			Topics    []help.Topic
 			Open      bool
-		}{"help", s.Operator, s, q, article, roleWord, steps, topics, q != ""}
+		}{
+			ActiveNav: "help", Operator: s.Operator, Shell: s, Query: q,
+			Article: article, RoleWord: roleWord, Steps: steps, Topics: topics, Open: q != "",
+		}
 		if err := helpTmpl.ExecuteTemplate(w, "layout", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
