@@ -65,13 +65,16 @@ func (s *Snapshot) WriteTo(w io.Writer) (int64, error) {
 	var total int64
 	for _, n := range names {
 		f := s.fams[n]
-		sort.SliceStable(f.samples, func(i, j int) bool { return f.samples[i].labels < f.samples[j].labels })
+		// Copy the samples slice to avoid mutating the snapshot
+		samplesCopy := make([]sample, len(f.samples))
+		copy(samplesCopy, f.samples)
+		sort.SliceStable(samplesCopy, func(i, j int) bool { return samplesCopy[i].labels < samplesCopy[j].labels })
 		c, err := fmt.Fprintf(w, "# HELP %s %s\n# TYPE %s gauge\n", n, f.help, n)
 		total += int64(c)
 		if err != nil {
 			return total, err
 		}
-		for _, sm := range f.samples {
+		for _, sm := range samplesCopy {
 			c, err := fmt.Fprintf(w, "%s%s %s\n", n, sm.labels, strconv.FormatFloat(sm.value, 'g', -1, 64))
 			total += int64(c)
 			if err != nil {
