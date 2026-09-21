@@ -21,18 +21,24 @@
   Run from an elevated PowerShell:
     .\deploy\uat\setup-uat.ps1
 #>
-[CmdletBinding()]
+[CmdletBinding(PositionalBinding = $false)]  # a stray "--reset" must error, not become -ServerIp
 param(
     # Leave empty to auto-detect this machine's LAN address.
+    [ValidatePattern('^(\d{1,3}\.){3}\d{1,3}$|^$')]
     [string]$ServerIp = '',
     [string]$TerraformVersion = '1.15.0',
     [switch]$SkipFirewall,
     # Delete any existing UAT containers, volumes and network first (ALL data).
-    [switch]$Reset
+    [switch]$Reset,
+    # Catches Unix-style flags such as --reset, which PowerShell would otherwise ignore or misbind.
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$Unrecognised
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+if ($Unrecognised) { throw "Unrecognised argument(s): $($Unrecognised -join ' '). PowerShell switches use ONE dash, e.g. -Reset (not --reset)." }
 
 function Get-LanIp {
     # The physical adapter that owns the default route, lowest metric first;
