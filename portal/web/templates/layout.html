@@ -17,7 +17,7 @@
     <div class="ssdlc-brand"><i></i>SSDLC</div>
     <button type="button" id="pal-open" class="ssdlc-pal-btn">Jump to&hellip; <kbd>Ctrl K</kbd></button>
     <a href="/dashboard" data-pal-item data-pal-sub="page" class="{{if eq .ActiveNav "dashboard"}}active{{end}}">Overview</a>
-    <a class="disabled" title="Arrives in the next step of the portal redesign">Projects</a>
+    <a href="/projects" data-pal-item data-pal-sub="page" class="{{if eq .ActiveNav "projects"}}active{{end}}">Projects</a>
     <a class="disabled" title="Arrives in the next step of the portal redesign">Issues</a>
     <a href="/exceptions" data-pal-item data-pal-sub="page" class="{{if eq .ActiveNav "exceptions"}}active{{end}}">Exceptions{{if and .Shell.IsApprover (gt .Shell.PendingApprovals 0)}}<span class="ssdlc-nav-badge">{{.Shell.PendingApprovals}}</span>{{end}}</a>
     {{/* /onboarding is guarded by the approvers team; show Admin only to admins who can actually open it */}}

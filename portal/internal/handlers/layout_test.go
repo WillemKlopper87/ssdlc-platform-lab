@@ -52,9 +52,28 @@ func TestLayout_DeveloperSidebar(t *testing.T) {
 			t.Errorf("developer view must not contain %q", bad)
 		}
 	}
+	if !strings.Contains(body, `href="/projects"`) {
+		t.Error("Projects must be a link")
+	}
+	if strings.Contains(body, `class="disabled" title="Arrives in the next step of the portal redesign">Projects`) {
+		t.Error("Projects must no longer be a disabled placeholder")
+	}
 	// Screens that do not exist yet are visible but not links.
-	if strings.Contains(body, `href="/projects"`) || strings.Contains(body, `href="/issues"`) {
-		t.Error("Projects and Issues must be disabled placeholders, not links")
+	if strings.Contains(body, `href="/issues"`) {
+		t.Error("Issues must stay a disabled placeholder, not a link")
+	}
+	if !strings.Contains(body, `class="disabled" title="Arrives in the next step of the portal redesign">Issues`) {
+		t.Error("Issues must still be disabled")
+	}
+}
+
+func TestLayout_ProjectsActiveOnProjectsPage(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/projects", nil)
+	req = req.WithContext(shell.WithContext(req.Context(), shell.Shell{Operator: "dev2"}))
+	rec := httptest.NewRecorder()
+	Projects(nil)(rec, req)
+	if !strings.Contains(rec.Body.String(), `href="/projects" data-pal-item data-pal-sub="page" class="active"`) {
+		t.Errorf("Projects link must be active; body:\n%s", rec.Body.String())
 	}
 }
 

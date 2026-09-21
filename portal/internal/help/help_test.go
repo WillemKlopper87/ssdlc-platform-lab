@@ -87,7 +87,10 @@ func TestUnbuiltFeatureTopicsAreHedged(t *testing.T) {
 		if strings.Contains(text, "about a minute") {
 			t.Errorf("%s: unconfirmed timing", tp.ID)
 		}
-		if tp.ID == "grade" || tp.ID == "sla" {
+		if tp.ID == "grade" && (!strings.HasPrefix(text, "Shown on the Projects page.") || !strings.Contains(text, "not enforced yet")) {
+			t.Errorf("%s: must point at Projects and stay not enforced: %q", tp.ID, text)
+		}
+		if tp.ID == "sla" {
 			if !strings.HasPrefix(text, "Coming with") || !strings.Contains(text, "not enforced yet") {
 				t.Errorf("%s: must be flagged as coming and not enforced: %q", tp.ID, text)
 			}

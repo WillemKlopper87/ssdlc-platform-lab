@@ -101,6 +101,22 @@ func TestLoad_SidecarOnlyURLIsAnError(t *testing.T) {
 	}
 }
 
+func TestLoad_SidecarURLNeedsScheme(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("PORTAL_SIDECAR_TOKEN", "t")
+	t.Setenv("PORTAL_SIDECAR_URL", "sidecar:8282")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "PORTAL_SIDECAR_URL") || !strings.Contains(err.Error(), "http") {
+		t.Fatalf("want error naming PORTAL_SIDECAR_URL and http, got %v", err)
+	}
+	for _, u := range []string{"http://sidecar:8282", "https://x"} {
+		t.Setenv("PORTAL_SIDECAR_URL", u)
+		if _, err := Load(); err != nil {
+			t.Errorf("%s should load: %v", u, err)
+		}
+	}
+}
+
 func TestLoad_PublicURLsDefaultAndOverride(t *testing.T) {
 	base := map[string]string{
 		"PORTAL_GITEA_URL": "http://gitea:3500/", "PORTAL_WOODPECKER_URL": "http://woodpecker:8000",

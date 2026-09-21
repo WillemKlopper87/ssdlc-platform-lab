@@ -14,6 +14,7 @@ import (
 	"ssdlc-portal/internal/giteaclient"
 	"ssdlc-portal/internal/handlers"
 	"ssdlc-portal/internal/shell"
+	"ssdlc-portal/internal/sidecarclient"
 )
 
 func main() {
@@ -43,6 +44,10 @@ func main() {
 		TTL:           30 * time.Second,
 		Now:           time.Now,
 	}
+	var projectsSource handlers.ProjectsSource // nil = reporting service not configured
+	if cfg.SidecarURL != "" {
+		projectsSource = sidecarclient.New(cfg.SidecarURL, cfg.SidecarToken)
+	}
 	// authed = require a signed-in user, then compute the page chrome for them.
 	authed := func(h http.HandlerFunc) http.HandlerFunc {
 		return authHandler.RequireAuth(shellBuilder.Middleware(h))
@@ -60,6 +65,7 @@ func main() {
 	mux.HandleFunc("/logout", authHandler.Logout)
 	mux.HandleFunc("/dashboard", authed(handlers.Dashboard(cfg.GiteaURL)))
 	mux.HandleFunc("/help", authed(handlers.Help()))
+	mux.HandleFunc("/projects", authed(handlers.Projects(projectsSource)))
 	mux.HandleFunc("/pr/{owner}/{repo}/{number}", authed(
 		handlers.PRReport(cfg.GiteaURL, cfg.WoodpeckerURL, cfg.WoodpeckerToken)))
 	// Onboarding runs onboard-repo.sh with an admin-scoped Gitea token.

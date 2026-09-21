@@ -104,6 +104,10 @@ func Load() (Config, error) {
 		problems = append(problems, "PORTAL_SIDECAR_URL and PORTAL_SIDECAR_TOKEN must be set together")
 	}
 
+	if cfg.SidecarURL != "" && !strings.HasPrefix(cfg.SidecarURL, "http://") && !strings.HasPrefix(cfg.SidecarURL, "https://") {
+		problems = append(problems, "PORTAL_SIDECAR_URL must start with http:// or https://")
+	}
+
 	if len(problems) > 0 {
 		msg := "portal configuration is invalid:"
 		for _, p := range problems {

@@ -40,7 +40,7 @@ func Topics() []Topic {
 			Answer: "Open <b>Admin</b>, enter the repository owner and name, and start setup. The portal activates the repository in the CI system, records today's findings as the baseline, adds the gate pipeline and turns on branch protection.",
 			GoTo:   "/onboarding", GoLabel: "Set up a project"},
 		{ID: "grade", Question: "What do the letter grades mean?", Roles: all,
-			Answer: "<b>Coming with the Projects screens.</b> Each project gets a grade from its open issues, weighted by severity: <b>A</b> is 90 or above, <b>B</b> 75, <b>C</b> 60, <b>D</b> 40 and <b>F</b> below 40. One open Critical issue is enough to drop a project to a D or F, on purpose. These values are proposals and are not enforced yet."},
+			Answer: "<b>Shown on the Projects page.</b> Right now it counts findings on open pull requests only. Each project gets a grade from its open issues, weighted by severity: <b>A</b> is 90 or above, <b>B</b> 75, <b>C</b> 60, <b>D</b> 40 and <b>F</b> below 40. One open Critical issue is enough to drop a project to a D or F, on purpose. These values are proposals and are not enforced yet."},
 		{ID: "sla", Question: "What is the \"fix within\" countdown?", Roles: all,
 			Answer: "<b>Coming with the Issues screens.</b> Each severity has a target: Critical 2 days, High 7, Medium 30, Low 90. The clock starts when the issue is first found and pauses while an approved exception is in force. Baseline issues have no clock. These targets are proposals and are not enforced yet."},
 		{ID: "baseline", Question: "What is the baseline?", Roles: all,
