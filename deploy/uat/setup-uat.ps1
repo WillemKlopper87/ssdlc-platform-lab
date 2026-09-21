@@ -332,9 +332,25 @@ function Wait-Http([string]$url, [int]$seconds = 240) {
 }
 
 # ------------------------------------------- 6. gitea, accounts, oauth
+Step 'Starting the address redirect (lets containers reach this server by its LAN IP)'
+Compose up -d hairpin
+
 Step 'Starting Postgres and Gitea'
 Compose up -d postgres gitea
 Wait-Http "$GiteaUrl/api/healthz"
+
+Step 'Verifying containers can reach the server address'
+$code = ''
+foreach ($i in 1..10) {
+    $code = (docker run --rm ssdlc-uat-ops curl -s -m 5 -o /dev/null -w '%{http_code}' "$GiteaUrl/api/healthz") 2>$null
+    if ($code -eq '200') { break }
+    Start-Sleep -Seconds 3
+}
+if ($code -ne '200') {
+    Fail ("Containers cannot reach $GiteaUrl (got '$code'). Check: docker logs ssdlc-uat-hairpin. " +
+          "The redirect container needs Docker Desktop's Linux engine and NET_ADMIN.")
+}
+Info "containers reach $GiteaUrl"
 
 function Gitea-Cli { docker exec -u git ssdlc-minimal-gitea gitea @args }
 function Ensure-GiteaUser([string]$name, [string]$pwKey, [switch]$Admin, [switch]$ForceChange) {

@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 go build -o /out/portal .
 # shells out to `docker run` for Semgrep and Trivy).
 FROM python:3.12-slim AS ops
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git curl ca-certificates \
+    && apt-get install -y --no-install-recommends git curl ca-certificates iptables \
     && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir requests==2.32.3
 COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker

@@ -33,6 +33,25 @@ services:
       - WOODPECKER_HOST=http://${SERVER_IP:?}:${WOODPECKER_PORT:-8000}
       - WOODPECKER_GITEA_URL=http://${SERVER_IP:?}:3500
 
+  # Docker Desktop cannot loop a container back to the host's own LAN IP;
+  # this redirects that address to host.docker.internal (see hairpin.sh).
+  hairpin:
+    image: ssdlc-uat-ops
+    build:
+      context: ${REPO_ROOT}
+      dockerfile: deploy/uat/Dockerfile
+      target: ops
+    container_name: ssdlc-uat-hairpin
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ${REPO_ROOT}:/app:ro
+    command: ["sh", "/app/deploy/uat/hairpin.sh"]
+    environment:
+      - SERVER_IP=${SERVER_IP:?}
+
   portal:
     build:
       context: ${REPO_ROOT:?}
