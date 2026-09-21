@@ -1,6 +1,12 @@
 <!-- portal/web/templates/prreport.html -->
 {{define "content"}}
 <h1 style="font-weight:600;">{{.PR.Title}} <span class="ssdlc-mono" style="color:var(--ssdlc-text-3); font-size:16px;">#{{.PR.Number}}</span></h1>
+{{if or .Links.Gitea .Links.Woodpecker}}
+<div style="margin:-6px 0 14px;">
+  {{if .Links.Gitea}}<a class="ssdlc-ext" href="{{.Links.Gitea}}" target="_blank" rel="noopener">Pull request in Gitea &#8599;</a>{{end}}
+  {{if .Links.Woodpecker}}<a class="ssdlc-ext" href="{{.Links.Woodpecker}}" target="_blank" rel="noopener">Pipeline in Woodpecker &#8599;</a>{{end}}
+</div>
+{{end}}
 
 {{if or .Active .Baselined .Excepted}}
 <div class="ssdlc-card" style="display:flex; align-items:center; gap:12px;">

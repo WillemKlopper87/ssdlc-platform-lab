@@ -2,8 +2,10 @@
 package handlers
 
 import (
+	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -69,7 +71,28 @@ func groupByTool(list []reportFinding) []toolGroup {
 	return groups
 }
 
+type prLinkSet struct{ Gitea, Woodpecker string }
+
+// prLinks builds the "open in" links. Woodpecker's web UI addresses a
+// repository by its numeric id, which the report already carries.
+func prLinks(s shell.Shell, owner, repo, number string, woodpeckerRepoID, pipeline int) prLinkSet {
+	var l prLinkSet
+	if s.GiteaURL != "" {
+		l.Gitea = s.GiteaURL + "/" + url.PathEscape(owner) + "/" + url.PathEscape(repo) + "/pulls/" + url.PathEscape(number)
+	}
+	if s.WoodpeckerURL != "" && woodpeckerRepoID > 0 {
+		l.Woodpecker = fmt.Sprintf("%s/repos/%d", s.WoodpeckerURL, woodpeckerRepoID)
+		if pipeline > 0 {
+			l.Woodpecker += fmt.Sprintf("/pipeline/%d", pipeline)
+		}
+	}
+	return l
+}
+
 type prReportData struct {
+	// Links open the pull request and its pipeline run in Gitea and
+	// Woodpecker; empty when the public URLs are unknown.
+	Links     prLinkSet
 	ActiveNav string
 	// Operator is read by layout.html's sidebar ({{if .Operator}}); every
 	// page data type rendered through "layout" needs this field or the
@@ -151,6 +174,7 @@ func PRReport(giteaBaseURL, woodpeckerBaseURL, woodpeckerToken string) http.Hand
 		data := prReportData{
 			ActiveNav:    "dashboard",
 			Shell:        shell.FromContext(r.Context()),
+			Links:        prLinks(shell.FromContext(r.Context()), owner, repo, strconv.Itoa(number), rep.WoodpeckerRepoID, rep.PipelineNumber),
 			RepoFullName: owner + "/" + repo,
 			Summary: findings.Summary{
 				Critical: rep.Summary.Critical, High: rep.Summary.High,

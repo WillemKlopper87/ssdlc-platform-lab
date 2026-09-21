@@ -61,6 +61,7 @@ type Report struct {
 	MergeBlocked     bool      `json:"merge_blocked"`
 	Summary          Summary   `json:"summary"`
 	Findings         []Finding `json:"findings"`
+	WoodpeckerRepoID int       `json:"woodpecker_repo_id"`
 	PipelineNumber   int       `json:"pipeline_number"`
 	PipelineStarted  int64     `json:"pipeline_started"`
 	PipelineFinished int64     `json:"pipeline_finished"`
@@ -128,6 +129,7 @@ func Build(ctx context.Context, g Gitea, w Woodpecker, owner, repo string, numbe
 		r.FindingsUnavailable = true
 		return r, nil
 	}
+	r.WoodpeckerRepoID = repoID
 	pipelines, err := w.ListPipelines(ctx, repoID)
 	if err != nil {
 		r.Notes = append(r.Notes, "findings unavailable: "+err.Error())

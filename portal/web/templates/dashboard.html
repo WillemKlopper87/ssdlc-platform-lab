@@ -1,6 +1,6 @@
 <!-- portal/web/templates/dashboard.html -->
 {{define "content"}}
-<h1 style="font-weight:600;">Dashboard</h1>
+<h1 style="font-weight:600;">Overview</h1>
 
 <div class="ssdlc-card">
   <h2 style="font-size:16px; margin-top:0;">My pull requests</h2>
@@ -13,6 +13,7 @@
       <a href="/pr/{{.Repo}}/{{.Number}}" style="flex:1; color:var(--ssdlc-text-1);">{{.Title}}</a>
       <span style="color:var(--ssdlc-text-3);">{{.Author}}</span>
       {{template "statusBadge" .StatusBadge}}
+      {{if .HTMLURL}}<a class="ssdlc-ext" href="{{.HTMLURL}}" target="_blank" rel="noopener">Gitea &#8599;</a>{{end}}
     </div>
     {{end}}
   {{end}}
