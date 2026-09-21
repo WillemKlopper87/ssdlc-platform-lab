@@ -30,4 +30,5 @@
 # Keep vendored front-end assets byte-identical so their recorded sha256 stays
 # valid on Windows checkouts.
 portal/web/static/vendor/** -text
+portal/web/static/fonts/** -text
 *.woff2 binary

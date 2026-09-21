@@ -62,14 +62,12 @@ func main() {
 	mux.HandleFunc("/help", authed(handlers.Help()))
 	mux.HandleFunc("/pr/{owner}/{repo}/{number}", authed(
 		handlers.PRReport(cfg.GiteaURL, cfg.WoodpeckerURL, cfg.WoodpeckerToken)))
-	// Onboarding runs onboard-repo.sh with an admin-scoped Gitea token, so
-	// both routes are gated behind membership in cfg.ApproverTeam before
-	// authHandler.RequireAuth's session check ever reaches them. The org
-	// used for the team-membership check is cfg.ExceptionsRepoOwner: this
-	// platform is single-tenant-per-instance, and ExceptionsRepoOwner is
-	// already the org that owns the exceptions repo and is wired elsewhere
-	// as "the platform operators' org" for this Gitea instance — there is
-	// no other org name available in config to use instead.
+	// Onboarding runs onboard-repo.sh with an admin-scoped Gitea token.
+	// Requests are authenticated first (RequireAuth), then the page chrome
+	// is computed (shell middleware), then RequireTeam checks membership of
+	// cfg.ApproverTeam in the cfg.ExceptionsRepoOwner org before the
+	// handler runs. That org is used because the platform is
+	// single-tenant per instance.
 	onboardingGitea := giteaclient.New(cfg.GiteaURL, "")
 	mux.HandleFunc("/onboarding", authed(handlers.RequireTeam(
 		onboardingGitea, cfg.ExceptionsRepoOwner, cfg.ApproverTeam,

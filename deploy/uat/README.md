@@ -41,7 +41,8 @@ Pilot repo `ssdlc/pilot-app` is onboarded (gate pipeline, baseline, branch prote
   Prometheus metrics on port 8282 (internal only, not published), and reports dependency health. It is never in
   the merge decision: stopping it changes nothing about which PRs pass or block. Logs: `docker logs ssdlc-uat-sidecar`. PR discovery reads at most 50 open pull requests per repository (a silent cap, acceptable for UAT).
 - **Portal navigation:** Overview, Exceptions (approvers see a badge with how many requests wait for them), Admin
-  (Gitea admins only: project setup), Help, and Quick launch links that open Gitea and Woodpecker in a new tab.
+  (Gitea admins who are also members of the approvers team: project setup), Help, and Quick launch links that open Gitea and Woodpecker in a new tab.
+  After pulling portal changes run `docker compose ... build portal` (or re-run setup-uat.ps1): templates and the binary come from the image, while /static/ is served from the host checkout, so updating only one of them mismatches CSS and markup.
   `Ctrl+K` opens a jump palette. Projects and Issues appear greyed out until the next portal step lands.
 - Secrets live in `deploy\uat\state\uat.env`. Treat it like a password file.
 
