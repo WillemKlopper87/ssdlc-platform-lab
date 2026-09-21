@@ -256,7 +256,7 @@ const TOPICS=[
  {id:'baseline',q:'What is the baseline?',roles:['Developer','Approver','Admin'],a:'When a project joins the gate, everything already in the code is recorded as the baseline. It never blocks merges, and it can only shrink: you cannot add to it. Secrets are never baselined. You can hide baseline issues from the Issues list with one click.'},
  {id:'fp',q:'What does "false positive" mean?',roles:['Approver'],a:'The scanner reported something that is not actually a problem. An approver can mark an issue as a false positive from its panel. It is recorded in the history and the issue stops counting.'},
  {id:'signin',q:'Do I need to sign in again for Gitea or Woodpecker?',roles:['Developer','Approver','Admin'],a:'No separate account is needed: it is the same Gitea account. The links open in a new tab. If Woodpecker asks you to authorise the first time, click <b>Authorize</b> once. After that it signs you in automatically.'},
- {id:'ai',q:'What is the AI suggestion on an issue?',roles:['Developer','Approver','Admin'],a:'An optional helper that proposes a rewrite of the flagged code using a <b>small model running on your own server</b>. Your code never leaves the platform, and secret values are removed before anything is sent. It is a suggestion only: read it, test it, and remember it can be wrong. It never affects whether a pull request passes.'},
+ {id:'ai',q:'What is the AI suggestion on an issue?',roles:['Developer','Approver','Admin'],a:'An optional helper that proposes a rewrite of the flagged code using a <b>small model running on your own server</b>. Your code never leaves the platform, and secret values are removed before anything is sent. It is a suggestion only: read it, test it, and remember it can be wrong. It never affects whether a pull request passes. If you want colleagues to see it, use <b>Post to PR</b>: it adds a separate, clearly labelled comment to the pull request.'},
  {id:'keys',q:'Keyboard shortcuts',roles:['Developer','Approver','Admin'],a:'<span class="kb">Ctrl</span><span class="kb">K</span> jump to any page, project or issue &nbsp; <span class="kb">/</span> filter the current list &nbsp; <span class="kb">Esc</span> close a panel.'},
 ];
 const AIDATA={
@@ -277,7 +277,7 @@ const URLS={gitea:'http://192.168.1.28:3500',wp:'http://192.168.1.28:8000'};
 const ext=(href,label,cls='')=>`<a class="ext ${cls}" href="${href}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${label} ↗</a>`;
 const gRepo=n=>`${URLS.gitea}/ssdlc/${n}`, wRepo=n=>`${URLS.wp}/repos/ssdlc/${n}`;
 const S={role:'approver',view:'overview',project:null,ptab:'prs',sev:new Set(),stat:new Set(),q:'',sort:'sev',dir:1,drawer:null,extab:'wait',
-  setup:{step:1,repo:null,log:[],running:false,done:false},showBase:true,sel:new Set(),bulkReason:'',hq:'',hopen:new Set(['blocked']),ai:{},aiOn:true};
+  setup:{step:1,repo:null,log:[],running:false,done:false},showBase:true,sel:new Set(),bulkReason:'',hq:'',hopen:new Set(['blocked']),ai:{},aiOn:true,aiPosted:new Set()};
 
 // ---------- helpers ----------
 const $=(s,e=document)=>e.querySelector(s);
@@ -443,8 +443,8 @@ function aiBlock(i){
   if(st==='loading')body=`<div style="margin:10px 0"><span class="spin"></span>Thinking on the local model...</div><div class="shim" style="width:92%"></div><div class="shim" style="width:76%"></div><div class="shim" style="width:84%"></div>`;
   if(st==='done')body=`<div style="margin:8px 0;color:var(--t2);line-height:1.6">${d.why}</div>
     <div class="codebox diff"><div class="fn">proposed rewrite for ${i.file}:${i.line}</div><pre class="mono">${d.rm.map(l=>`<span class="ln rm">- ${esc(l)}</span>`).join('')}${d.ad.map(l=>`<span class="ln ad">+ ${esc(l)}</span>`).join('')}</pre></div>
-    <div style="display:flex;gap:8px;align-items:center;margin-top:10px"><button class="btn" data-aicopy="${i.id}">Copy rewrite</button><span class="muted right" style="font-size:12px">Was this useful?</span><button class="btn" data-aifb="up">👍</button><button class="btn" data-aifb="down">👎</button></div>
-    <div class="warn">AI-generated. Read it and test it before using it: it can be wrong.</div>`;
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap"><button class="btn" data-aicopy="${i.id}">Copy rewrite</button>${i.where.startsWith('PR')?(S.aiPosted.has(i.id)?`<span class="st st-accepted">Posted to PR</span>${ext(gRepo(i.project)+'/pulls/'+i.where.slice(3),'View comment')}`:`<button class="btn" data-aipost="${i.id}">Post to PR</button>`):''}<span class="muted right" style="font-size:12px">Was this useful?</span><button class="btn" data-aifb="up">👍</button><button class="btn" data-aifb="down">👎</button></div>
+    <div class="warn">AI-generated. Read it and test it before using it: it can be wrong.</div>${i.where.startsWith('PR')&&!S.aiPosted.has(i.id)?`<div class="meta">"Post to PR" adds a separate comment labelled AI-generated, "requested by ${me()}", with secrets already hidden. It never affects the gate.</div>`:''}`;
   return `<div class="ai"><div class="hd">✦ AI suggestion <span class="beta">beta</span></div><div class="meta">qwen2.5-coder 7b · runs on this server · your code is not sent anywhere${st==='done'?' · '+d.note:''}</div>${body}</div>`}
 function drawer(){const d=$('#drawer'),bg=$('#dbg');
   if(!S.drawer){d.classList.remove('on');bg.classList.remove('on');return}
@@ -454,6 +454,7 @@ function drawer(){const d=$('#drawer'),bg=$('#dbg');
   if(i.status==='requested')tl.push(`<span style="color:var(--warn)">Waiting for an approver other than ${i.requester}</span>`);
   if(i.status==='accepted')tl.push(`Approved by dev1 · expires in ${i.expires} days`);
   if(i.status==='declined')tl.push(`Declined by an approver`);
+  if(S.aiPosted.has(i.id))tl.push(`AI suggestion posted to the pull request by <b>${me()}</b>`);
   let panel='';
   if(canReq)panel=`<div style="margin-top:14px"><b>Request an exception</b><div class="muted" style="margin:4px 0 8px;font-size:12px">Needs one approver who is not you. Expires automatically.</div><textarea id="rsn" rows="3" placeholder="Why is this acceptable?"></textarea><div style="margin:10px 0 4px;font-size:12px" class="muted">Expires in <b id="expv" style="color:var(--t1)">30</b> days</div><input type="range" id="exp" min="7" max="90" value="30" style="width:100%"><button class="btn pri" style="width:100%;margin-top:10px" data-req="${i.id}">Send request</button></div>`;
   else if(i.status==='requested')panel=isAppr()&&!mine?`<div style="margin-top:14px;display:flex;gap:8px"><button class="btn ok" style="flex:1" data-approve="${i.id}">Approve</button><button class="btn no" style="flex:1" data-decline="${i.id}">Decline</button></div>`:`<div class="muted" style="margin-top:14px">${mine?'Your request is waiting for another approver.':'Only approvers can decide.'}</div>`;
@@ -496,7 +497,7 @@ function bulk(kind){
   S.sel.clear();render()}
 function act(id,status,msg){const i=issues.find(x=>x.id===id);i.status=status;activity.unshift([me(),msg+' '+i.title,'just now']);toast(msg==='approved'?'Exception approved. It will expire automatically.':msg==='declined'?'Exception declined.':'Marked as false positive.');render()}
 
-document.addEventListener('click',e=>{const t=e.target.closest('[data-go],[data-issue],[data-pr],[data-ptab],[data-extab],[data-fsev],[data-fstat],[data-base],[data-sort],[data-approve],[data-decline],[data-req],[data-close],[data-ai],[data-aicopy],[data-aifb],[data-aitoggle],[data-topic],[data-topic-go],[data-copy],[data-fp],[data-sel],[data-selall],[data-bulk],[data-repo],[data-next],[data-back],[data-reset],[data-pal],#nav a,#roleSeg button,#dbg');if(!t)return;
+document.addEventListener('click',e=>{const t=e.target.closest('[data-go],[data-issue],[data-pr],[data-ptab],[data-extab],[data-fsev],[data-fstat],[data-base],[data-sort],[data-approve],[data-decline],[data-req],[data-close],[data-ai],[data-aipost],[data-aicopy],[data-aifb],[data-aitoggle],[data-topic],[data-topic-go],[data-copy],[data-fp],[data-sel],[data-selall],[data-bulk],[data-repo],[data-next],[data-back],[data-reset],[data-pal],#nav a,#roleSeg button,#dbg');if(!t)return;
   const d=t.dataset;
   if(t.matches('#nav a'))return go(d.v);
   if(t.matches('#roleSeg button')){S.role=d.r;S.extab='wait';if(S.view==='admin'&&S.role!=='admin')S.view='overview';S.drawer=null;render();return toast('Now viewing as '+USERS[S.role])}
@@ -512,6 +513,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-go],[data-
   if('base' in d){S.showBase=!S.showBase;return render()}
   if(d.sort){S.dir=S.sort===d.sort?-S.dir:1;S.sort=d.sort;return render()}
   if(d.ai){const id=+d.ai;S.ai[id]='loading';setTimeout(()=>{S.ai[id]='done';if(S.drawer===id)render()},2300);return render()}
+  if(d.aipost){S.aiPosted.add(+d.aipost);activity.unshift([me(),'posted an AI suggestion to the PR for '+issues.find(x=>x.id===+d.aipost).title,'just now']);toast('Posted to the pull request as an AI-generated comment');return render()}
   if(d.aicopy){const dd=AIDATA[+d.aicopy];navigator.clipboard&&dd&&navigator.clipboard.writeText(dd.ad.join('\n'));return toast('Rewrite copied to clipboard')}
   if(d.aifb){return toast(d.aifb==='up'?'Thanks, noted.':'Thanks. We will use this to improve suggestions.')}
   if('aitoggle' in d){S.aiOn=!S.aiOn;render();return toast('AI assistant '+(S.aiOn?'enabled':'disabled')+' (demo)')}
@@ -560,7 +562,7 @@ document.addEventListener('keydown',e=>{
   if(h.get('tab'))S.ptab=h.get('tab');if(h.get('drawer'))S.drawer=+h.get('drawer');
   if(h.get('sel'))h.get('sel').split(',').forEach(x=>S.sel.add(+x));
   if(h.get('extab'))S.extab=h.get('extab');
-  if(h.get('ai')&&S.drawer)S.ai[S.drawer]=h.get('ai');if(h.get('aioff'))S.aiOn=false;
+  if(h.get('ai')&&S.drawer)S.ai[S.drawer]=h.get('ai');if(h.get('aioff'))S.aiOn=false;if(h.get('aiposted')&&S.drawer)S.aiPosted.add(S.drawer);
   if(h.get('step')){S.setup.repo='ssdlc/inventory-api';S.setup.step=+h.get('step')}})();
 render();
 </script>

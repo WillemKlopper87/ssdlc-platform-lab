@@ -36,7 +36,7 @@ Taken from Gitea, as today. **Developer**: any signed-in user. **Approver**: mem
 
 **Issue page (panel).** Title and severity; a **status-flag row** (Active, Verified, False positive, Duplicate, Risk accepted, Baseline, Overdue); the code with the offending line highlighted; links to the file, PR and pipeline in Gitea and Woodpecker; **why it matters**; **how to fix** with a copyable suggested change. Right column: status, **SLA progress**, **request an exception** (reason, expiry 7 to 90 days) or, for approvers, **approve/decline**, "mark as false positive", and a **history** timeline. Requesting an exception happens here; the issue's status shows everywhere.
 
-**Exceptions.** Tabs Waiting for me / My requests / All. Each card shows the requester's reason, expiry and approve/decline (replaced by "Waiting for another approver" for your own request), and links to the issue. The sidebar badge shows the approver's pending count.
+**Exceptions.** Tabs Waiting for me / My requests / All. Each card shows the requester's reason, expiry and approve/decline (replaced by "Waiting for another approver" for your own request), and links to the issue. The sidebar badge shows the approver's pending count. **Approving an exception re-runs the pull request's pipeline** (the reporting service calls Woodpecker's restart, as DESIGN.md D5 describes) so the PR reads the approved record and turns green without the developer pushing anything; declining does not re-run. The issue page and PR rows also offer a **Re-run gate** button (for a flaky scan), available to the PR's author and approvers.
 
 **Admin** (admins only). **Set up a project**: pick a repository from a list, review what will be added (pipeline, baseline scan, branch protection, bot access), run with live progress, end with a link to the new project. **Platform health** from the reporting service (Gitea, Woodpecker, agent, reporting service, address redirect, and the AI assistant when present), the detected server tier, and Posture and logs on the tiers that include them.
 
@@ -56,6 +56,16 @@ Constraint to plan for: Woodpecker actions need a **per-user Woodpecker token**.
 ## Optional AI suggestion (later phase, off by default)
 
 A section on the issue page, **✦ AI suggestion (beta)**: a button "Suggest a rewrite", a short "thinking" state, then an explanation and a before/after diff with "Copy rewrite" and thumbs feedback, labelled "AI-generated, verify before use".
+
+**Flow once a pull request is open.** The pipeline runs, the gate decides, and within about 60 seconds the reporting service posts or edits its one deterministic sticky comment (already built; not AI). The developer opens an issue in the portal and clicks **Suggest a rewrite**; the reporting service sends a redacted snippet to the local model and shows the result in seconds. Nothing is stored by the portal.
+
+**Sharing it: "Post to PR" (chosen).** After reading a suggestion the developer can click **Post to PR**. The reporting service then adds a **separate comment** on the pull request, marked with its own hidden marker (distinct from the sticky gate comment's marker), labelled "AI-generated", "requested by <user>", with the redacted-and-safe rewrite in a code block. The comment lives in Gitea, the system of record; the issue's history records who posted it. Gitea has no GitHub-style one-click "apply suggestion", so the developer copies or applies it by hand. Only available for issues on a pull request the user can see, never for baseline issues; one AI comment per issue, edited in place if posted again.
+
+**Not chosen: automatic posting on every pull request.** It would attach unverified model output to every PR, cost model time on every push, and encourage blind acceptance on blocked PRs. It may be offered later as a **per-project setting, off by default**.
+
+**Posting does not re-run the gate.** A comment does not change the code, and the pipeline re-runs only on a new push (a fix), on an approved exception, or on an explicit Re-run gate. AI comments never trigger or influence a run.
+
+Additional rules for posting: the gate and the bot's approval logic ignore AI comments entirely; posted text passes through the same redaction as the prompt (a pushed comment can never contain the secret value); posting is rate-limited per user.
 
 Rules:
 - **Advisory only, never in the merge decision.** The portal is identical without it.
