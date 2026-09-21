@@ -26,7 +26,9 @@ param(
     # Leave empty to auto-detect this machine's LAN address.
     [string]$ServerIp = '',
     [string]$TerraformVersion = '1.15.0',
-    [switch]$SkipFirewall
+    [switch]$SkipFirewall,
+    # Delete any existing UAT containers, volumes and network first (ALL data).
+    [switch]$Reset
 )
 
 $ErrorActionPreference = 'Stop'
@@ -185,6 +187,7 @@ Info ((terraform version | Select-Object -First 1))
 
 # ---------------------------------------------------------- 2. secrets
 Step 'Secrets and configuration'
+$hadState = Test-Path $EnvFile
 Load-Env
 $prevIp = $Script:Cfg['SERVER_IP']
 if ($prevIp -and $prevIp -ne $ServerIp) {
@@ -229,6 +232,38 @@ if (-not $SkipFirewall) {
 }
 
 # ------------------------------------------------------ 4. terraform
+Step 'Checking for leftovers from a previous install'
+$oldVolumes = @(Try-Native { docker volume ls --filter 'name=^ssdlc-minimal-' --format '{{.Name}}' 2>$null })
+if ($Reset) {
+    Info 'Reset requested: removing UAT containers, volumes and network'
+    $names = @(Try-Native { docker ps -a --filter 'name=ssdlc-minimal' --filter 'name=ssdlc-uat' --format '{{.Names}}' 2>$null })
+    foreach ($n in $names) { docker rm -f $n | Out-Null }
+    foreach ($v in $oldVolumes) { docker volume rm $v | Out-Null }
+    Try-Native { docker network rm ssdlc-minimal 2>$null | Out-Null }
+    Get-ChildItem $TfDir -Filter 'terraform.tfstate*' -ErrorAction SilentlyContinue | Remove-Item -Force
+    # Old secrets no longer match anything; start from fresh ones.
+    Remove-Item $EnvFile -Force -ErrorAction SilentlyContinue
+    Load-Env
+    Set-Cfg 'SERVER_IP' $ServerIp
+    Set-Cfg 'REPO_ROOT' $RepoRoot
+    Set-Cfg 'REPO_VM' $repoVm
+    Set-Cfg 'WOODPECKER_PORT' '8000'
+    Set-Cfg 'GITEA_URL' $GiteaUrl
+    Set-Cfg 'WOODPECKER_URL' $WpUrl
+    Set-Cfg 'ADMIN_USER' 'gateadmin'
+    foreach ($k in 'POSTGRES_PASSWORD', 'WOODPECKER_AGENT_SECRET', 'WOODPECKER_GRPC_SECRET', 'PORTAL_SESSION_KEY') { Ensure-Cfg $k { New-Hex 32 } }
+    Ensure-Cfg 'GITEA_OAUTH_CLIENT_ID'     { 'pending' }
+    Ensure-Cfg 'GITEA_OAUTH_CLIENT_SECRET' { 'pending' }
+    foreach ($a in $accounts) { Ensure-Cfg "${a}_PASSWORD" { New-Secret 20 } }
+}
+elseif ($oldVolumes.Count -gt 0 -and -not $hadState) {
+    # Volumes hold a database created with a password this run does not know:
+    # Gitea would wait forever for a login that can never succeed.
+    Fail ("Found data from an earlier install ($($oldVolumes -join ', ')) but no matching deploy\uat\state\uat.env, " +
+          "so its database password is lost. Re-run with -Reset to delete that data and start clean, " +
+          "or run the script from the original folder that still has its state.")
+}
+
 Step 'Docker network and volumes (Terraform)'
 $netExists = (docker network ls --filter name=^ssdlc-minimal$ --format '{{.Name}}') -eq 'ssdlc-minimal'
 $tfState = Join-Path $TfDir 'terraform.tfstate'
