@@ -89,3 +89,37 @@ func TestListPipelines_IncludesTimestamps(t *testing.T) {
 		t.Errorf("pipeline = %+v", ps[0])
 	}
 }
+
+func TestLookupRepoEscapesSegments(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.EscapedPath()
+		w.Write([]byte(`{"id":7}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "tok")
+	if _, err := c.LookupRepo(context.Background(), "a/b", "c d"); err != nil {
+		t.Fatal(err)
+	}
+	if want := "/api/repos/lookup/a%2Fb/c%20d"; got != want {
+		t.Errorf("escaped path = %q, want %q", got, want)
+	}
+	got = ""
+	if _, err := c.LookupRepo(context.Background(), "..", "x/y"); err == nil {
+		t.Error("expected error for ..")
+	}
+	if got != "" {
+		t.Errorf("no request expected, got %q", got)
+	}
+}
+
+func TestEscapeSegment(t *testing.T) {
+	if s, err := escapeSegment("a b/c"); err != nil || s != "a%20b%2Fc" {
+		t.Errorf("got %q, %v", s, err)
+	}
+	for _, bad := range []string{".", ".."} {
+		if _, err := escapeSegment(bad); err == nil {
+			t.Errorf("%q should error", bad)
+		}
+	}
+}

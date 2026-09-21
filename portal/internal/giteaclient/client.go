@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -132,7 +133,11 @@ func (c *Client) GetCombinedStatus(ctx context.Context, owner, repo, sha string)
 			Context string `json:"context"`
 		} `json:"statuses"`
 	}
-	path := fmt.Sprintf("/api/v1/repos/%s/%s/commits/%s/status", owner, repo, sha)
+	base, err := repoPath(owner, repo)
+	if err != nil {
+		return nil, err
+	}
+	path := fmt.Sprintf("%s/commits/%s/status", base, url.PathEscape(sha))
 	if _, err := c.do(ctx, http.MethodGet, path, nil, &resp); err != nil {
 		return nil, err
 	}

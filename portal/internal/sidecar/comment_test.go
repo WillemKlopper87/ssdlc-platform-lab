@@ -276,3 +276,31 @@ func TestCommentHookChecksRepoFormat(t *testing.T) {
 		t.Errorf("should log malformed repo name error, got: %s", output)
 	}
 }
+
+func TestRenderCommentFindingsUnavailable(t *testing.T) {
+	r := blockedReport()
+	r.FindingsUnavailable = true
+	r.Summary = report.Summary{}
+	r.Findings = nil
+	body := RenderComment(r, "http://p")
+	for _, want := range []string{CommentMarker, "blocked", "Findings could not be read from the pipeline system right now; this comment will update automatically.", "http://p/pr/ssdlc/pilot-app/3"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q:\n%s", want, body)
+		}
+	}
+	for _, bad := range []string{"critical 0", "Blocking:", "Findings: critical"} {
+		if strings.Contains(body, bad) {
+			t.Errorf("must not contain %q:\n%s", bad, body)
+		}
+	}
+	if body != RenderComment(r, "http://p") {
+		t.Error("not deterministic")
+	}
+}
+
+func TestRenderCommentNormalReportStillShowsCounts(t *testing.T) {
+	body := RenderComment(blockedReport(), "")
+	if !strings.Contains(body, "Findings: critical 1, high 0, medium 1, low 0") || !strings.Contains(body, "Blocking:") || strings.Contains(body, "could not be read") {
+		t.Errorf("normal report changed:\n%s", body)
+	}
+}

@@ -35,7 +35,15 @@ func (c *Client) LookupRepo(ctx context.Context, owner, repo string) (int, error
 	var raw struct {
 		ID int `json:"id"`
 	}
-	if err := c.get(ctx, fmt.Sprintf("/api/repos/lookup/%s/%s", owner, repo), &raw); err != nil {
+	o, err := escapeSegment(owner)
+	if err != nil {
+		return 0, err
+	}
+	r, err := escapeSegment(repo)
+	if err != nil {
+		return 0, err
+	}
+	if err := c.get(ctx, "/api/repos/lookup/"+o+"/"+r, &raw); err != nil {
 		return 0, err
 	}
 	if raw.ID == 0 {

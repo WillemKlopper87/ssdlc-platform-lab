@@ -37,7 +37,7 @@ func BuildSnapshot(reports []report.Report, now time.Time, pollOK bool) *metrics
 			fcount[fkey{r.Repo, f.Category, sev, f.Tool}]++
 		}
 		if r.PipelineFinished > 0 {
-			if v := float64(r.PipelineFinished - r.CreatedAt.Unix()); v >= 0 {
+			if v := float64(r.PipelineFinished - r.CreatedAt.Unix()); !r.CreatedAt.IsZero() && v >= 0 {
 				verdictSum[r.Repo] += v
 				verdictN[r.Repo]++
 			}

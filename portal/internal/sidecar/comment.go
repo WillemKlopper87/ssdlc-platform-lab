@@ -87,10 +87,17 @@ func RenderComment(r report.Report, portalURL string) string {
 		sha = sha[:7]
 	}
 	fmt.Fprintf(&b, "**SSDLC gate: %s** for `%s`\n\n", verdict, sha)
-	fmt.Fprintf(&b, "Findings: critical %d, high %d, medium %d, low %d\n", r.Summary.Critical, r.Summary.High, r.Summary.Medium, r.Summary.Low)
+	findings := r.Findings
+	if r.FindingsUnavailable {
+		// Zero counts would read as "clean"; say the data is missing instead.
+		b.WriteString("Findings could not be read from the pipeline system right now; this comment will update automatically.\n")
+		findings = nil
+	} else {
+		fmt.Fprintf(&b, "Findings: critical %d, high %d, medium %d, low %d\n", r.Summary.Critical, r.Summary.High, r.Summary.Medium, r.Summary.Low)
+	}
 
 	shown := 0
-	for _, f := range r.Findings {
+	for _, f := range findings {
 		if f.Category != "blocking" {
 			continue
 		}

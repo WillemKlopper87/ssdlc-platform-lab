@@ -179,3 +179,44 @@ func TestListIssueComments_MaxPages(t *testing.T) {
 		t.Errorf("expected 1000 comments (20 pages * 50), got %d", len(cs))
 	}
 }
+
+func TestGetPullRequestEscapesSegments(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.EscapedPath()
+		w.Write([]byte(prJSON))
+	}))
+	defer srv.Close()
+	if _, err := New(srv.URL, "tok").GetPullRequest(context.Background(), "a/b", "c d", 1); err != nil {
+		t.Fatal(err)
+	}
+	if want := "/api/v1/repos/a%2Fb/c%20d/pulls/1"; got != want {
+		t.Errorf("escaped path = %q, want %q", got, want)
+	}
+}
+
+func TestGetPullRequestRejectsDotSegments(t *testing.T) {
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true }))
+	defer srv.Close()
+	c := New(srv.URL, "tok")
+	for _, pair := range [][2]string{{"..", "x"}, {"x", ".."}, {".", "x"}} {
+		if _, err := c.GetPullRequest(context.Background(), pair[0], pair[1], 1); err == nil {
+			t.Errorf("%v: expected error", pair)
+		}
+	}
+	if called {
+		t.Error("no request may be made for dot segments")
+	}
+}
+
+func TestEscapeSegment(t *testing.T) {
+	if s, err := escapeSegment("a b/c"); err != nil || s != "a%20b%2Fc" {
+		t.Errorf("got %q, %v", s, err)
+	}
+	for _, bad := range []string{".", ".."} {
+		if _, err := escapeSegment(bad); err == nil {
+			t.Errorf("%q should error", bad)
+		}
+	}
+}

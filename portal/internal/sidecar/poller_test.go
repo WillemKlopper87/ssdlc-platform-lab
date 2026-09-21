@@ -45,9 +45,15 @@ type fakeWP struct {
 	// reposErrFn, when set, is consulted on every ListRepos call so a test
 	// can flip the failure on between polls.
 	reposErrFn func() error
+	lookupErr  error
 }
 
-func (f fakeWP) LookupRepo(ctx context.Context, owner, repo string) (int, error) { return 7, nil }
+func (f fakeWP) LookupRepo(ctx context.Context, owner, repo string) (int, error) {
+	if f.lookupErr != nil {
+		return 0, f.lookupErr
+	}
+	return 7, nil
+}
 func (f fakeWP) ListPipelines(ctx context.Context, id int) ([]woodpeckerclient.Pipeline, error) {
 	return []woodpeckerclient.Pipeline{{Number: 5, Commit: "abc", Started: 1000, Finished: 1060}}, nil
 }
@@ -238,5 +244,37 @@ func TestPollerHookPanicIsContained(t *testing.T) {
 	}
 	if !strings.Contains(scrape(st), "ssdlc_open_pull_requests") {
 		t.Error("metrics not published")
+	}
+}
+
+func TestPollerFindingsUnavailableMarksPollNotOK(t *testing.T) {
+	g := fakeGitea{prs: map[string][]giteaclient.PRDetail{
+		"ssdlc/pilot-app": {{Number: 3, HeadSHA: "abc", CreatedAt: time.Unix(900, 0)}},
+	}}
+	w := fakeWP{repos: []woodpeckerclient.Repo{{ID: 7, FullName: "ssdlc/pilot-app"}}, lookupErr: errors.New("wp down")}
+	p, st := newPoller(g, w)
+	if err := p.Once(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	out := scrape(st)
+	if !strings.Contains(out, "ssdlc_sidecar_poll_ok 0") {
+		t.Errorf("want poll_ok 0 when findings are unavailable:\n%s", out)
+	}
+	if !strings.Contains(out, `repo="ssdlc/pilot-app"`) {
+		t.Errorf("report should still be in the snapshot:\n%s", out)
+	}
+}
+
+func TestCollectorZeroCreatedAtHasNoVerdictSample(t *testing.T) {
+	g := fakeGitea{prs: map[string][]giteaclient.PRDetail{
+		"ssdlc/pilot-app": {{Number: 3, HeadSHA: "abc"}},
+	}}
+	w := fakeWP{repos: []woodpeckerclient.Repo{{ID: 7, FullName: "ssdlc/pilot-app"}}}
+	p, st := newPoller(g, w)
+	if err := p.Once(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if out := scrape(st); strings.Contains(out, "ssdlc_pr_time_to_verdict_seconds_avg") {
+		t.Errorf("zero CreatedAt must not produce a verdict sample:\n%s", out)
 	}
 }

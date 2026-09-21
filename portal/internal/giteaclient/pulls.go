@@ -35,7 +35,11 @@ func statusError(method, path string, status int) error {
 }
 
 func (c *Client) GetPullRequest(ctx context.Context, owner, repo string, number int) (PRDetail, error) {
-	path := fmt.Sprintf("/api/v1/repos/%s/%s/pulls/%d", owner, repo, number)
+	base, err := repoPath(owner, repo)
+	if err != nil {
+		return PRDetail{}, err
+	}
+	path := fmt.Sprintf("%s/pulls/%d", base, number)
 	var pr giteaPR
 	status, err := c.do(ctx, http.MethodGet, path, nil, &pr)
 	if err != nil {
@@ -48,7 +52,11 @@ func (c *Client) GetPullRequest(ctx context.Context, owner, repo string, number 
 }
 
 func (c *Client) ListOpenPullRequests(ctx context.Context, owner, repo string) ([]PRDetail, error) {
-	path := fmt.Sprintf("/api/v1/repos/%s/%s/pulls?state=open&limit=50", owner, repo)
+	base, err := repoPath(owner, repo)
+	if err != nil {
+		return nil, err
+	}
+	path := base + "/pulls?state=open&limit=50"
 	var prs []giteaPR
 	status, err := c.do(ctx, http.MethodGet, path, nil, &prs)
 	if err != nil {
@@ -76,8 +84,12 @@ func (c *Client) ListIssueComments(ctx context.Context, owner, repo string, numb
 	const maxPages = 20
 	var out []IssueComment
 
+	base, err := repoPath(owner, repo)
+	if err != nil {
+		return nil, err
+	}
 	for page := 1; page <= maxPages; page++ {
-		path := fmt.Sprintf("/api/v1/repos/%s/%s/issues/%d/comments?limit=%d&page=%d", owner, repo, number, pageSize, page)
+		path := fmt.Sprintf("%s/issues/%d/comments?limit=%d&page=%d", base, number, pageSize, page)
 		var raw []struct {
 			ID   int64  `json:"id"`
 			Body string `json:"body"`
@@ -120,9 +132,17 @@ func (c *Client) sendBody(ctx context.Context, method, path, body string) error 
 }
 
 func (c *Client) CreateIssueComment(ctx context.Context, owner, repo string, number int, body string) error {
-	return c.sendBody(ctx, http.MethodPost, fmt.Sprintf("/api/v1/repos/%s/%s/issues/%d/comments", owner, repo, number), body)
+	base, err := repoPath(owner, repo)
+	if err != nil {
+		return err
+	}
+	return c.sendBody(ctx, http.MethodPost, fmt.Sprintf("%s/issues/%d/comments", base, number), body)
 }
 
 func (c *Client) EditIssueComment(ctx context.Context, owner, repo string, id int64, body string) error {
-	return c.sendBody(ctx, http.MethodPatch, fmt.Sprintf("/api/v1/repos/%s/%s/issues/comments/%d", owner, repo, id), body)
+	base, err := repoPath(owner, repo)
+	if err != nil {
+		return err
+	}
+	return c.sendBody(ctx, http.MethodPatch, fmt.Sprintf("%s/issues/comments/%d", base, id), body)
 }

@@ -74,6 +74,9 @@ func (p *Poller) Once(ctx context.Context) error {
 				allOK = false
 				continue
 			}
+			if r.FindingsUnavailable {
+				allOK = false
+			}
 			reports = append(reports, r)
 		}
 	}
