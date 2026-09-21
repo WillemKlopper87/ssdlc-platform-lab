@@ -178,3 +178,19 @@ func TestGateState(t *testing.T) {
 		}
 	}
 }
+
+func TestBuild_ExposesWoodpeckerRepoID(t *testing.T) {
+	g := fakeGitea{pr: basePR()}
+	w := fakeWP{repoID: 42, pipelines: []woodpeckerclient.Pipeline{{Number: 5, Commit: "abc"}}}
+	r, err := Build(context.Background(), g, w, "o", "r", 12, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.WoodpeckerRepoID != 42 || r.PipelineNumber != 5 {
+		t.Errorf("repo id = %d pipeline = %d", r.WoodpeckerRepoID, r.PipelineNumber)
+	}
+	failed, _ := Build(context.Background(), fakeGitea{pr: basePR()}, fakeWP{lookupErr: errors.New("x")}, "o", "r", 12, now)
+	if failed.WoodpeckerRepoID != 0 {
+		t.Errorf("no repo id when the lookup fails, got %d", failed.WoodpeckerRepoID)
+	}
+}
