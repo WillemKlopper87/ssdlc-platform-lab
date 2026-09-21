@@ -41,3 +41,17 @@
 .ssdlc-tag{font-size:11px;border:1px solid var(--ssdlc-border-alt);border-radius:5px;padding:0 6px;color:var(--ssdlc-text-3);font-weight:400}
 .ssdlc-pal input:focus-visible{outline:2px solid var(--ssdlc-accent);outline-offset:-2px}
 .ssdlc-pal-btn:focus-visible,.ssdlc-sidebar a:focus-visible,.ssdlc-ext:focus-visible,.ssdlc-pal-item:focus-visible,.ssdlc-topic summary:focus-visible,.ssdlc-help-hero input[type=search]:focus-visible{outline:2px solid var(--ssdlc-accent);outline-offset:2px}
+/* projects table and grades */
+.ssdlc-table-wrap{overflow-x:auto;padding:0}
+.ssdlc-table{border-collapse:collapse;width:100%;font-size:13px}
+.ssdlc-table th{text-align:left;font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ssdlc-text-3);background:var(--ssdlc-surface-alt)}
+.ssdlc-table th,.ssdlc-table td{padding:10px 14px;border-bottom:1px solid var(--ssdlc-border);white-space:nowrap}
+.ssdlc-table tbody tr:last-child td{border-bottom:0}
+.ssdlc-sub{color:var(--ssdlc-text-3);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:11px}
+.ssdlc-grade{display:inline-block;min-width:26px;text-align:center;border-radius:6px;padding:1px 8px;font-weight:600;font-size:13px;border:1px solid var(--ssdlc-border-alt)}
+.ssdlc-grade-A{color:var(--ssdlc-success);border-color:var(--ssdlc-success);background:var(--ssdlc-success-bg)}
+.ssdlc-grade-B{color:var(--ssdlc-accent);border-color:var(--ssdlc-accent);background:var(--ssdlc-accent-bg)}
+.ssdlc-grade-C{color:var(--ssdlc-warning);border-color:var(--ssdlc-warning);background:var(--ssdlc-warning-bg)}
+.ssdlc-grade-D,.ssdlc-grade-F{color:var(--ssdlc-critical);border-color:var(--ssdlc-critical);background:var(--ssdlc-critical-bg)}
+.ssdlc-grade-unknown{color:var(--ssdlc-text-3);border-style:dashed}
+.ssdlc-notice{border-color:var(--ssdlc-warning);color:var(--ssdlc-text-1)}
