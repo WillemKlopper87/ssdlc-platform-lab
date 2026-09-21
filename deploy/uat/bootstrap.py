@@ -73,7 +73,14 @@ def ensure_repo(name, auto_init):
 
 
 def ensure_oauth(name, redirect):
-    """Return (client_id, client_secret); the secret is only shown on creation."""
+    """Return (client_id, client_secret); the secret is only shown on creation.
+    An existing app with the same name is replaced: its redirect URL may
+    hold a previous server address."""
+    r = api("GET", "/user/applications/oauth2")
+    if r.status_code == 200:
+        for app in r.json():
+            if app.get("name") == name:
+                api("DELETE", f"/user/applications/oauth2/{app['id']}")
     r = ok(api("POST", "/user/applications/oauth2", json={
         "name": name, "redirect_uris": [redirect], "confidential_client": True,
         "skip_secondary_authorization": True}))

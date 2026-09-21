@@ -1,6 +1,6 @@
 # SSDLC platform - UAT deployment (Windows + Docker Desktop)
 
-Target: one Windows server, fixed IP `192.168.1.28`, 3 developers + 1 admin.
+Target: one Windows server (LAN IP auto-detected; re-run the script if it changes), 3 developers + 1 admin.
 Ollama / Continue is **not** deployed (it never existed in this repo: "designed, not built").
 
 ## Deploy

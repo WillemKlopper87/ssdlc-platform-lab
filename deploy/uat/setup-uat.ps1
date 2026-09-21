@@ -13,18 +13,55 @@
   plus two service accounts (gate-bot, gate-reporter).
   Ollama / Continue is deliberately NOT part of this deployment.
 
+  The server address is auto-detected (the adapter that owns the default
+  gateway, ignoring Docker/WSL/VPN virtual adapters); pass -ServerIp to
+  override. If the address changes later, re-run this script: Gitea,
+  Woodpecker and the OAuth applications are reconfigured for the new address.
+
   Run from an elevated PowerShell:
-    .\deploy\uat\setup-uat.ps1 -ServerIp 192.168.1.28
+    .\deploy\uat\setup-uat.ps1
 #>
 [CmdletBinding()]
 param(
-    [string]$ServerIp = '192.168.1.28',
+    # Leave empty to auto-detect this machine's LAN address.
+    [string]$ServerIp = '',
     [string]$TerraformVersion = '1.15.0',
     [switch]$SkipFirewall
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+function Get-LanIp {
+    # The physical adapter that owns the default route, lowest metric first;
+    # virtual switches (Docker/WSL/Hyper-V/VPN) are skipped.
+    $skip = 'vEthernet|WSL|Docker|Hyper-V|VirtualBox|VMware|Loopback|Tailscale|ZeroTier|TAP|TUN|VPN'
+    $found = @()
+    foreach ($c in @(Get-NetIPConfiguration -ErrorAction SilentlyContinue)) {
+        if (-not $c.IPv4DefaultGateway -or -not $c.NetAdapter -or $c.NetAdapter.Status -ne 'Up') { continue }
+        if ($c.InterfaceAlias -match $skip -or $c.NetAdapter.InterfaceDescription -match $skip) { continue }
+        foreach ($a in @($c.IPv4Address)) {
+            if ($a.IPAddress -and $a.IPAddress -notlike '169.254.*') {
+                $found += [pscustomobject]@{ Ip = $a.IPAddress; Metric = [int]$c.NetIPv4Interface.InterfaceMetric }
+            }
+        }
+    }
+    if ($found.Count -gt 0) { return ($found | Sort-Object Metric | Select-Object -First 1).Ip }
+    # Fallback: ask the OS which local address it would route out from.
+    try {
+        $u = New-Object Net.Sockets.UdpClient
+        $u.Connect('192.0.2.1', 9)
+        $ip = $u.Client.LocalEndPoint.Address.IPAddressToString
+        $u.Close()
+        if ($ip -and $ip -ne '0.0.0.0') { return $ip }
+    } catch { }
+    return $null
+}
+if (-not $ServerIp) {
+    $ServerIp = Get-LanIp
+    if (-not $ServerIp) { throw "Could not detect this machine's LAN IP. Re-run with -ServerIp <address>." }
+    Write-Host "Detected server address: $ServerIp (override with -ServerIp)" -ForegroundColor Yellow
+}
 
 $RepoRoot   = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $StateDir   = Join-Path $PSScriptRoot 'state'
@@ -149,6 +186,14 @@ Info ((terraform version | Select-Object -First 1))
 # ---------------------------------------------------------- 2. secrets
 Step 'Secrets and configuration'
 Load-Env
+$prevIp = $Script:Cfg['SERVER_IP']
+if ($prevIp -and $prevIp -ne $ServerIp) {
+    # The OAuth applications embed the old address in their redirect URLs.
+    Info "server address changed $prevIp -> $ServerIp; OAuth applications will be recreated"
+    foreach ($k in 'WP_OAUTH_DONE', 'GITEA_OAUTH_CLIENT_ID', 'GITEA_OAUTH_CLIENT_SECRET', 'PORTAL_OAUTH_CLIENT_ID', 'PORTAL_OAUTH_CLIENT_SECRET') {
+        $Script:Cfg.Remove($k)
+    }
+}
 # Repo path as the Docker daemon sees it (Docker Desktop WSL2 backend).
 $drive = $RepoRoot.Substring(0, 1).ToLower()
 $repoVm = "/run/desktop/mnt/host/$drive" + ($RepoRoot.Substring(2) -replace '\\', '/')
