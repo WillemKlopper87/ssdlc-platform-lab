@@ -1,6 +1,7 @@
 // Package projects folds the poller's per-pull-request reports into one row
 // per repository: open and blocked PRs, severity counts, grade. Counts cover
 // findings on open pull requests only; baseline debt is added by a later step.
+// An empty Grade means "unknown: could not be read"; such rows sort first.
 package projects
 
 import (
@@ -19,7 +20,7 @@ type Project struct {
 	Medium           int    `json:"medium"`
 	Low              int    `json:"low"`
 	Score            int    `json:"score"`
-	Grade            string `json:"grade"`
+	Grade            string `json:"grade"` // "" means unknown: could not be read
 	Unavailable      bool   `json:"unavailable"`
 	WoodpeckerRepoID int    `json:"woodpecker_repo_id"`
 }
@@ -62,11 +63,18 @@ func Aggregate(repos []string, failed map[string]bool, reports []report.Report) 
 	res := make([]Project, 0, len(out))
 	for _, p := range out {
 		p.Score = grade.Score(grade.Counts{Critical: p.Critical, High: p.High, Medium: p.Medium, Low: p.Low})
-		p.Grade = grade.Letter(p.Score)
+		if p.Unavailable {
+			p.Grade = ""
+		} else {
+			p.Grade = grade.Letter(p.Score)
+		}
 		res = append(res, *p)
 	}
 	sort.SliceStable(res, func(i, j int) bool {
 		a, b := res[i], res[j]
+		if a.Unavailable != b.Unavailable {
+			return a.Unavailable
+		}
 		if a.Score != b.Score {
 			return a.Score < b.Score
 		}

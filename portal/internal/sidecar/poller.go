@@ -56,6 +56,9 @@ type Poller struct {
 }
 
 // Latest returns a copy of the most recent snapshot; safe for concurrent use.
+// The Repos and Failed copies are deep, but Reports elements are copied
+// shallowly: their Findings/Notes slices are shared with the live snapshot and
+// must be treated as read-only by callers.
 func (p *Poller) Latest() Latest {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -85,6 +88,8 @@ func (p *Poller) Once(ctx context.Context) error {
 		// Keep serving the last good data (with its own timestamp) rather
 		// than an empty snapshot that would read as "no open PRs".
 		p.Store.Set(BuildSnapshot(p.lastReports, p.lastTime, false))
+		// This Latest()+setLatest() read-modify-write is only safe because
+		// Once has a single caller (Run); concurrent Once calls could lose updates.
 		prev := p.Latest()
 		prev.PollOK = false
 		p.setLatest(prev)

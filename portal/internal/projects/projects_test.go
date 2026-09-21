@@ -44,6 +44,66 @@ func TestAggregate_UnavailableIsNeverClean(t *testing.T) {
 		if !p.Unavailable {
 			t.Errorf("%s must be marked unavailable: %+v", p.Repo, p)
 		}
+		if p.Grade != "" {
+			t.Errorf("%s unavailable must have empty grade, got %q", p.Repo, p.Grade)
+		}
+	}
+	got = Aggregate([]string{"o/clean", "o/a", "o/b"}, map[string]bool{"o/a": true},
+		[]report.Report{rep("o/b", false, 0, 0, 0, 0, true)})
+	if !got[0].Unavailable || !got[1].Unavailable || got[2].Repo != "o/clean" || got[2].Grade != "A" {
+		t.Errorf("unavailable rows must sort before clean: %+v", got)
+	}
+}
+
+func TestAggregate_UnavailableSortsFirstEvenWithBetterScore(t *testing.T) {
+	got := Aggregate([]string{"o/bad", "o/unk"}, map[string]bool{"o/unk": true},
+		[]report.Report{rep("o/bad", true, 3, 0, 0, 0, false)})
+	if got[0].Repo != "o/unk" {
+		t.Errorf("unavailable must come first: %+v", got)
+	}
+}
+
+func TestAggregate_BlockedDescendingTieBreak(t *testing.T) {
+	got := Aggregate([]string{"o/a", "o/b"}, nil, []report.Report{
+		rep("o/a", false, 0, 1, 0, 0, false),
+		rep("o/b", true, 0, 1, 0, 0, false),
+	})
+	if got[0].Score != got[1].Score || got[0].Repo != "o/b" {
+		t.Errorf("more blocked first on equal score: %+v", got)
+	}
+}
+
+func TestAggregate_NameAscendingTieBreak(t *testing.T) {
+	got := Aggregate([]string{"o/c", "o/a", "o/b"}, nil, nil)
+	want := []string{"o/a", "o/b", "o/c"}
+	for i := range want {
+		if got[i].Repo != want[i] {
+			t.Fatalf("order = %+v, want %v", got, want)
+		}
+	}
+}
+
+func TestAggregate_DuplicateRepoNamesOneRow(t *testing.T) {
+	got := Aggregate([]string{"o/a", "o/a"}, nil, []report.Report{rep("o/a", true, 0, 1, 0, 0, false)})
+	if len(got) != 1 || got[0].OpenPRs != 1 || got[0].BlockedPRs != 1 || got[0].High != 1 {
+		t.Errorf("duplicates must yield one row without double counting: %+v", got)
+	}
+}
+
+func TestAggregate_UnavailableWithoutReportsStillListed(t *testing.T) {
+	got := Aggregate([]string{"o/a"}, map[string]bool{"o/a": true}, nil)
+	if len(got) != 1 || !got[0].Unavailable || got[0].Grade != "" {
+		t.Errorf("failed repo with no reports needs a row: %+v", got)
+	}
+}
+
+func TestAggregate_UnlistedReportsDoNotAffectListed(t *testing.T) {
+	got := Aggregate([]string{"o/a"}, nil, []report.Report{
+		rep("o/a", false, 0, 0, 0, 1, false),
+		rep("o/zzz", true, 5, 5, 0, 0, false),
+	})
+	if len(got) != 1 || got[0].OpenPRs != 1 || got[0].BlockedPRs != 0 || got[0].Critical != 0 || got[0].Low != 1 {
+		t.Errorf("unlisted report leaked: %+v", got)
 	}
 }
 
