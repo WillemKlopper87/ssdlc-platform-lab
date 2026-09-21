@@ -157,7 +157,7 @@ func TestListIssueComments_MaxPages(t *testing.T) {
 		if r.URL.Path != "/api/v1/repos/o/r/issues/12/comments" {
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
-		// Always return 50 comments to avoid stopping early
+		// Always return 50 comments to avoid stopping early (triggers max page limit)
 		comments := make([]string, 50)
 		for i := 0; i < 50; i++ {
 			comments[i] = fmt.Sprintf(`{"id":%d,"body":"c","user":{"login":"u"}}`, i+1)
@@ -170,10 +170,12 @@ func TestListIssueComments_MaxPages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if requestCount > 20 {
-		t.Errorf("exceeded 20 page requests: got %d", requestCount)
+	// Hard cap is 20 pages, so should make exactly 20 requests when every page returns 50 items
+	if requestCount != 20 {
+		t.Errorf("expected exactly 20 page requests (hard cap), got %d", requestCount)
 	}
-	if len(cs) != requestCount*50 {
-		t.Errorf("expected %d comments from %d pages, got %d", requestCount*50, requestCount, len(cs))
+	// 20 pages * 50 comments per page = 1000 comments exactly
+	if len(cs) != 1000 {
+		t.Errorf("expected 1000 comments (20 pages * 50), got %d", len(cs))
 	}
 }

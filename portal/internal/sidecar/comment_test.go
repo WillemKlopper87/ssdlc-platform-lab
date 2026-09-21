@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"ssdlc-portal/internal/giteaclient"
 	"ssdlc-portal/internal/report"
@@ -146,11 +147,11 @@ func TestRenderCommentSanitizesInlineText(t *testing.T) {
 	}
 	body := RenderComment(r, "")
 
-	// Should not contain raw backticks outside template's own 4 per finding (2 around RuleID, 2 around Location) plus 2 around SHA
+	// Backtick count: exactly 2 for SHA (in header) + 2 for RuleID backticks + 2 for Location backticks = 6 total
 	backtickCount := strings.Count(body, "`")
-	expectedBackticks := 2 + 2 + 2 // SHA, RuleID, Location
+	expectedBackticks := 2 + 2 + 2 // 2 for SHA, 2 for RuleID, 2 for Location
 	if backtickCount != expectedBackticks {
-		t.Errorf("expected %d backticks in sanitized comment, got %d", expectedBackticks, backtickCount)
+		t.Errorf("expected %d backticks (2 SHA + 2 RuleID + 2 Location), got %d", expectedBackticks, backtickCount)
 	}
 
 	// Should not contain <img
@@ -158,49 +159,99 @@ func TestRenderCommentSanitizesInlineText(t *testing.T) {
 		t.Error("comment should not contain <img tag")
 	}
 
-	// Should not contain raw @ before evil (should have zero-width space)
+	// Should not contain raw @evil without zero-width space
 	if strings.Contains(body, "@evil") {
 		t.Error("comment should not contain raw @evil mention")
 	}
+	// Should contain @​evil (with zero-width space after @)
+	if !strings.Contains(body, "@​evil") {
+		t.Error("comment should contain @​evil with zero-width space after @")
+	}
 
-	// Should not contain raw newlines inside the finding line (finding must be one "- **" line)
+	// Count lines starting with "- **" should equal the number of blocking findings (1)
 	lines := strings.Split(body, "\n")
-	for i, line := range lines {
+	findingLineCount := 0
+	var findingLine string
+	for _, line := range lines {
 		if strings.HasPrefix(line, "- **") {
-			// This line should not contain the problematic strings with newlines
-			if strings.Contains(line, "\n") {
-				t.Errorf("finding line %d should not contain newlines: %s", i, line)
-			}
+			findingLineCount++
+			findingLine = line
+		}
+	}
+	if findingLineCount != 1 {
+		t.Errorf("expected 1 finding line starting with '- **', got %d", findingLineCount)
+	}
+
+	// The single finding line should contain the sanitized location and description
+	if findingLineCount == 1 {
+		// Should contain sanitized location (backtick becomes quote, newlines removed, @evil escaped, <> escaped)
+		if !strings.Contains(findingLine, "a'b") {
+			t.Errorf("finding line should contain sanitized location with quote: %s", findingLine)
+		}
+		if !strings.Contains(findingLine, "&lt;") {
+			t.Errorf("finding line should contain &lt; (escaped <): %s", findingLine)
+		}
+		// Should contain sanitized description (newlines collapsed to space)
+		if !strings.Contains(findingLine, "line1 line2") {
+			t.Errorf("finding line should contain 'line1 line2' (newlines collapsed): %s", findingLine)
 		}
 	}
 
-	// Check that RuleID was truncated with ... (since it's 500+ chars)
-	if !strings.Contains(body, "...") {
-		t.Error("long RuleID should be truncated with ...")
+	// RuleID should be exactly 120 runes + "..." (500 exceeds 120 max, so gets truncated to 120+...)
+	expectedRuleID := strings.Repeat("x", 120) + "..."
+	if !strings.Contains(body, "`"+expectedRuleID+"`") {
+		t.Errorf("RuleID should be truncated to exactly 120 runes with ...: expected `%s`", expectedRuleID)
 	}
 }
 
 func TestSanitizeInline_WhitespaceCollapsing(t *testing.T) {
-	input := "line1\n\n  line2\ttab\r\nline3"
-	got := sanitizeInline(input, 1000)
-	if strings.Contains(got, "\n") || strings.Contains(got, "\t") || strings.Contains(got, "\r") {
-		t.Errorf("sanitizeInline should collapse whitespace: got %q", got)
+	// Test 1: Newlines and tabs collapse to single space
+	got := sanitizeInline("a \n\t b", 1000)
+	if got != "a b" {
+		t.Errorf("whitespace should collapse to single space: expected 'a b', got %q", got)
 	}
-	if !strings.Contains(got, "line1") || !strings.Contains(got, "line2") || !strings.Contains(got, "line3") {
-		t.Errorf("sanitizeInline should preserve content: got %q", got)
+
+	// Test 2: Multiple consecutive spaces and newlines collapse to single space
+	got = sanitizeInline("line1\n\n  line2\ttab\r\nline3", 1000)
+	expected := "line1 line2 tab line3"
+	if got != expected {
+		t.Errorf("expected %q, got %q", expected, got)
+	}
+
+	// Test 3: Backtick becomes single quote
+	got = sanitizeInline("a`b", 1000)
+	if got != "a'b" {
+		t.Errorf("backtick should become quote: expected 'a'b', got %q", got)
+	}
+
+	// Test 4: Angle brackets escaped
+	got = sanitizeInline("<b>", 1000)
+	if got != "&lt;b&gt;" {
+		t.Errorf("angle brackets should be escaped: expected '&lt;b&gt;', got %q", got)
+	}
+
+	// Test 5: @ followed by zero-width space
+	got = sanitizeInline("@x", 1000)
+	if got != "@​x" {
+		t.Errorf("@ should be followed by zero-width space: expected '@\\u200bx', got %q", got)
 	}
 }
 
 func TestSanitizeInline_TruncationOnRuneBoundary(t *testing.T) {
-	// Use multibyte runes (Chinese characters) so byte truncation would corrupt
-	input := "abc😀def😀ghi"  // emoji is 4 bytes but 1 rune
+	// Use emoji (multibyte rune) to verify rune-boundary truncation, not byte truncation
+	// emoji is 4 bytes each but 1 rune each
+	input := "abc😀def😀ghi"
 	got := sanitizeInline(input, 7)
-	if !strings.HasSuffix(got, "...") {
-		t.Errorf("should truncate with ...: got %q", got)
+
+	// Expected: keep 7 runes "abc😀def" then add "..." (total 10 runes)
+	expected := "abc😀def..."
+	if got != expected {
+		t.Errorf("truncation at rune boundary: expected %q, got %q", expected, got)
 	}
-	// Verify it's a valid string (not corrupted by byte truncation)
-	if len([]rune(got)) == 0 {
-		t.Error("truncated string should be valid")
+
+	// Verify result is valid UTF-8 (no corruption from byte-level truncation)
+	if !utf8.ValidString(got) {
+		t.Errorf("result should be valid UTF-8: got %q", got)
 	}
 }
 
