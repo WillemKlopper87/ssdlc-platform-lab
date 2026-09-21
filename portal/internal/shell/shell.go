@@ -91,24 +91,24 @@ func (b *Builder) For(ctx context.Context, token string) Shell {
 
 	s := Shell{Role: RoleDeveloper, GiteaURL: b.GiteaURL, WoodpeckerURL: b.WoodpeckerURL}
 	id := b.NewIdentity(token)
-	if login, admin, err := id.CurrentUser(ctx); err == nil {
-		s.Operator, s.IsAdmin = login, admin
-		if member, err := id.IsOnTeam(ctx, b.Org, b.Team); err == nil {
-			s.IsApprover = member
-		}
-		if admin {
-			s.IsApprover = true
-		}
-		switch {
-		case s.IsAdmin:
-			s.Role = RoleAdmin
-		case s.IsApprover:
-			s.Role = RoleApprover
-		}
-		if s.IsApprover {
-			if recs, err := b.Records(ctx); err == nil {
-				s.PendingApprovals = exceptions.CountPending(recs, login, now)
-			}
+	login, admin, err := id.CurrentUser(ctx)
+	if err != nil {
+		// A transient Gitea failure must not stick for a whole TTL.
+		return s
+	}
+	s.Operator, s.IsAdmin = login, admin
+	if member, err := id.IsOnTeam(ctx, b.Org, b.Team); err == nil {
+		s.IsApprover = member
+	}
+	switch {
+	case s.IsAdmin:
+		s.Role = RoleAdmin
+	case s.IsApprover:
+		s.Role = RoleApprover
+	}
+	if s.IsApprover {
+		if recs, err := b.Records(ctx); err == nil {
+			s.PendingApprovals = exceptions.CountPending(recs, login, now)
 		}
 	}
 

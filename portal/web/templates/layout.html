@@ -9,8 +9,6 @@
 <link rel="stylesheet" href="/static/fonts.css">
 <link rel="stylesheet" href="/static/tokens.css">
 <link rel="stylesheet" href="/static/shell.css">
-<script src="/static/vendor/htmx.min.js"></script>
-<script src="/static/vendor/htmx-sse.js"></script>
 <script src="/static/shell.js" defer></script>
 </head>
 <body>
@@ -22,7 +20,8 @@
     <a class="disabled" title="Arrives in the next step of the portal redesign">Projects</a>
     <a class="disabled" title="Arrives in the next step of the portal redesign">Issues</a>
     <a href="/exceptions" data-pal-item data-pal-sub="page" class="{{if eq .ActiveNav "exceptions"}}active{{end}}">Exceptions{{if and .Shell.IsApprover (gt .Shell.PendingApprovals 0)}}<span class="ssdlc-nav-badge">{{.Shell.PendingApprovals}}</span>{{end}}</a>
-    {{if .Shell.IsAdmin}}<a href="/onboarding" data-pal-item data-pal-sub="page" class="{{if eq .ActiveNav "onboarding"}}active{{end}}">Admin</a>{{end}}
+    {{/* /onboarding is guarded by the approvers team; show Admin only to admins who can actually open it */}}
+    {{if and .Shell.IsAdmin .Shell.IsApprover}}<a href="/onboarding" data-pal-item data-pal-sub="page" class="{{if eq .ActiveNav "onboarding"}}active{{end}}">Admin</a>{{end}}
     <a href="/help" data-pal-item data-pal-sub="page" class="{{if eq .ActiveNav "help"}}active{{end}}">Help</a>
     {{if .Shell.GiteaURL}}
     <div class="ssdlc-launch"><span class="lbl">Quick launch</span>

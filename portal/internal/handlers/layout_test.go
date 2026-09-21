@@ -41,13 +41,13 @@ func TestLayout_DeveloperSidebar(t *testing.T) {
 		`href="/dashboard"`, "Overview", `href="/exceptions"`, `href="/help"`,
 		`href="http://192.168.1.28:3500"`, `href="http://192.168.1.28:8000"`,
 		"Quick launch", "dev2", "Developer", "Projects", "Issues",
-		`/static/shell.js`, `/static/fonts.css`, `/static/vendor/htmx.min.js`,
+		`/static/shell.js`, `/static/fonts.css`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %q", want)
 		}
 	}
-	for _, bad := range []string{`href="/onboarding"`, "fonts.googleapis.com", "unpkg.com", "ssdlc-nav-badge"} {
+	for _, bad := range []string{`href="/onboarding"`, "fonts.googleapis.com", "unpkg.com", "ssdlc-nav-badge", "htmx"} {
 		if strings.Contains(body, bad) {
 			t.Errorf("developer view must not contain %q", bad)
 		}
@@ -90,5 +90,16 @@ func TestLayout_LinksAreEscaped(t *testing.T) {
 	body := renderDashboardAs(t, shell.Shell{Operator: `<script>x</script>`, GiteaURL: "http://g", WoodpeckerURL: "http://w"})
 	if strings.Contains(body, "<script>x</script>") {
 		t.Error("operator name must be HTML-escaped")
+	}
+}
+
+func TestLayout_AdminEntryNeedsTeamMembership(t *testing.T) {
+	notMember := renderDashboardAs(t, shell.Shell{Operator: "gateadmin", Role: shell.RoleAdmin, IsAdmin: true, GiteaURL: "http://g", WoodpeckerURL: "http://w"})
+	if strings.Contains(notMember, `href="/onboarding"`) {
+		t.Error("an admin outside the approvers team cannot open /onboarding, so must not see the link")
+	}
+	member := renderDashboardAs(t, shell.Shell{Operator: "gateadmin", Role: shell.RoleAdmin, IsAdmin: true, IsApprover: true, GiteaURL: "http://g", WoodpeckerURL: "http://w"})
+	if !strings.Contains(member, `href="/onboarding"`) {
+		t.Error("an admin in the approvers team should see the Admin entry")
 	}
 }

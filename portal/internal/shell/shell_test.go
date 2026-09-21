@@ -129,3 +129,38 @@ func TestWithContextRoundTrip(t *testing.T) {
 		t.Error("empty context must give a zero Shell")
 	}
 }
+
+func TestFor_AdminWithoutTeamMembershipIsNotApprover(t *testing.T) {
+	s := builder(fakeIdentity{login: "gateadmin", admin: true}, pendingRecs, nil).For(context.Background(), "ta")
+	if !s.IsAdmin || s.IsApprover || s.PendingApprovals != 0 || s.Role != RoleAdmin {
+		t.Errorf("admin outside the approvers team = %+v", s)
+	}
+}
+
+type flakyIdentity struct {
+	calls *int
+}
+
+func (f flakyIdentity) CurrentUser(ctx context.Context) (string, bool, error) {
+	*f.calls++
+	if *f.calls == 1 {
+		return "", false, errors.New("transient")
+	}
+	return "dev2", false, nil
+}
+func (f flakyIdentity) IsOnTeam(ctx context.Context, org, team string) (bool, error) {
+	return false, nil
+}
+
+func TestFor_DoesNotCacheIdentityFailure(t *testing.T) {
+	calls := 0
+	b := builder(fakeIdentity{}, nil, nil)
+	b.NewIdentity = func(string) Identity { return flakyIdentity{calls: &calls} }
+	ctx := context.Background()
+	if first := b.For(ctx, "tok"); first.Operator != "" {
+		t.Fatalf("first call should fail soft: %+v", first)
+	}
+	if second := b.For(ctx, "tok"); second.Operator != "dev2" || calls != 2 {
+		t.Errorf("failure was cached: %+v calls=%d", second, calls)
+	}
+}
