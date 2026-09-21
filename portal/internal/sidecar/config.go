@@ -1,19 +1,19 @@
 package sidecar
 
 import (
-	"strconv"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
 
 type Config struct {
-	GiteaURL, GiteaToken               string
-	WoodpeckerURL, WoodpeckerToken     string
-	Org, ListenAddr, APIToken          string
-	PortalURL, CommentUser             string
-	PollInterval                       time.Duration
-	Comments                           bool
+	GiteaURL, GiteaToken           string
+	WoodpeckerURL, WoodpeckerToken string
+	Org, ListenAddr, APIToken      string
+	PortalURL, CommentUser         string
+	PollInterval                   time.Duration
+	Comments                       bool
 }
 
 // LoadConfig fails closed: a missing or weak value is a startup error, never

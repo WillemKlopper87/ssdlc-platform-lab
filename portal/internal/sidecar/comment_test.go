@@ -140,7 +140,7 @@ func TestRenderCommentSanitizesInlineText(t *testing.T) {
 			{
 				Category: "blocking", Severity: "CRITICAL",
 				Tool: "tool", RuleID: strings.Repeat("x", 500),
-				Location: "a`b\n@evil<script>.py",
+				Location:    "a`b\n@evil<script>.py",
 				Description: "line1\n\n  line2 ```code``` <img src=x>",
 			},
 		},
