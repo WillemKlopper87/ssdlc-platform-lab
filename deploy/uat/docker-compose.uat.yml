@@ -22,6 +22,10 @@ services:
       - GITEA__server__DOMAIN=${SERVER_IP:?}
       - GITEA__server__ROOT_URL=http://${SERVER_IP:?}:3500/
       - GITEA__server__DISABLE_SSH=true
+      # Web uploader defaults to 5 files / 50 MB per upload ("you cannot
+      # upload any more files"). Dotted section names use _0X2E_ in env keys.
+      - GITEA__repository_0X2E_upload__MAX_FILES=200
+      - GITEA__repository_0X2E_upload__FILE_MAX_SIZE=200
 
   woodpecker-server:
     environment:
