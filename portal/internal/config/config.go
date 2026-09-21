@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Config struct {
@@ -29,6 +30,11 @@ type Config struct {
 	// from human ones in the UI (the "automated/bot" accent) -- it is not
 	// a trust boundary and grants no privilege.
 	BotLogin string
+	// GiteaPublicURL / WoodpeckerPublicURL are the addresses shown to people
+	// in links that open in their browser. They default to the URLs the
+	// portal itself uses, and only need setting when those are internal names.
+	GiteaPublicURL      string
+	WoodpeckerPublicURL string
 }
 
 // Load reads the portal's configuration from the environment. It fails
@@ -69,6 +75,17 @@ func Load() (Config, error) {
 	}
 	if cfg.ListenAddr == "" {
 		cfg.ListenAddr = ":8181"
+	}
+
+	cfg.GiteaURL = strings.TrimRight(cfg.GiteaURL, "/")
+	cfg.WoodpeckerURL = strings.TrimRight(cfg.WoodpeckerURL, "/")
+	cfg.GiteaPublicURL = strings.TrimRight(get("PORTAL_GITEA_PUBLIC_URL"), "/")
+	if cfg.GiteaPublicURL == "" {
+		cfg.GiteaPublicURL = cfg.GiteaURL
+	}
+	cfg.WoodpeckerPublicURL = strings.TrimRight(get("PORTAL_WOODPECKER_PUBLIC_URL"), "/")
+	if cfg.WoodpeckerPublicURL == "" {
+		cfg.WoodpeckerPublicURL = cfg.WoodpeckerURL
 	}
 
 	sessionKey := required("PORTAL_SESSION_KEY")

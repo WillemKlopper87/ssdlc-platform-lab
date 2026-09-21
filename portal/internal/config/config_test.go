@@ -54,3 +54,32 @@ func TestLoad_Success(t *testing.T) {
 		t.Errorf("SessionKey length = %d, want 32", len(cfg.SessionKey))
 	}
 }
+
+func TestLoad_PublicURLsDefaultAndOverride(t *testing.T) {
+	base := map[string]string{
+		"PORTAL_GITEA_URL": "http://gitea:3500/", "PORTAL_WOODPECKER_URL": "http://woodpecker:8000",
+		"PORTAL_WOODPECKER_TOKEN": "w", "PORTAL_GITEA_ADMIN_TOKEN": "g",
+		"PORTAL_OAUTH_CLIENT_ID": "x", "PORTAL_OAUTH_CLIENT_SECRET": "y",
+		"PORTAL_SESSION_KEY": "0123456789abcdef0123456789abcdef", "PORTAL_EXCEPTIONS_REPO_OWNER": "ssdlc",
+	}
+	for k, v := range base {
+		t.Setenv(k, v)
+	}
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.GiteaPublicURL != "http://gitea:3500" || cfg.WoodpeckerPublicURL != "http://woodpecker:8000" {
+		t.Errorf("defaults: %q %q", cfg.GiteaPublicURL, cfg.WoodpeckerPublicURL)
+	}
+
+	t.Setenv("PORTAL_GITEA_PUBLIC_URL", "http://192.168.1.28:3500/")
+	t.Setenv("PORTAL_WOODPECKER_PUBLIC_URL", "http://192.168.1.28:8000")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.GiteaPublicURL != "http://192.168.1.28:3500" || cfg.WoodpeckerPublicURL != "http://192.168.1.28:8000" {
+		t.Errorf("overrides: %q %q", cfg.GiteaPublicURL, cfg.WoodpeckerPublicURL)
+	}
+}

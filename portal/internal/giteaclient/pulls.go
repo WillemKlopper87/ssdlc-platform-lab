@@ -146,3 +146,21 @@ func (c *Client) EditIssueComment(ctx context.Context, owner, repo string, id in
 	}
 	return c.sendBody(ctx, http.MethodPatch, fmt.Sprintf("%s/issues/comments/%d", base, id), body)
 }
+
+// CurrentUser returns the authenticated user's login and whether they are a
+// Gitea site administrator.
+func (c *Client) CurrentUser(ctx context.Context) (login string, isAdmin bool, err error) {
+	var u struct {
+		Login   string `json:"login"`
+		IsAdmin bool   `json:"is_admin"`
+	}
+	const path = "/api/v1/user"
+	status, err := c.do(ctx, http.MethodGet, path, nil, &u)
+	if err != nil {
+		return "", false, err
+	}
+	if err := statusError(http.MethodGet, path, status); err != nil {
+		return "", false, err
+	}
+	return u.Login, u.IsAdmin, nil
+}
