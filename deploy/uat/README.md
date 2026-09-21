@@ -37,6 +37,9 @@ Pilot repo `ssdlc/pilot-app` is onboarded (gate pipeline, baseline, branch prote
 - Stop: `.\deploy\uat\teardown-uat.ps1`; delete all data: `.\deploy\uat\teardown-uat.ps1 -Wipe`.
 - More repos: onboard from the portal *Onboarding* page (approvers only). The bot approver is currently wired to
   `ssdlc/pilot-app` only (`bot-approver.py` watches one repo per process); a second repo needs a second bot container.
+- **Reporting service** (`ssdlc-uat-sidecar`): posts one edited-in-place comment per PR, serves report data and
+  Prometheus metrics on port 8282 (internal only, not published), and reports dependency health. It is never in
+  the merge decision: stopping it changes nothing about which PRs pass or block. Logs: `docker logs ssdlc-uat-sidecar`.
 - Secrets live in `deploy\uat\state\uat.env`. Treat it like a password file.
 
 ## Known limitations (from docs/SSDLC_UAT_Readiness_Report.pdf)

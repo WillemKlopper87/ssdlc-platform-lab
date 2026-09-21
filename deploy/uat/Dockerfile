@@ -5,6 +5,7 @@ FROM golang:1.22-alpine AS build
 WORKDIR /src
 COPY portal/ ./
 RUN CGO_ENABLED=0 go build -o /out/portal .
+RUN CGO_ENABLED=0 go build -o /out/sidecar ./cmd/sidecar
 
 # "ops" runs the platform's own shell/python tooling (onboard-repo.sh,
 # bot-approver.py, bootstrap.py) with the same dependencies a Linux admin
@@ -25,3 +26,9 @@ COPY --from=build /out/portal /usr/local/bin/portal
 # /src/web/templates inside the runtime image or the portal panics at start.
 COPY portal/web /src/web
 CMD ["portal"]
+
+# Small runtime for the reporting service: no shell tooling, non-root.
+FROM gcr.io/distroless/static-debian12:nonroot AS sidecar
+COPY --from=build /out/sidecar /sidecar
+USER nonroot
+ENTRYPOINT ["/sidecar"]

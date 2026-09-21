@@ -117,3 +117,29 @@ services:
       - WOODPECKER_REPO_ID=${PILOT_REPO_ID:-0}
       - GITEA_BOT_LOGIN=gate-bot
       - POLL_INTERVAL_SECONDS=15
+
+  # Reporting service (plan 1 of the tiered platform): PR report data,
+  # metrics, sticky PR comment, dependency health. Runs at every tier. Its
+  # port is deliberately not published; the portal and Prometheus reach it
+  # over the ssdlc-minimal network.
+  sidecar:
+    build:
+      context: ${REPO_ROOT:?}
+      dockerfile: deploy/uat/Dockerfile
+      target: sidecar
+    image: ssdlc-uat-sidecar
+    container_name: ssdlc-uat-sidecar
+    restart: unless-stopped
+    mem_limit: 128m
+    depends_on:
+      - gitea
+      - woodpecker-server
+    environment:
+      - SIDECAR_GITEA_URL=http://${SERVER_IP}:3500
+      - SIDECAR_GITEA_TOKEN=${REPORTER_TOKEN:-unset}
+      - SIDECAR_WOODPECKER_URL=http://${SERVER_IP}:${WOODPECKER_PORT:-8000}
+      - SIDECAR_WOODPECKER_TOKEN=${WOODPECKER_TOKEN:-unset}
+      - SIDECAR_API_TOKEN=${SIDECAR_API_TOKEN:-unsetunsetunsetunset}
+      - SIDECAR_ORG=ssdlc
+      - SIDECAR_PORTAL_URL=http://${SERVER_IP}:8181
+      - SIDECAR_COMMENT_USER=gate-reporter

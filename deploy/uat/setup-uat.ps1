@@ -217,6 +217,7 @@ Ensure-Cfg 'POSTGRES_PASSWORD'        { New-Hex 24 }
 Ensure-Cfg 'WOODPECKER_AGENT_SECRET'  { New-Hex 32 }
 Ensure-Cfg 'WOODPECKER_GRPC_SECRET'   { New-Hex 32 }
 Ensure-Cfg 'PORTAL_SESSION_KEY'       { New-Hex 32 }
+Ensure-Cfg 'SIDECAR_API_TOKEN'        { New-Hex 32 }
 # Placeholders satisfy compose's required-variable check until the real
 # OAuth application exists (it can only be created once Gitea is running).
 Ensure-Cfg 'GITEA_OAUTH_CLIENT_ID'     { 'pending' }
@@ -420,7 +421,7 @@ Merge-Output (Ops python deploy/uat/bootstrap.py repo-id)
 Ops python deploy/uat/bootstrap.py wp-secrets
 
 Step 'Starting the portal and the bot approver'
-Compose up -d --build portal bot-approver
+Compose up -d --build portal bot-approver sidecar
 
 # ------------------------------------------------------ 8. credentials
 $cfg = $Script:Cfg
