@@ -6,9 +6,9 @@
 
 ## Goal
 
-Deliver the three greyed-out portal screens (Report export, Posture, Admin health) and the components behind them (reporting service, Prometheus + Grafana, DefectDojo) without assuming the server is big. The UAT server is small today and a larger one is coming, so the same setup script must **measure the memory Docker can use and start only what fits**.
+Deliver the three greyed-out portal screens (Report export, Posture, Admin health) and the components behind them (reporting service, Prometheus + Loki + Grafana, DefectDojo) without assuming the server is big. The UAT server is small today and a larger one is coming, so the same setup script must **measure the memory Docker can use and start only what fits**.
 
-Non-goals: Dependency-Track, Renovate, Loki, Ollama, the exception bugs B1-B7, the signed gate bundle (B8). Each is a separate piece of work.
+Non-goals: Dependency-Track, Renovate, Ollama, the exception bugs B1-B7, the signed gate bundle (B8). Each is a separate piece of work.
 
 ## Invariants (from DESIGN.md, not negotiable here)
 
@@ -23,7 +23,7 @@ The setup script reads `docker info --format '{{.MemTotal}}'` (the memory the Do
 | Tier | Docker-usable memory | Runs in addition to today's stack |
 |---|---|---|
 | `core` | under 6 GB | reporting service; portal report export and Admin health |
-| `standard` | 6 to under 12 GB | + Prometheus, Grafana (Posture screen) |
+| `standard` | 6 to under 12 GB | + Prometheus, Loki + Alloy (logs), Grafana (Posture and Logs) |
 | `full` | 12 GB or more | + DefectDojo (findings history, risk register) |
 
 Thresholds are starting estimates from DESIGN.md sizing. They are confirmed by measuring `docker stats` on the real small server before they are frozen (see Open questions).
@@ -49,11 +49,15 @@ It does four things:
 
 `GET /healthz` returns the service's own status. `GET /api/v1/health` returns the dependency checks used by Admin health (below).
 
-### 2. Posture (tier `standard` and up)
+### 2. Posture and logs (tier `standard` and up)
 
 - **Prometheus** scrapes the reporting service only. Retention capped (default 15 days) to bound memory and disk.
 - **Grafana** with provisioned datasource and one provisioned dashboard: gate pass rate, blocking findings by severity, average time to verdict, per-repo open findings. Provisioned as files in `deploy/uat/grafana/`, not configured by hand.
-- **Portal Posture screen** embeds the dashboard. Grafana runs with anonymous Viewer access and embedding allowed, bound to the LAN, and is read-only. This is acceptable for a closed UAT LAN and is called out in the README; SSO for Grafana is deferred.
+- **Loki** (single binary, filesystem storage) holds container logs from the platform: Gitea, Woodpecker server and agent, portal, reporting service, bot approver, hairpin. Retention 7 days, ingestion rate limits and a memory cap so it cannot outgrow its tier. Pipeline step logs stay in Woodpecker (the system of record); they are not duplicated here.
+- **Grafana Alloy** ships the logs. It discovers containers through the Docker socket (read-only), so it needs no host log paths, which is what breaks on Docker Desktop. Labels: `service`, `container`, `tier`. It drops known-noisy lines (health checks) before they are stored.
+- **Grafana** also provisions the Loki datasource and a Logs dashboard: errors per service over time, gate-runner failures, authentication failures on Gitea and the portal, and a recent-errors panel.
+- **Access to raw logs.** The anonymous Viewer sees the Posture dashboard only. Raw log search (Explore) needs a Grafana login, using the generated admin account, because platform logs can contain usernames and repo names and must not be readable by anyone on the LAN.
+- **Portal Posture screen** embeds the dashboard. Grafana runs with anonymous Viewer access limited to the provisioned metrics dashboard, embedding allowed, bound to the LAN, and read-only. This is acceptable for a closed UAT LAN and is called out in the README; SSO for Grafana is deferred.
 
 ### 3. DefectDojo (tier `full`)
 
@@ -89,7 +93,7 @@ portal -> reporting service API -> PR report, export, Admin health
 | Failure | Effect |
 |---|---|
 | Reporting service down | Portal PR report and Admin health show "service unavailable"; sticky comments pause; gate unaffected |
-| Prometheus or Grafana down | Posture screen shows unavailable; nothing else affected |
+| Prometheus, Loki, Alloy or Grafana down | Posture screen or logs unavailable; nothing else affected, and the platform's own container logs stay in Docker |
 | DefectDojo down | Imports queue and retry; nothing else affected |
 | Tier detection cannot read Docker memory | Script stops and asks for `-Tier`; it never guesses upward |
 
@@ -98,6 +102,7 @@ portal -> reporting service API -> PR report, export, Admin health
 - **Unit (Go):** metrics computation, report assembly from fixture Woodpecker logs, HMAC sign/verify, DefectDojo client against a fake server, feature-flag rendering in the portal templates.
 - **Unit (PowerShell):** tier selection from injected memory values at each threshold and the override, including boundary values.
 - **Live, per tier on this dev machine:** run the script with `-Tier core`, `standard` and `full` and confirm which containers exist; kill each optional service and confirm the gate result on a test PR is unchanged; export a report and verify it; tamper with an exported file and confirm verification fails.
+- **Logs:** confirm every platform service appears in Loki, that a deliberately failing request shows in the errors panel, that retention and rate limits hold under a burst, and that anonymous access cannot open Explore.
 - **Memory:** record `docker stats` for each tier under one running pipeline and publish the table in the README, replacing the estimates above.
 
 ## Delivery order
@@ -113,5 +118,6 @@ Each step gets its own implementation plan and is verified before the next start
 
 - **Tier thresholds.** 6 GB and 12 GB are estimates. Measure on the small server and adjust before freezing.
 - **PDF export.** Needs a headless renderer (extra ~200 MB). Proposed: HTML only now; add PDF only if UAT asks for it.
-- **Grafana access.** Anonymous viewer on the LAN for UAT. Gitea SSO for Grafana is possible later.
+- **Grafana access.** Anonymous viewer on the LAN for the metrics dashboard only; log search needs the generated Grafana login. Gitea SSO for Grafana is possible later.
+- **Sensitive data in logs.** Gitea and Woodpecker can log usernames, repo names and, in a misconfiguration, tokens. Alloy will apply a redaction rule for token-shaped strings; the exact patterns are finalised in the implementation plan and tested against real logs.
 - **Which repos the reporting service watches.** Proposed: every repo in the `ssdlc` org that is active in Woodpecker, discovered on each poll, which also removes the current one-repo limit of the bot approver's wiring for reporting purposes (not for approvals).
