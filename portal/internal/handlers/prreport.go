@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/http"
 	"path/filepath"
+	"sort"
 
 	"ssdlc-portal/internal/auth"
 	"ssdlc-portal/internal/findings"
@@ -19,18 +20,48 @@ var prReportTmpl = template.Must(template.ParseFiles(
 type reportFinding struct {
 	findings.Finding
 	SeverityClass string
-	IsBlocking    bool
 }
 
+// severityClass maps a finding's severity to the ssdlc-sev-* chip class
+// suffix (see tokens.css) -- lowercase, matching the mockup's SEV map keys.
 func severityClass(sev string) string {
 	switch sev {
 	case "CRITICAL":
 		return "critical"
 	case "HIGH":
-		return "warning"
+		return "high"
+	case "MEDIUM":
+		return "medium"
 	default:
-		return "neutral"
+		return "low"
 	}
+}
+
+// toolGroup is one tool's (gitleaks/semgrep/trivy/...) findings within a
+// category section, per the design spec's "findings grouped by tool"
+// requirement.
+type toolGroup struct {
+	Tool     string
+	Findings []reportFinding
+}
+
+// groupByTool buckets findings by their Tool field, preserving a stable
+// alphabetical tool order so the page doesn't reshuffle between loads.
+func groupByTool(list []reportFinding) []toolGroup {
+	byTool := map[string][]reportFinding{}
+	var tools []string
+	for _, f := range list {
+		if _, seen := byTool[f.Tool]; !seen {
+			tools = append(tools, f.Tool)
+		}
+		byTool[f.Tool] = append(byTool[f.Tool], f)
+	}
+	sort.Strings(tools)
+	groups := make([]toolGroup, 0, len(tools))
+	for _, t := range tools {
+		groups = append(groups, toolGroup{Tool: t, Findings: byTool[t]})
+	}
+	return groups
 }
 
 type prReportData struct {
@@ -46,7 +77,23 @@ type prReportData struct {
 		Number int
 		Title  string
 	}
-	Findings []reportFinding
+	// Summary is the exact normalized tally policy-eval-findings.py
+	// reported -- the number the gate decision was made from.
+	Summary findings.Summary
+	// MergeBlocked is true when at least one new (not baselined, not
+	// excepted) Critical/High finding was reported -- the same rule
+	// policy/severity.rego's deny rules encode.
+	MergeBlocked bool
+	// Active is new findings that count toward the gate decision
+	// (blocking Critical/High, plus non-blocking Medium warnings),
+	// grouped by tool.
+	Active []toolGroup
+	// Baselined is findings matched against .ssdlc/baseline.json --
+	// pre-existing debt, never evaluated for blocking.
+	Baselined []toolGroup
+	// Excepted is findings covered by an approved, unexpired two-party
+	// exception record -- also never evaluated for blocking.
+	Excepted []toolGroup
 }
 
 // PRReport shows one pull request's findings, sourced from the most
@@ -88,7 +135,8 @@ func PRReport(giteaBaseURL, woodpeckerBaseURL, woodpeckerToken string) http.Hand
 			return
 		}
 
-		var reportFindings []reportFinding
+		var active, baselined, excepted []reportFinding
+		var summary findings.Summary
 		for _, p := range pipelines {
 			if p.Commit != pr.Head.SHA {
 				continue
@@ -105,25 +153,42 @@ func PRReport(giteaBaseURL, woodpeckerBaseURL, woodpeckerToken string) http.Hand
 				if err != nil {
 					continue
 				}
-				parsed, _, err := findings.Parse(log)
+				parsed, parsedSummary, err := findings.Parse(log)
 				if err != nil {
 					continue
 				}
+				summary = parsedSummary
 				for _, f := range parsed {
-					reportFindings = append(reportFindings, reportFinding{
-						Finding:       f,
-						SeverityClass: severityClass(f.Severity),
-						IsBlocking:    f.Severity == "CRITICAL" || f.Severity == "HIGH",
-					})
+					rf := reportFinding{Finding: f, SeverityClass: severityClass(f.Severity)}
+					switch f.Category {
+					case findings.CategoryBaselined:
+						baselined = append(baselined, rf)
+					case findings.CategoryExcepted:
+						excepted = append(excepted, rf)
+					default:
+						active = append(active, rf)
+					}
 				}
 			}
 			break
 		}
 
+		mergeBlocked := false
+		for _, f := range active {
+			if f.Category == findings.CategoryBlocking {
+				mergeBlocked = true
+				break
+			}
+		}
+
 		data := prReportData{
 			ActiveNav:    "dashboard",
 			RepoFullName: owner + "/" + repo,
-			Findings:     reportFindings,
+			Summary:      summary,
+			MergeBlocked: mergeBlocked,
+			Active:       groupByTool(active),
+			Baselined:    groupByTool(baselined),
+			Excepted:     groupByTool(excepted),
 		}
 		data.PR.Number = pr.Number
 		data.PR.Title = pr.Title

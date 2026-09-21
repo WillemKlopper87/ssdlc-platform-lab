@@ -39,7 +39,14 @@ func ExceptionRequestForm(gitea *giteaclient.Client) http.HandlerFunc {
 			Operator    string
 			Repo        string
 			Fingerprint string
-		}{ActiveNav: "exceptions", Operator: operator, Repo: r.URL.Query().Get("repo"), Fingerprint: r.URL.Query().Get("fingerprint")}
+			Severity    string
+		}{
+			ActiveNav:   "exceptions",
+			Operator:    operator,
+			Repo:        r.URL.Query().Get("repo"),
+			Fingerprint: r.URL.Query().Get("fingerprint"),
+			Severity:    r.URL.Query().Get("severity"),
+		}
 		if err := exceptionRequestTmpl.ExecuteTemplate(w, "layout", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -87,6 +94,7 @@ func ExceptionRequestSubmit(store *exceptions.Store, gitea *giteaclient.Client) 
 			Severity:           r.FormValue("severity"),
 			Expiry:             expiry,
 			Requester:          requester,
+			Justification:      r.FormValue("justification"),
 			Ticket:             r.FormValue("ticket"),
 			Approved:           false,
 		}
@@ -96,6 +104,20 @@ func ExceptionRequestSubmit(store *exceptions.Store, gitea *giteaclient.Client) 
 		}
 		http.Redirect(w, r, "/exceptions", http.StatusFound)
 	}
+}
+
+// findPendingRecord locates the one record matching repo+fingerprint that
+// hasn't already been decided (approved or declined) -- shared by
+// ExceptionApprove and ExceptionDecline so both act on the same "is this
+// still actionable" definition.
+func findPendingRecord(records []exceptions.Record, repo, fingerprint string) *exceptions.Record {
+	for i := range records {
+		r := &records[i]
+		if r.Repo == repo && r.FindingFingerprint == fingerprint && !r.Approved && !r.Declined {
+			return r
+		}
+	}
+	return nil
 }
 
 // ExceptionApprove enforces the requester-cannot-approve-their-own-request
@@ -127,12 +149,7 @@ func ExceptionApprove(store *exceptions.Store, gitea *giteaclient.Client) http.H
 			http.Error(w, "could not read exceptions: "+err.Error(), http.StatusBadGateway)
 			return
 		}
-		var target *exceptions.Record
-		for i := range records {
-			if records[i].Repo == repo && records[i].FindingFingerprint == fingerprint {
-				target = &records[i]
-			}
-		}
+		target := findPendingRecord(records, repo, fingerprint)
 		if target == nil {
 			http.Error(w, "no such pending exception", http.StatusNotFound)
 			return
@@ -158,6 +175,40 @@ func ExceptionApprove(store *exceptions.Store, gitea *giteaclient.Client) http.H
 	}
 }
 
+// ExceptionDecline marks a pending exception request declined. Unlike
+// approval, declining carries no self-approval risk (it grants nothing),
+// so the only check needed here is approver-team membership -- enforced,
+// like ExceptionApprove, by wrapping this handler in handlers.RequireTeam
+// at the routing layer rather than duplicating the check inline.
+func ExceptionDecline(store *exceptions.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, "bad form", http.StatusBadRequest)
+			return
+		}
+		repo := r.FormValue("repo")
+		fingerprint := r.FormValue("fingerprint")
+
+		records, err := store.List(r.Context())
+		if err != nil {
+			http.Error(w, "could not read exceptions: "+err.Error(), http.StatusBadGateway)
+			return
+		}
+		target := findPendingRecord(records, repo, fingerprint)
+		if target == nil {
+			http.Error(w, "no such pending exception", http.StatusNotFound)
+			return
+		}
+
+		target.Declined = true
+		if err := store.Write(r.Context(), *target); err != nil {
+			http.Error(w, "could not decline exception: "+err.Error(), http.StatusBadGateway)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 func ExceptionsQueue(store *exceptions.Store, gitea *giteaclient.Client, owner string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		records, err := store.List(r.Context())
@@ -165,11 +216,17 @@ func ExceptionsQueue(store *exceptions.Store, gitea *giteaclient.Client, owner s
 			http.Error(w, "could not read exceptions: "+err.Error(), http.StatusBadGateway)
 			return
 		}
-		var pending, active []exceptions.Record
+		now := time.Now().UTC()
+		var pending, active, expired, declined []exceptions.Record
 		for _, rec := range records {
-			if rec.Approved {
+			switch {
+			case rec.Declined:
+				declined = append(declined, rec)
+			case rec.Approved && rec.Expiry.Before(now):
+				expired = append(expired, rec)
+			case rec.Approved:
 				active = append(active, rec)
-			} else {
+			default:
 				pending = append(pending, rec)
 			}
 		}
@@ -187,7 +244,9 @@ func ExceptionsQueue(store *exceptions.Store, gitea *giteaclient.Client, owner s
 			Operator  string
 			Pending   []exceptions.Record
 			Active    []exceptions.Record
-		}{ActiveNav: "exceptions", Operator: operator, Pending: pending, Active: active}
+			Expired   []exceptions.Record
+			Declined  []exceptions.Record
+		}{ActiveNav: "exceptions", Operator: operator, Pending: pending, Active: active, Expired: expired, Declined: declined}
 		if err := exceptionsTmpl.ExecuteTemplate(w, "layout", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}

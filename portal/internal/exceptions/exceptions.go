@@ -22,9 +22,15 @@ type Record struct {
 	Severity           string    `json:"severity"`
 	Expiry             time.Time `json:"expiry"`
 	Requester          string    `json:"requester"`
+	Justification      string    `json:"justification"`
 	Approvers          []string  `json:"approvers"`
 	Ticket             string    `json:"ticket"`
 	Approved           bool      `json:"approved"`
+	// Declined records are kept (not deleted) so the request/decision
+	// trail stays visible -- a declined request never suppresses a
+	// finding (evaluate-findings.py's split_exceptions only ever honors
+	// Approved records), it is purely a portal-side status.
+	Declined bool `json:"declined"`
 
 	// Path is the Gitea repo path this record was actually read from
 	// (populated by List). It is deliberately excluded from the persisted

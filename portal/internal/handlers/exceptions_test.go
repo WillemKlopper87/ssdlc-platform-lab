@@ -200,6 +200,65 @@ func TestExceptionApprove_NoSuchPendingExceptionIs404(t *testing.T) {
 	}
 }
 
+func TestExceptionDecline_MarksRecordDeclinedAndExcludesItFromApproval(t *testing.T) {
+	srv := fakeExceptionsGitea(t, "bob", true, map[string]string{"seed1.json": pendingRecordJSON})
+	defer srv.Close()
+
+	store := exceptions.NewStore(giteaclient.New(srv.URL, "token"), "gateadmin", "exceptions")
+	handler := ExceptionDecline(store)
+
+	form := url.Values{"repo": {"gateadmin/gate-demo"}, "fingerprint": {"f1"}}
+	req := httptest.NewRequest(http.MethodPost, "/exceptions/decline", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s, want 200", rec.Code, rec.Body.String())
+	}
+
+	records, err := store.List(context.Background())
+	if err != nil {
+		t.Fatalf("List after decline: %v", err)
+	}
+	if len(records) != 1 || !records[0].Declined || records[0].Approved {
+		t.Errorf("record after decline = %+v, want Declined=true, Approved=false", records[0])
+	}
+
+	// A declined record is no longer "pending" -- approving it afterward
+	// must 404, the same as if it never existed, not silently approve a
+	// declined request.
+	gitea := giteaclient.New(srv.URL, "")
+	approveHandler := RequireTeam(gitea, "gateadmin", "security-officers", ExceptionApprove(store, gitea))
+	approveReq := httptest.NewRequest(http.MethodPost, "/exceptions/approve", strings.NewReader(form.Encode()))
+	approveReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	approveCtx := context.WithValue(approveReq.Context(), auth.ContextKeyToken, "bob-token")
+	approveReq = approveReq.WithContext(approveCtx)
+	approveRec := httptest.NewRecorder()
+	approveHandler(approveRec, approveReq)
+	if approveRec.Code != http.StatusNotFound {
+		t.Errorf("approving a declined record: status = %d, want 404", approveRec.Code)
+	}
+}
+
+func TestExceptionDecline_NoSuchPendingExceptionIs404(t *testing.T) {
+	srv := fakeExceptionsGitea(t, "bob", true, map[string]string{})
+	defer srv.Close()
+
+	store := exceptions.NewStore(giteaclient.New(srv.URL, "token"), "gateadmin", "exceptions")
+	handler := ExceptionDecline(store)
+
+	form := url.Values{"repo": {"gateadmin/gate-demo"}, "fingerprint": {"does-not-exist"}}
+	req := httptest.NewRequest(http.MethodPost, "/exceptions/decline", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want %d for a nonexistent pending exception", rec.Code, http.StatusNotFound)
+	}
+}
+
 func TestExceptionRequestSubmit_RejectsExpiryOver90Days(t *testing.T) {
 	srv := fakeExceptionsGitea(t, "alice", false, map[string]string{})
 	defer srv.Close()
@@ -242,7 +301,8 @@ func TestExceptionRequestSubmit_IgnoresForgedRequesterField(t *testing.T) {
 	form := url.Values{
 		"repo": {"gateadmin/gate-demo"}, "fingerprint": {"f1"}, "severity": {"critical"},
 		"ticket": {"TICKET-1"}, "requester": {"eve"}, // forged: authenticated caller is "alice"
-		"expiry": {"2026-10-01"},
+		"justification": {"third-party lib, no patched version available yet"},
+		"expiry":        {"2026-10-01"},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/exceptions/submit", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -262,6 +322,9 @@ func TestExceptionRequestSubmit_IgnoresForgedRequesterField(t *testing.T) {
 	if len(records) != 1 || records[0].Requester != "alice" {
 		t.Errorf("record.Requester = %q, want %q (session identity, not the forged form value)",
 			recordsRequester(records), "alice")
+	}
+	if len(records) != 1 || records[0].Justification != "third-party lib, no patched version available yet" {
+		t.Errorf("record.Justification = %q, want the submitted justification captured", records[0].Justification)
 	}
 }
 

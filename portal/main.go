@@ -66,6 +66,11 @@ func main() {
 	mux.HandleFunc("/exceptions/approve", authHandler.RequireAuth(handlers.RequireTeam(
 		onboardingGitea, cfg.ExceptionsRepoOwner, cfg.ApproverTeam,
 		handlers.ExceptionApprove(exceptionsStore, onboardingGitea))))
+	// Decline carries no self-approval risk, so it only needs the
+	// approver-team gate, not ExceptionApprove's requester check too.
+	mux.HandleFunc("/exceptions/decline", authHandler.RequireAuth(handlers.RequireTeam(
+		onboardingGitea, cfg.ExceptionsRepoOwner, cfg.ApproverTeam,
+		handlers.ExceptionDecline(exceptionsStore))))
 
 	log.Printf("ssdlc-portal listening on %s", cfg.ListenAddr)
 	log.Fatal(http.ListenAndServe(cfg.ListenAddr, mux))

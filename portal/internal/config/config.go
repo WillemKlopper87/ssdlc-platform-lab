@@ -24,6 +24,11 @@ type Config struct {
 	// instead (see internal/auth). Setting it avoids trusting a
 	// proxy-forwarded Host header for the OAuth redirect_uri.
 	PublicURL string
+	// BotLogin is the Gitea username the gate's automated PRs are raised
+	// under (e.g. "gate-bot"). Used only to distinguish bot-authored PRs
+	// from human ones in the UI (the "automated/bot" accent) -- it is not
+	// a trust boundary and grants no privilege.
+	BotLogin string
 }
 
 // Load reads the portal's configuration from the environment. It fails
@@ -54,9 +59,13 @@ func Load() (Config, error) {
 		ExceptionsRepoName:  get("PORTAL_EXCEPTIONS_REPO_NAME"),
 		ListenAddr:          get("PORTAL_LISTEN_ADDR"),
 		PublicURL:           get("PORTAL_PUBLIC_URL"),
+		BotLogin:            get("PORTAL_BOT_LOGIN"),
 	}
 	if cfg.ExceptionsRepoName == "" {
 		cfg.ExceptionsRepoName = "exceptions"
+	}
+	if cfg.BotLogin == "" {
+		cfg.BotLogin = "gate-bot"
 	}
 	if cfg.ListenAddr == "" {
 		cfg.ListenAddr = ":8181"
