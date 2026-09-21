@@ -139,7 +139,7 @@ services:
       - SIDECAR_GITEA_TOKEN=${REPORTER_TOKEN:-unset}
       - SIDECAR_WOODPECKER_URL=http://${SERVER_IP}:${WOODPECKER_PORT:-8000}
       - SIDECAR_WOODPECKER_TOKEN=${WOODPECKER_TOKEN:-unset}
-      - SIDECAR_API_TOKEN=${SIDECAR_API_TOKEN:-unsetunsetunsetunset}
+      - SIDECAR_API_TOKEN=${SIDECAR_API_TOKEN:?SIDECAR_API_TOKEN must be set (setup-uat.ps1 writes it to state/uat.env)}
       - SIDECAR_ORG=ssdlc
       - SIDECAR_PORTAL_URL=http://${SERVER_IP}:8181
       - SIDECAR_COMMENT_USER=gate-reporter

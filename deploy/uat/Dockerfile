@@ -1,6 +1,7 @@
 # UAT images. Build context is the repository root:
 #   docker build -f deploy/uat/Dockerfile --target ops    -t ssdlc-uat-ops .
 #   docker build -f deploy/uat/Dockerfile --target portal -t ssdlc-uat-portal .
+#   docker build -f deploy/uat/Dockerfile --target sidecar -t ssdlc-uat-sidecar .
 FROM golang:1.22-alpine AS build
 WORKDIR /src
 COPY portal/ ./

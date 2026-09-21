@@ -39,7 +39,7 @@ Pilot repo `ssdlc/pilot-app` is onboarded (gate pipeline, baseline, branch prote
   `ssdlc/pilot-app` only (`bot-approver.py` watches one repo per process); a second repo needs a second bot container.
 - **Reporting service** (`ssdlc-uat-sidecar`): posts one edited-in-place comment per PR, serves report data and
   Prometheus metrics on port 8282 (internal only, not published), and reports dependency health. It is never in
-  the merge decision: stopping it changes nothing about which PRs pass or block. Logs: `docker logs ssdlc-uat-sidecar`.
+  the merge decision: stopping it changes nothing about which PRs pass or block. Logs: `docker logs ssdlc-uat-sidecar`. PR discovery reads at most 50 open pull requests per repository (a silent cap, acceptable for UAT).
 - Secrets live in `deploy\uat\state\uat.env`. Treat it like a password file.
 
 ## Known limitations (from docs/SSDLC_UAT_Readiness_Report.pdf)
@@ -49,4 +49,4 @@ Pilot repo `ssdlc/pilot-app` is onboarded (gate pipeline, baseline, branch prote
 - DefectDojo / Dependency-Track / Renovate / Loki are not built in this repo.
 - Woodpecker is set to `OPEN=true`: any existing Gitea user may sign in. Gitea registration is disabled, so that is the 4 accounts.
 - Scheduled jobs (`trivy-db-refresh`, DAST cron) are not registered.
-- Images use the project's pinned versions except the tooling image (`python:3.12-slim`, `requests==2.32.3`), which are not digest-pinned.
+- Images use the project's pinned versions except the following, which are not digest-pinned: the tooling image (`python:3.12-slim`, `requests==2.32.3`), the reporting service base image (`gcr.io/distroless/static-debian12:nonroot`) and its Go build stage (`golang:1.22-alpine`).
