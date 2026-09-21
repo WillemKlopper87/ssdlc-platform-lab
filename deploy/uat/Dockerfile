@@ -20,4 +20,8 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 FROM ops AS portal
 COPY --from=build /out/portal /usr/local/bin/portal
+# The handlers locate their templates via runtime.Caller (the *build-time*
+# source path, /src/internal/handlers/...), so the templates must exist at
+# /src/web/templates inside the runtime image or the portal panics at start.
+COPY portal/web /src/web
 CMD ["portal"]
