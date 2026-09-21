@@ -104,10 +104,12 @@ func TestLoad_SidecarOnlyURLIsAnError(t *testing.T) {
 func TestLoad_SidecarURLNeedsScheme(t *testing.T) {
 	setRequiredEnv(t)
 	t.Setenv("PORTAL_SIDECAR_TOKEN", "t")
-	t.Setenv("PORTAL_SIDECAR_URL", "sidecar:8282")
-	_, err := Load()
-	if err == nil || !strings.Contains(err.Error(), "PORTAL_SIDECAR_URL") || !strings.Contains(err.Error(), "http") {
-		t.Fatalf("want error naming PORTAL_SIDECAR_URL and http, got %v", err)
+	for _, u := range []string{"sidecar:8282", "ftp://x"} {
+		t.Setenv("PORTAL_SIDECAR_URL", u)
+		_, err := Load()
+		if err == nil || !strings.Contains(err.Error(), "PORTAL_SIDECAR_URL must start with http") {
+			t.Fatalf("%s: want error naming PORTAL_SIDECAR_URL and http, got %v", u, err)
+		}
 	}
 	for _, u := range []string{"http://sidecar:8282", "https://x"} {
 		t.Setenv("PORTAL_SIDECAR_URL", u)
