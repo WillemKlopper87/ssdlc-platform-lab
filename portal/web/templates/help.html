@@ -1,0 +1,37 @@
+<!-- portal/web/templates/help.html -->
+{{define "content"}}
+<h1 style="font-weight:600;">Help</h1>
+<div class="ssdlc-help-hero">
+  <b style="font-size:18px;">How can we help?</b>
+  <div style="color:var(--ssdlc-text-3);margin-top:2px;">Showing guidance for the {{.RoleWord}} role.</div>
+  <form method="get" action="/help">
+    <input type="search" name="q" value="{{.Query}}" placeholder="Search: blocked, exception, baseline...">
+    <button type="submit" class="ssdlc-btn ssdlc-btn-primary">Search</button>
+  </form>
+</div>
+
+<div class="ssdlc-card">
+  <b>Your first steps as {{.Article}} {{.RoleWord}}</b>
+  <ol class="ssdlc-steps">{{range .Steps}}<li><span>{{.}}</span></li>{{end}}</ol>
+</div>
+
+{{if .Shell.GiteaURL}}
+<div class="ssdlc-card">
+  <b>Need something else?</b>
+  <div style="color:var(--ssdlc-text-3);margin:6px 0 10px;">Ask your platform admin, or go straight to the source:</div>
+  <a class="ssdlc-ext" href="{{.Shell.GiteaURL}}" target="_blank" rel="noopener">Gitea &#8599;</a>
+  <a class="ssdlc-ext" href="{{.Shell.WoodpeckerURL}}" target="_blank" rel="noopener">Woodpecker &#8599;</a>
+  <div style="color:var(--ssdlc-text-3);margin-top:10px;">Tip: press <kbd class="ssdlc-kbd">Ctrl</kbd> <kbd class="ssdlc-kbd">K</kbd> to jump anywhere.</div>
+</div>
+{{end}}
+
+<h2 style="font-size:15px;margin:22px 0 10px;">{{if .Query}}Results for &ldquo;{{.Query}}&rdquo;{{else}}Common questions{{end}} <span style="color:var(--ssdlc-text-3);font-weight:400;">{{len .Topics}}</span></h2>
+{{range .Topics}}
+<details class="ssdlc-topic" id="{{.ID}}" {{if $.Open}}open{{end}}>
+  <summary>{{.Question}}{{range .Roles}}<span class="ssdlc-tag">{{.}}</span>{{end}}</summary>
+  <div class="a">{{.Answer}}{{if .GoTo}}<div style="margin-top:10px;"><a class="ssdlc-btn ssdlc-btn-primary" href="{{.GoTo}}">{{.GoLabel}} &rarr;</a></div>{{end}}</div>
+</details>
+{{else}}
+<div class="ssdlc-card" style="text-align:center;color:var(--ssdlc-text-2);">No topics match &ldquo;{{.Query}}&rdquo;. Try a shorter word, or ask your platform admin.</div>
+{{end}}
+{{end}}
