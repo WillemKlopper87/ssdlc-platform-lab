@@ -2,6 +2,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -52,6 +53,51 @@ func TestLoad_Success(t *testing.T) {
 	}
 	if len(cfg.SessionKey) != 32 {
 		t.Errorf("SessionKey length = %d, want 32", len(cfg.SessionKey))
+	}
+}
+
+func setRequiredEnv(t *testing.T) {
+	t.Helper()
+	for k, v := range map[string]string{
+		"PORTAL_GITEA_URL": "http://gitea:3500", "PORTAL_WOODPECKER_URL": "http://woodpecker:8000",
+		"PORTAL_WOODPECKER_TOKEN": "w", "PORTAL_GITEA_ADMIN_TOKEN": "g",
+		"PORTAL_OAUTH_CLIENT_ID": "x", "PORTAL_OAUTH_CLIENT_SECRET": "y",
+		"PORTAL_SESSION_KEY": "0123456789abcdef0123456789abcdef", "PORTAL_EXCEPTIONS_REPO_OWNER": "ssdlc",
+	} {
+		t.Setenv(k, v)
+	}
+}
+
+func TestLoad_SidecarBothSetTrimsSlash(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("PORTAL_SIDECAR_URL", "http://sidecar:8282/")
+	t.Setenv("PORTAL_SIDECAR_TOKEN", "t")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SidecarURL != "http://sidecar:8282" || cfg.SidecarToken != "t" {
+		t.Errorf("sidecar: %q %q", cfg.SidecarURL, cfg.SidecarToken)
+	}
+}
+
+func TestLoad_SidecarNeitherSetIsValid(t *testing.T) {
+	setRequiredEnv(t)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SidecarURL != "" || cfg.SidecarToken != "" {
+		t.Errorf("want empty, got %q %q", cfg.SidecarURL, cfg.SidecarToken)
+	}
+}
+
+func TestLoad_SidecarOnlyURLIsAnError(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("PORTAL_SIDECAR_URL", "http://sidecar:8282")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "PORTAL_SIDECAR_TOKEN") {
+		t.Fatalf("want error naming PORTAL_SIDECAR_TOKEN, got %v", err)
 	}
 }
 

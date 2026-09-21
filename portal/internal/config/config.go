@@ -35,6 +35,10 @@ type Config struct {
 	// portal itself uses, and only need setting when those are internal names.
 	GiteaPublicURL      string
 	WoodpeckerPublicURL string
+	// SidecarURL / SidecarToken locate the reporting service. Optional: set
+	// both or neither.
+	SidecarURL   string
+	SidecarToken string
 }
 
 // Load reads the portal's configuration from the environment. It fails
@@ -93,6 +97,12 @@ func Load() (Config, error) {
 		problems = append(problems, "PORTAL_SESSION_KEY must be at least 32 bytes")
 	}
 	cfg.SessionKey = []byte(sessionKey)
+
+	cfg.SidecarURL = strings.TrimRight(get("PORTAL_SIDECAR_URL"), "/")
+	cfg.SidecarToken = get("PORTAL_SIDECAR_TOKEN")
+	if (cfg.SidecarURL == "") != (cfg.SidecarToken == "") {
+		problems = append(problems, "PORTAL_SIDECAR_URL and PORTAL_SIDECAR_TOKEN must be set together")
+	}
 
 	if len(problems) > 0 {
 		msg := "portal configuration is invalid:"

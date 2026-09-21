@@ -70,6 +70,7 @@ services:
     depends_on:
       - gitea
       - woodpecker-server
+      - sidecar
     working_dir: ${REPO_VM:?}/portal
     volumes:
       - ${REPO_ROOT}:${REPO_VM}
@@ -91,6 +92,9 @@ services:
       - PORTAL_PUBLIC_URL=http://${SERVER_IP}:8181
       - PORTAL_BOT_LOGIN=gate-bot
       - PORTAL_LISTEN_ADDR=:8181
+      # Reporting service: source of the Projects and Overview numbers.
+      - PORTAL_SIDECAR_URL=http://sidecar:8282
+      - PORTAL_SIDECAR_TOKEN=${SIDECAR_API_TOKEN:?SIDECAR_API_TOKEN must be set}
       # Optional: addresses shown in links that open in people's browsers.
       # They default to PORTAL_GITEA_URL / PORTAL_WOODPECKER_URL, which are
       # already the server's LAN address in this deployment.
