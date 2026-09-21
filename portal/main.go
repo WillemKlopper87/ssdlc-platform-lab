@@ -4,13 +4,16 @@ package main
 import (
 	"context"
 	"log"
+	"mime"
 	"net/http"
+	"time"
 
 	"ssdlc-portal/internal/auth"
 	"ssdlc-portal/internal/config"
 	"ssdlc-portal/internal/exceptions"
 	"ssdlc-portal/internal/giteaclient"
 	"ssdlc-portal/internal/handlers"
+	"ssdlc-portal/internal/shell"
 )
 
 func main() {
@@ -26,6 +29,25 @@ func main() {
 
 	authHandler := auth.NewHandler(cfg)
 
+	// Fonts are served by the portal itself; the minimal runtime image has no
+	// system mime database, so register the type explicitly.
+	mime.AddExtensionType(".woff2", "font/woff2")
+
+	shellBuilder := &shell.Builder{
+		NewIdentity:   func(token string) shell.Identity { return giteaclient.New(cfg.GiteaURL, token) },
+		Records:       exceptionsStore.List,
+		Org:           cfg.ExceptionsRepoOwner,
+		Team:          cfg.ApproverTeam,
+		GiteaURL:      cfg.GiteaPublicURL,
+		WoodpeckerURL: cfg.WoodpeckerPublicURL,
+		TTL:           30 * time.Second,
+		Now:           time.Now,
+	}
+	// authed = require a signed-in user, then compute the page chrome for them.
+	authed := func(h http.HandlerFunc) http.HandlerFunc {
+		return authHandler.RequireAuth(shellBuilder.Middleware(h))
+	}
+
 	mux := http.NewServeMux()
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	// Bare "/" has no page of its own; send visitors to the dashboard (which
@@ -36,8 +58,9 @@ func main() {
 	mux.HandleFunc("/login", authHandler.Login)
 	mux.HandleFunc("/oauth/callback", authHandler.Callback)
 	mux.HandleFunc("/logout", authHandler.Logout)
-	mux.HandleFunc("/dashboard", authHandler.RequireAuth(handlers.Dashboard(cfg.GiteaURL)))
-	mux.HandleFunc("/pr/{owner}/{repo}/{number}", authHandler.RequireAuth(
+	mux.HandleFunc("/dashboard", authed(handlers.Dashboard(cfg.GiteaURL)))
+	mux.HandleFunc("/help", authed(handlers.Help()))
+	mux.HandleFunc("/pr/{owner}/{repo}/{number}", authed(
 		handlers.PRReport(cfg.GiteaURL, cfg.WoodpeckerURL, cfg.WoodpeckerToken)))
 	// Onboarding runs onboard-repo.sh with an admin-scoped Gitea token, so
 	// both routes are gated behind membership in cfg.ApproverTeam before
@@ -48,10 +71,10 @@ func main() {
 	// as "the platform operators' org" for this Gitea instance — there is
 	// no other org name available in config to use instead.
 	onboardingGitea := giteaclient.New(cfg.GiteaURL, "")
-	mux.HandleFunc("/onboarding", authHandler.RequireAuth(handlers.RequireTeam(
+	mux.HandleFunc("/onboarding", authed(handlers.RequireTeam(
 		onboardingGitea, cfg.ExceptionsRepoOwner, cfg.ApproverTeam,
 		handlers.OnboardingForm())))
-	mux.HandleFunc("/onboarding/start", authHandler.RequireAuth(handlers.RequireTeam(
+	mux.HandleFunc("/onboarding/start", authed(handlers.RequireTeam(
 		onboardingGitea, cfg.ExceptionsRepoOwner, cfg.ApproverTeam,
 		handlers.OnboardingStream("../scripts/onboard-repo.sh", []string{
 			"GITEA_URL=" + cfg.GiteaURL,
@@ -60,20 +83,20 @@ func main() {
 			"WOODPECKER_TOKEN=" + cfg.WoodpeckerToken,
 		}))))
 
-	mux.HandleFunc("/exceptions", authHandler.RequireAuth(
+	mux.HandleFunc("/exceptions", authed(
 		handlers.ExceptionsQueue(exceptionsStore, onboardingGitea, cfg.ExceptionsRepoOwner)))
-	mux.HandleFunc("/exceptions/request", authHandler.RequireAuth(handlers.ExceptionRequestForm(onboardingGitea)))
-	mux.HandleFunc("/exceptions/submit", authHandler.RequireAuth(handlers.ExceptionRequestSubmit(exceptionsStore, onboardingGitea)))
+	mux.HandleFunc("/exceptions/request", authed(handlers.ExceptionRequestForm(onboardingGitea)))
+	mux.HandleFunc("/exceptions/submit", authed(handlers.ExceptionRequestSubmit(exceptionsStore, onboardingGitea)))
 	// Approval is gated behind approver-team membership via the same
 	// RequireTeam middleware /onboarding uses -- ExceptionApprove itself
 	// only enforces the self-approval half of the two-party rule, so the
 	// team-membership half isn't duplicated inline a second time.
-	mux.HandleFunc("/exceptions/approve", authHandler.RequireAuth(handlers.RequireTeam(
+	mux.HandleFunc("/exceptions/approve", authed(handlers.RequireTeam(
 		onboardingGitea, cfg.ExceptionsRepoOwner, cfg.ApproverTeam,
 		handlers.ExceptionApprove(exceptionsStore, onboardingGitea))))
 	// Decline carries no self-approval risk, so it only needs the
 	// approver-team gate, not ExceptionApprove's requester check too.
-	mux.HandleFunc("/exceptions/decline", authHandler.RequireAuth(handlers.RequireTeam(
+	mux.HandleFunc("/exceptions/decline", authed(handlers.RequireTeam(
 		onboardingGitea, cfg.ExceptionsRepoOwner, cfg.ApproverTeam,
 		handlers.ExceptionDecline(exceptionsStore))))
 

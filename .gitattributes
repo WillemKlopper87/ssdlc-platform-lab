@@ -26,3 +26,8 @@
 # scripts and config; without its own rule it would be exposed to exactly
 # that on the next checkout.
 .gitattributes text eol=lf
+
+# Keep vendored front-end assets byte-identical so their recorded sha256 stays
+# valid on Windows checkouts.
+portal/web/static/vendor/** -text
+*.woff2 binary
