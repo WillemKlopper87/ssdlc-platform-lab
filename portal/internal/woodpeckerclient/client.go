@@ -38,25 +38,32 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 }
 
 type Pipeline struct {
-	Number int
-	Status string
-	Commit string
-	Event  string
+	Number   int
+	Status   string
+	Commit   string
+	Event    string
+	Started  int64
+	Finished int64
 }
 
 func (c *Client) ListPipelines(ctx context.Context, repoID int) ([]Pipeline, error) {
 	var raw []struct {
-		Number int    `json:"number"`
-		Status string `json:"status"`
-		Commit string `json:"commit"`
-		Event  string `json:"event"`
+		Number   int    `json:"number"`
+		Status   string `json:"status"`
+		Commit   string `json:"commit"`
+		Event    string `json:"event"`
+		Started  int64  `json:"started"`
+		Finished int64  `json:"finished"`
 	}
 	if err := c.get(ctx, fmt.Sprintf("/api/repos/%d/pipelines", repoID), &raw); err != nil {
 		return nil, err
 	}
 	out := make([]Pipeline, 0, len(raw))
 	for _, p := range raw {
-		out = append(out, Pipeline{Number: p.Number, Status: p.Status, Commit: p.Commit, Event: p.Event})
+		out = append(out, Pipeline{
+			Number: p.Number, Status: p.Status, Commit: p.Commit, Event: p.Event,
+			Started: p.Started, Finished: p.Finished,
+		})
 	}
 	return out, nil
 }
