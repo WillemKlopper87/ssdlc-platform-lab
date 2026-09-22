@@ -1,0 +1,72 @@
+<!-- portal/web/templates/exceptions.html -->
+{{define "content"}}
+<h1 style="font-weight:600;">Exceptions</h1>
+
+<div class="ssdlc-card">
+  <h2 style="font-size:16px; margin-top:0;">Pending approval</h2>
+  {{if not .Pending}}<p style="color:var(--ssdlc-text-3);">Nothing pending.</p>{{end}}
+  {{range .Pending}}
+  <div class="ssdlc-row" style="flex-direction:column; align-items:stretch; gap:6px;">
+    <div style="display:flex; align-items:center; gap:16px;">
+      {{if .Severity}}<span class="ssdlc-sev ssdlc-sev-{{.Severity}}">{{.Severity}}</span>{{end}}
+      <span class="ssdlc-mono" style="color:var(--ssdlc-text-3);">{{.Repo}}</span>
+      <span style="flex:1;">{{.FindingFingerprint}} · requested by {{.Requester}}{{if .Ticket}} · {{.Ticket}}{{end}}</span>
+      <span style="color:var(--ssdlc-text-3);">expires {{.Expiry.Format "2006-01-02"}}</span>
+    </div>
+    {{if .Justification}}<p style="margin:0; color:var(--ssdlc-text-2); font-size:13px;">"{{.Justification}}"</p>{{end}}
+    <div style="display:flex; gap:8px;">
+      <form method="post" action="/exceptions/approve" style="display:inline;">
+        <input type="hidden" name="repo" value="{{.Repo}}">
+        <input type="hidden" name="fingerprint" value="{{.FindingFingerprint}}">
+        <button type="submit" class="ssdlc-btn ssdlc-btn-primary" {{if eq .Requester $.Operator}}disabled title="You requested this exception — a different approver is required"{{end}}>Approve</button>
+      </form>
+      <form method="post" action="/exceptions/decline" style="display:inline;">
+        <input type="hidden" name="repo" value="{{.Repo}}">
+        <input type="hidden" name="fingerprint" value="{{.FindingFingerprint}}">
+        <button type="submit" class="ssdlc-btn ssdlc-btn-danger">Decline</button>
+      </form>
+    </div>
+  </div>
+  {{end}}
+</div>
+
+<div class="ssdlc-card">
+  <h2 style="font-size:16px; margin-top:0;">Active</h2>
+  {{if not .Active}}<p style="color:var(--ssdlc-text-3);">No active exceptions.</p>{{end}}
+  {{range .Active}}
+  <div class="ssdlc-row">
+    {{if .Severity}}<span class="ssdlc-sev ssdlc-sev-{{.Severity}}">{{.Severity}}</span>{{end}}
+    <span class="ssdlc-mono" style="color:var(--ssdlc-text-3);">{{.Repo}}</span>
+    <span style="flex:1;">{{.FindingFingerprint}} · approved by {{range $i, $a := .Approvers}}{{if $i}}, {{end}}{{$a}}{{end}}</span>
+    <span style="color:var(--ssdlc-text-3);">expires {{.Expiry.Format "2006-01-02"}}</span>
+  </div>
+  {{end}}
+</div>
+
+{{if .Expired}}
+<div class="ssdlc-card">
+  <h2 style="font-size:16px; margin-top:0; color:var(--ssdlc-text-2);">Expired</h2>
+  {{range .Expired}}
+  <div class="ssdlc-row">
+    {{if .Severity}}<span class="ssdlc-sev ssdlc-sev-{{.Severity}}">{{.Severity}}</span>{{end}}
+    <span class="ssdlc-mono" style="color:var(--ssdlc-text-3);">{{.Repo}}</span>
+    <span style="flex:1; color:var(--ssdlc-text-3);">{{.FindingFingerprint}}</span>
+    <span style="color:var(--ssdlc-critical);">expired {{.Expiry.Format "2006-01-02"}}</span>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{if .Declined}}
+<div class="ssdlc-card">
+  <h2 style="font-size:16px; margin-top:0; color:var(--ssdlc-text-2);">Declined</h2>
+  {{range .Declined}}
+  <div class="ssdlc-row">
+    {{if .Severity}}<span class="ssdlc-sev ssdlc-sev-{{.Severity}}">{{.Severity}}</span>{{end}}
+    <span class="ssdlc-mono" style="color:var(--ssdlc-text-3);">{{.Repo}}</span>
+    <span style="flex:1; color:var(--ssdlc-text-3);">{{.FindingFingerprint}} · requested by {{.Requester}}</span>
+  </div>
+  {{end}}
+</div>
+{{end}}
+{{end}}

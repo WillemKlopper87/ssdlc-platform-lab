@@ -1,0 +1,78 @@
+<!-- portal/web/templates/prreport.html -->
+{{define "content"}}
+<h1 style="font-weight:600;">{{.PR.Title}} <span class="ssdlc-mono" style="color:var(--ssdlc-text-3); font-size:16px;">#{{.PR.Number}}</span></h1>
+{{if or .Links.Gitea .Links.Woodpecker}}
+<div style="margin:-6px 0 14px;">
+  {{if .Links.Gitea}}<a class="ssdlc-ext" href="{{.Links.Gitea}}" target="_blank" rel="noopener">Pull request in Gitea &#8599;</a>{{end}}
+  {{if .Links.Woodpecker}}<a class="ssdlc-ext" href="{{.Links.Woodpecker}}" target="_blank" rel="noopener">Pipeline in Woodpecker &#8599;</a>{{end}}
+</div>
+{{end}}
+
+{{if or .Active .Baselined .Excepted}}
+<div class="ssdlc-card" style="display:flex; align-items:center; gap:12px;">
+  {{if .MergeBlocked}}
+    <span class="ssdlc-badge ssdlc-badge-critical">Merging is blocked</span>
+    <span style="color:var(--ssdlc-text-3); font-size:13px;">{{.Summary.Critical}} critical, {{.Summary.High}} high new finding(s) must be fixed or excepted before this can merge.</span>
+  {{else}}
+    <span class="ssdlc-badge ssdlc-badge-success">Merge allowed</span>
+    <span style="color:var(--ssdlc-text-3); font-size:13px;">No new Critical/High findings. Decision made by policy/severity.rego via policy-eval-findings.py.</span>
+  {{end}}
+</div>
+{{end}}
+
+<div class="ssdlc-card">
+  <h2 style="font-size:16px; margin-top:0;">Findings</h2>
+  {{if not (or .Active .Baselined .Excepted)}}
+    <p style="color:var(--ssdlc-text-3);">No findings on this pull request's most recent run.</p>
+  {{else}}
+    {{if not .Active}}
+      <p style="color:var(--ssdlc-text-3);">No new findings.</p>
+    {{end}}
+    {{range .Active}}
+    <h3 class="ssdlc-mono" style="font-size:12px; color:var(--ssdlc-text-3); text-transform:uppercase; letter-spacing:0.05em; margin:16px 0 4px;">{{.Tool}}</h3>
+    {{range .Findings}}
+    <div class="ssdlc-row">
+      <span class="ssdlc-sev ssdlc-sev-{{.SeverityClass}}">{{.Severity}}</span>
+      <span class="ssdlc-mono" style="color:var(--ssdlc-text-2);">{{.RuleID}}</span>
+      <span class="ssdlc-mono" style="color:var(--ssdlc-text-3);">{{.Location}}</span>
+      <span style="flex:1; color:var(--ssdlc-text-2);">{{.Description}}</span>
+      {{if eq .Category "blocking"}}<a href="/exceptions/request?repo={{$.RepoFullName}}&fingerprint={{.RuleID}}-{{.Location}}&severity={{.SeverityClass}}" class="ssdlc-btn">Request exception</a>{{end}}
+    </div>
+    {{end}}
+    {{end}}
+  {{end}}
+</div>
+
+{{if .Baselined}}
+<div class="ssdlc-card">
+  <h2 style="font-size:16px; margin-top:0; color:var(--ssdlc-text-2);">Baselined (pre-existing debt, not evaluated for blocking)</h2>
+  {{range .Baselined}}
+  <h3 class="ssdlc-mono" style="font-size:12px; color:var(--ssdlc-text-3); text-transform:uppercase; letter-spacing:0.05em; margin:16px 0 4px;">{{.Tool}}</h3>
+  {{range .Findings}}
+  <div class="ssdlc-row">
+    <span class="ssdlc-mono" style="color:var(--ssdlc-text-2);">{{.RuleID}}</span>
+    <span class="ssdlc-mono" style="color:var(--ssdlc-text-3);">{{.Location}}</span>
+    <span style="flex:1; color:var(--ssdlc-text-3);">{{.Description}}</span>
+  </div>
+  {{end}}
+  {{end}}
+</div>
+{{end}}
+
+{{if .Excepted}}
+<div class="ssdlc-card">
+  <h2 style="font-size:16px; margin-top:0; color:var(--ssdlc-text-2);">Covered by an approved exception</h2>
+  {{range .Excepted}}
+  <h3 class="ssdlc-mono" style="font-size:12px; color:var(--ssdlc-text-3); text-transform:uppercase; letter-spacing:0.05em; margin:16px 0 4px;">{{.Tool}}</h3>
+  {{range .Findings}}
+  <div class="ssdlc-row">
+    <span class="ssdlc-mono" style="color:var(--ssdlc-text-2);">{{.RuleID}}</span>
+    <span class="ssdlc-mono" style="color:var(--ssdlc-text-3);">{{.Location}}</span>
+    <span style="flex:1; color:var(--ssdlc-text-3);">{{.Description}}</span>
+    <a href="/exceptions" class="ssdlc-btn">View exception</a>
+  </div>
+  {{end}}
+  {{end}}
+</div>
+{{end}}
+{{end}}

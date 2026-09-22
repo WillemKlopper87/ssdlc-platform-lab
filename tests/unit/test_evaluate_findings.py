@@ -179,6 +179,174 @@ def test_missing_baseline_file_matches_prior_behaviour():
     assert_eq(result.returncode, 1, "a missing baseline file blocks exactly as if no baseline feature existed")
 
 
+import json as _json_for_exceptions
+
+
+def _write_exceptions_dir(records):
+    """records: list of dicts, each written as its own <n>.json file in a
+    fresh temp directory. Returns the directory path (caller cleans it up)."""
+    import shutil
+    exceptions_dir = tempfile.mkdtemp()
+    for i, record in enumerate(records):
+        with open(os.path.join(exceptions_dir, f"record-{i}.json"), "w", encoding="utf-8") as fh:
+            _json_for_exceptions.dump(record, fh)
+    return exceptions_dir
+
+
+def test_approved_unexpired_exception_suppresses_matching_finding():
+    print("=== an approved, unexpired exception for this repo suppresses its matching finding ===")
+    trivy_report = _write_json(TRIVY_CRITICAL)
+    exceptions_dir = _write_exceptions_dir([{
+        "repo": "gateadmin/gate-demo",
+        "finding_fingerprint": "CVE-2099-1:pyyaml:requirements.txt",
+        "severity": "critical",
+        "expiry": "2099-01-01T00:00:00Z",
+        "requester": "alice",
+        "approvers": ["bob"],
+        "ticket": "TICKET-1",
+        "approved": True,
+    }])
+    try:
+        result = run_evaluator(
+            BLOCKING_SHIM, "--trivy", trivy_report,
+            "--exceptions-dir", exceptions_dir, "--repo", "gateadmin/gate-demo",
+        )
+    finally:
+        os.unlink(trivy_report)
+        import shutil as _shutil
+        _shutil.rmtree(exceptions_dir)
+    assert_eq(result.returncode, 0, "an excepted Critical finding does not block")
+    assert_eq("EXCEPTION  [trivy/CVE-2099-1]" in result.stdout, True, "the excepted finding is still surfaced, as an exception")
+    assert_eq("FAIL" in result.stdout, False, "no FAIL line is printed for an excepted finding")
+
+
+def test_exception_for_different_repo_does_not_suppress():
+    print("=== an exception filed for a different repo does not suppress this repo's finding ===")
+    trivy_report = _write_json(TRIVY_CRITICAL)
+    exceptions_dir = _write_exceptions_dir([{
+        "repo": "gateadmin/some-other-repo",
+        "finding_fingerprint": "CVE-2099-1:pyyaml:requirements.txt",
+        "severity": "critical",
+        "expiry": "2099-01-01T00:00:00Z",
+        "requester": "alice",
+        "approvers": ["bob"],
+        "ticket": "TICKET-1",
+        "approved": True,
+    }])
+    try:
+        result = run_evaluator(
+            BLOCKING_SHIM, "--trivy", trivy_report,
+            "--exceptions-dir", exceptions_dir, "--repo", "gateadmin/gate-demo",
+        )
+    finally:
+        os.unlink(trivy_report)
+        import shutil as _shutil
+        _shutil.rmtree(exceptions_dir)
+    assert_eq(result.returncode, 1, "a same-fingerprint exception for a DIFFERENT repo does not suppress this finding")
+    assert_eq("CRITICAL [trivy/CVE-2099-1]" in result.stdout, True, "the finding is still reported as a failure")
+
+
+def test_expired_exception_does_not_suppress():
+    print("=== an expired exception no longer suppresses its finding ===")
+    trivy_report = _write_json(TRIVY_CRITICAL)
+    exceptions_dir = _write_exceptions_dir([{
+        "repo": "gateadmin/gate-demo",
+        "finding_fingerprint": "CVE-2099-1:pyyaml:requirements.txt",
+        "severity": "critical",
+        "expiry": "2020-01-01T00:00:00Z",
+        "requester": "alice",
+        "approvers": ["bob"],
+        "ticket": "TICKET-1",
+        "approved": True,
+    }])
+    try:
+        result = run_evaluator(
+            BLOCKING_SHIM, "--trivy", trivy_report,
+            "--exceptions-dir", exceptions_dir, "--repo", "gateadmin/gate-demo",
+        )
+    finally:
+        os.unlink(trivy_report)
+        import shutil as _shutil
+        _shutil.rmtree(exceptions_dir)
+    assert_eq(result.returncode, 1, "an expired exception blocks exactly as if it didn't exist")
+
+
+def test_unapproved_exception_does_not_suppress():
+    print("=== a pending (not yet approved) exception does not suppress its finding ===")
+    trivy_report = _write_json(TRIVY_CRITICAL)
+    exceptions_dir = _write_exceptions_dir([{
+        "repo": "gateadmin/gate-demo",
+        "finding_fingerprint": "CVE-2099-1:pyyaml:requirements.txt",
+        "severity": "critical",
+        "expiry": "2099-01-01T00:00:00Z",
+        "requester": "alice",
+        "approvers": [],
+        "ticket": "TICKET-1",
+        "approved": False,
+    }])
+    try:
+        result = run_evaluator(
+            BLOCKING_SHIM, "--trivy", trivy_report,
+            "--exceptions-dir", exceptions_dir, "--repo", "gateadmin/gate-demo",
+        )
+    finally:
+        os.unlink(trivy_report)
+        import shutil as _shutil
+        _shutil.rmtree(exceptions_dir)
+    assert_eq(result.returncode, 1, "a pending exception blocks exactly as if it didn't exist")
+
+
+def test_secret_blocks_despite_matching_exception():
+    print("=== DESIGN.md D7: a secret blocks regardless of an approved exception record ===")
+    gitleaks_report = os.path.join(FIXTURES, "gitleaks-sample.json")
+    with open(gitleaks_report, encoding="utf-8") as fh:
+        sample_fingerprint = _json_for_exceptions.load(fh)[0]["Fingerprint"]
+    exceptions_dir = _write_exceptions_dir([{
+        "repo": "gateadmin/gate-demo",
+        "finding_fingerprint": sample_fingerprint,
+        "severity": "critical",
+        "expiry": "2099-01-01T00:00:00Z",
+        "requester": "alice",
+        "approvers": ["bob"],
+        "ticket": "TICKET-1",
+        "approved": True,
+    }])
+    try:
+        result = run_evaluator(
+            BLOCKING_SHIM, "--gitleaks", gitleaks_report,
+            "--exceptions-dir", exceptions_dir, "--repo", "gateadmin/gate-demo",
+        )
+    finally:
+        import shutil as _shutil
+        _shutil.rmtree(exceptions_dir)
+    assert_eq(result.returncode, 1, "a secret still blocks even with a matching approved exception record")
+    assert_eq("EXCEPTION" in result.stdout, False, "a secret is never printed as an exception")
+
+
+def test_missing_exceptions_dir_is_not_fatal():
+    print("=== no --exceptions-dir at all -- identical to this script's pre-exceptions behaviour ===")
+    result = run_evaluator(BLOCKING_SHIM, "--gitleaks", os.path.join(FIXTURES, "gitleaks-sample.json"))
+    assert_eq(result.returncode, 1, "no exceptions-dir configured blocks exactly as if the feature didn't exist")
+
+
+def test_malformed_exception_record_is_not_fatal():
+    print("=== one malformed exception record is skipped, not fatal, and the rest still apply ===")
+    trivy_report = _write_json(TRIVY_CRITICAL)
+    exceptions_dir = _write_exceptions_dir([{"not": "a valid record"}])
+    with open(os.path.join(exceptions_dir, "corrupt.json"), "w", encoding="utf-8") as fh:
+        fh.write("not-json-at-all")
+    try:
+        result = run_evaluator(
+            BLOCKING_SHIM, "--trivy", trivy_report,
+            "--exceptions-dir", exceptions_dir, "--repo", "gateadmin/gate-demo",
+        )
+    finally:
+        os.unlink(trivy_report)
+        import shutil as _shutil
+        _shutil.rmtree(exceptions_dir)
+    assert_eq(result.returncode, 1, "malformed exception records are skipped -- finding still evaluates as blocking")
+
+
 def main():
     test_critical_finding_blocks()
     test_medium_finding_warns_but_passes()
@@ -189,6 +357,13 @@ def main():
     test_secret_blocks_even_if_present_in_baseline()
     test_malformed_baseline_is_not_fatal()
     test_missing_baseline_file_matches_prior_behaviour()
+    test_approved_unexpired_exception_suppresses_matching_finding()
+    test_exception_for_different_repo_does_not_suppress()
+    test_expired_exception_does_not_suppress()
+    test_unapproved_exception_does_not_suppress()
+    test_secret_blocks_despite_matching_exception()
+    test_missing_exceptions_dir_is_not_fatal()
+    test_malformed_exception_record_is_not_fatal()
     print(f"\n=== evaluate-findings unit summary: {PASS_COUNT} passed, {FAIL_COUNT} failed ===")
     return 0 if FAIL_COUNT == 0 else 1
 

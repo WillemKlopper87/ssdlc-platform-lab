@@ -1,0 +1,32 @@
+<!-- portal/web/templates/projects.html -->
+{{define "title"}}Projects - SSDLC Portal{{end}}
+{{define "content"}}
+<h1 style="font-weight:600;">Projects</h1>
+{{if .NotConfig}}
+<div class="ssdlc-card">Projects are not available on this server: the reporting service is not configured. Ask your platform admin.</div>
+{{else if .Failed}}
+<div class="ssdlc-card ssdlc-notice">The reporting service could not be reached, so project grades cannot be shown right now. Try again in a minute; if it keeps failing, tell your platform admin.</div>
+{{else}}
+<p style="color:var(--ssdlc-text-3);margin:0 0 12px;">Grades count findings on open pull requests only (baseline debt is added later).{{if .Updated}} Updated <span class="ssdlc-mono">{{.Updated}}</span>.{{end}}</p>
+{{if .Stale}}<div class="ssdlc-card ssdlc-notice">Some data may be stale or incomplete: the last check could not read every repository.</div>{{end}}
+{{if not .Rows}}
+<div class="ssdlc-card" style="color:var(--ssdlc-text-3);">No projects yet. An admin can set one up from Admin.</div>
+{{else}}
+<div class="ssdlc-card ssdlc-table-wrap">
+<table class="ssdlc-table">
+  <thead><tr><th>Project</th><th>Grade</th><th>Open PRs</th><th>Blocked</th><th>Critical</th><th>High</th><th>Medium</th><th>Low</th><th>Open in</th></tr></thead>
+  <tbody>
+  {{range .Rows}}
+  <tr>
+    <td class="ssdlc-mono">{{.Repo}}{{if .Unavailable}}<div class="ssdlc-sub">could not be read</div>{{end}}</td>
+    <td><span class="ssdlc-grade ssdlc-grade-{{.GradeClass}}">{{.GradeLabel}}</span></td>
+    <td>{{.OpenPRs}}</td><td>{{.BlockedPRs}}</td><td>{{.Critical}}</td><td>{{.High}}</td><td>{{.Medium}}</td><td>{{.Low}}</td>
+    <td>{{if .GiteaLink}}<a class="ssdlc-ext" href="{{.GiteaLink}}" target="_blank" rel="noopener">Gitea &#8599;</a>{{end}}{{if .Woodpecker}}<a class="ssdlc-ext" href="{{.Woodpecker}}" target="_blank" rel="noopener">Woodpecker &#8599;</a>{{end}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
+{{end}}
+{{end}}

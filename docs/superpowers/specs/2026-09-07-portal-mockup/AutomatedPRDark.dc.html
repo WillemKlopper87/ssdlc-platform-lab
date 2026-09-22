@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: oklch(0.165 0.012 265); -webkit-font-smoothing: antialiased; }
+  a { color: oklch(0.74 0.12 258); text-decoration: none; }
+  a:hover { color: oklch(0.83 0.11 258); text-decoration: underline; }
+  ::selection { background: oklch(0.45 0.12 258); color: oklch(0.98 0 0); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  input::placeholder { color: oklch(0.52 0.012 265); }
+</style>
+</helmet>
+<div style="font-family: 'IBM Plex Sans', system-ui, sans-serif; color: oklch(0.93 0.005 265); background: oklch(0.165 0.012 265); min-height: 100vh;">
+
+  <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+    <div style="display: grid; grid-template-columns: 1.05fr 0.95fr; min-height: 100vh;">
+      <div style="padding: 44px 52px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid oklch(0.27 0.012 265); background: oklch(0.185 0.013 265);">
+        <div style="display: flex; align-items: center; gap: 11px;">
+          <div style="width: 22px; height: 22px; border-radius: 5px; background: {{ accent }}; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: oklch(0.16 0.02 265);">S</div>
+          <span style="font-size: 13.5px; font-weight: 600; letter-spacing: -0.005em;">SSDLC platform</span>
+        </div>
+
+        <div style="max-width: 46ch;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: {{ accent }}; margin-bottom: 18px;">Automated remediation</div>
+          <h1 style="font-size: 34px; line-height: 1.18; font-weight: 600; letter-spacing: -0.03em; margin: 0 0 18px; text-wrap: pretty;">The gate raises the fix. A person still has to take it.</h1>
+          <p style="font-size: 14px; line-height: 1.65; color: oklch(0.7 0.012 265); margin: 0 0 30px; text-wrap: pretty;">Every automated pull request in here carries the finding that caused it, the trace that proves it, and the contract digest it was evaluated under. Nothing self-merges.</p>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <sc-for list="{{ loginFacts }}" as="f" hint-placeholder-count="3">
+              <div style="display: flex; align-items: baseline; gap: 12px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.55 0.012 265); flex: 0 0 auto; width: 22px;">{{ f.n }}</span>
+                <span style="font-size: 13px; line-height: 1.55; color: oklch(0.78 0.01 265); text-wrap: pretty;">{{ f.t }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 18px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.55 0.012 265);">
+          <span>contract {{ contractRelease }}</span>
+          <span>·</span>
+          <span>{{ gateModeLabel }}</span>
+          <span>·</span>
+          <span>ISO/IEC 27001 evidence trail</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; justify-content: center; padding: 44px;">
+        <div style="width: 100%; max-width: 372px;">
+          <h2 style="font-size: 20px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 7px;">Sign in</h2>
+          <p style="font-size: 13px; line-height: 1.55; color: oklch(0.65 0.012 265); margin: 0 0 26px;">Your Gitea identity decides what you can approve. The portal holds no separate account.</p>
+
+          <button onClick="{{ signIn }}" style="{{ ssoBtn }}" style-hover="background: oklch(0.62 0.14 258);">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; background: oklch(0.16 0.02 265); color: oklch(0.85 0.1 258); border-radius: 3px; padding: 2px 5px;">GT</span>
+            <span>Continue with Gitea SSO</span>
+          </button>
+
+          <div style="display: flex; align-items: center; gap: 12px; margin: 22px 0;">
+            <span style="flex: 1 1 auto; height: 1px; background: oklch(0.28 0.012 265);"></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: oklch(0.52 0.012 265);">or service account</span>
+            <span style="flex: 1 1 auto; height: 1px; background: oklch(0.28 0.012 265);"></span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 13px;">
+            <label style="display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(0.62 0.012 265);">Username</span>
+              <input type="text" value="gateadmin" style="{{ inputStyle }}" style-focus="border-color: oklch(0.55 0.13 258); outline: none;" />
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(0.62 0.012 265);">Personal access token</span>
+              <input type="password" value="ghp_0000000000000000" style="{{ inputStyle }}" style-focus="border-color: oklch(0.55 0.13 258); outline: none;" />
+            </label>
+            <button onClick="{{ signIn }}" style="{{ secondaryBtn }}" style-hover="background: oklch(0.27 0.013 265);">Sign in with token</button>
+          </div>
+
+          <div style="display: flex; align-items: flex-start; gap: 10px; margin-top: 26px; padding: 12px 14px; border: 1px solid oklch(0.28 0.012 265); border-radius: 8px; background: oklch(0.195 0.013 265);">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: oklch(0.72 0.15 152); margin-top: 6px; flex: 0 0 auto; animation: pulse 2.4s ease-in-out infinite;"></span>
+            <p style="margin: 0; font-size: 12px; line-height: 1.55; color: oklch(0.66 0.012 265); text-wrap: pretty;">Gitea and Woodpecker reachable. Trusted-gate runner {{ runnerState }} — approvals fall back to contract-enforced mode.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isApp }}">
+    <div style="display: flex; flex-direction: column; min-height: 100vh;">
+
+      <header style="display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 0 18px; height: 52px; background: oklch(0.185 0.013 265); border-bottom: 1px solid oklch(0.27 0.012 265); position: sticky; top: 0; z-index: 20;">
+        <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+          <div style="width: 19px; height: 19px; border-radius: 4px; background: {{ accent }}; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 700; color: oklch(0.16 0.02 265);">S</div>
+          <span style="font-size: 13px; font-weight: 600;">SSDLC platform</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: oklch(0.6 0.012 265); border-left: 1px solid oklch(0.3 0.012 265); padding-left: 12px;">automated PRs</span>
+        </div>
+        <div style="flex: 0 1 380px; display: flex; align-items: center; gap: 9px; background: oklch(0.215 0.013 265); border: 1px solid oklch(0.29 0.012 265); border-radius: 7px; padding: 6px 10px;">
+          <span style="font-size: 12.5px; color: oklch(0.55 0.012 265); flex: 1 1 auto;">Search repos, PRs, findings…</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: oklch(0.62 0.012 265); background: oklch(0.26 0.012 265); border-radius: 3px; padding: 2px 5px;">⌘K</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 9px;">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: oklch(0.68 0.012 265); background: oklch(0.225 0.013 265); border: 1px solid oklch(0.29 0.012 265); border-radius: 4px; padding: 3px 8px;">{{ gateModeLabel }}</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: oklch(0.72 0.15 152); animation: pulse 2.4s ease-in-out infinite;"></span>
+            <span style="font-size: 11.5px; color: oklch(0.66 0.012 265);">forge reachable</span>
+          </div>
+          <button onClick="{{ signOut }}" style="width: 25px; height: 25px; border-radius: 50%; background: oklch(0.42 0.09 258); border: none; color: oklch(0.96 0 0); font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 600; cursor: pointer; margin-left: 4px;">GA</button>
+        </div>
+      </header>
+
+      <div style="display: flex; flex: 1 1 auto; min-height: 0;">
+
+        <nav style="width: 212px; flex: 0 0 212px; background: oklch(0.178 0.013 265); border-right: 1px solid oklch(0.26 0.012 265); padding: 14px 10px 16px; display: flex; flex-direction: column; gap: 1px;">
+          <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: oklch(0.53 0.012 265); padding: 6px 10px 7px;">My work</div>
+          <button onClick="{{ goQueue }}" style="{{ navQueueStyle }}"><span>Automated PRs</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.6 0.012 265);">5</span></button>
+          <button onClick="{{ goPolicy }}" style="{{ navPolicyStyle }}"><span>Gate policy</span></button>
+          <button onClick="{{ goExceptions }}" style="{{ navExceptionsStyle }}"><span>Exceptions</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.6 0.012 265);">2</span></button>
+
+          <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: oklch(0.53 0.012 265); padding: 20px 10px 8px;">Repositories</div>
+          <div style="display: flex; flex-direction: column; gap: 7px; padding: 0 10px 4px;">
+            <sc-for list="{{ repos }}" as="r" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: oklch(0.68 0.01 265);">
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ r.name }}</span>
+                <span style="font-weight: 600; color: {{ r.color }};">{{ r.count }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <button onClick="{{ goOnboarding }}" style="{{ navOnboardingStyle }}"><span>+ Onboard a repository</span></button>
+
+          <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: oklch(0.53 0.012 265); padding: 20px 10px 8px;">Platform</div>
+          <button onClick="{{ goPosture }}" style="{{ navPostureStyle }}"><span>Posture</span></button>
+          <button onClick="{{ goAdminHealth }}" style="{{ navAdminHealthStyle }}"><span>Admin health</span></button>
+
+          <div style="margin-top: auto; border-top: 1px solid oklch(0.25 0.012 265); padding: 12px 10px 0; display: flex; flex-direction: column; gap: 7px;">
+            <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: oklch(0.53 0.012 265);">Platform health</div>
+            <div style="display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: oklch(0.6 0.012 265);"><span>bot-approver</span><span style="color: oklch(0.72 0.15 152);">polling</span></div>
+            <div style="display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: oklch(0.6 0.012 265);"><span>reconciliation</span><span style="color: oklch(0.72 0.15 152);">41s ago</span></div>
+            <div style="display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: oklch(0.6 0.012 265);"><span>trusted runner</span><span>{{ runnerState }}</span></div>
+          </div>
+        </nav>
+
+        <main style="flex: 1 1 auto; min-width: 0;">
+
+          <sc-if value="{{ isQueue }}" hint-placeholder-val="{{ true }}">
+            <div style="padding: 26px 30px 52px; max-width: 1240px;">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px;">
+                <div>
+                  <h1 style="font-size: 21px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px;">Automated pull requests</h1>
+                  <p style="font-size: 13px; line-height: 1.55; color: oklch(0.66 0.012 265); margin: 0; max-width: 66ch; text-wrap: pretty;">Raised by the gate when a finding crosses a blocking threshold and a deterministic fix exists. The bot vote is one of two required approvals; the second must be a distinct human who did not author the branch.</p>
+                </div>
+                <div style="display: flex; gap: 8px; flex: 0 0 auto;">
+                  <button style="{{ ghostBtn }}">Filter</button>
+                  <button style="{{ primaryBtn }}">Run reconciliation</button>
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 22px 0;">
+                <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+                  <div style="background: oklch(0.205 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; padding: 13px 15px;">
+                    <div style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(0.6 0.012 265); margin-bottom: 9px;">{{ s.label }}</div>
+                    <div style="{{ s.valueStyle }}">{{ s.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="background: oklch(0.198 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow-x: auto;">
+                <div style="min-width: 1040px; display: grid; grid-template-columns: 1fr 140px 200px 108px; gap: 16px; padding: 9px 18px; background: oklch(0.215 0.013 265); border-bottom: 1px solid oklch(0.27 0.012 265); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: oklch(0.6 0.012 265);">
+                  <div>Pull request</div><div>Trigger</div><div>Gate state</div><div style="text-align: right;">Opened</div>
+                </div>
+                <sc-for list="{{ prs }}" as="p" hint-placeholder-count="5">
+                  <div onClick="{{ p.open }}" style="min-width: 1040px; display: grid; grid-template-columns: 1fr 140px 200px 108px; gap: 16px; padding: 13px 18px; border-bottom: 1px solid oklch(0.24 0.012 265); align-items: center; cursor: pointer;" style-hover="background: oklch(0.225 0.014 262);">
+                    <div style="min-width: 0;">
+                      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
+                        <span style="font-size: 13.5px; font-weight: 600; letter-spacing: -0.008em; overflow-wrap: anywhere;">{{ p.title }}</span>
+                        <span style="{{ p.sevStyle }}">{{ p.severity }}</span>
+                      </div>
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: oklch(0.6 0.012 265); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ p.meta }}</div>
+                    </div>
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: oklch(0.7 0.01 265);">{{ p.trigger }}</div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="{{ p.dotStyle }}"></span>
+                      <span style="font-size: 12px; color: oklch(0.82 0.008 265);">{{ p.state }}</span>
+                    </div>
+                    <div style="font-size: 12px; color: oklch(0.6 0.012 265); text-align: right;">{{ p.age }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display: flex; align-items: flex-start; gap: 11px; margin-top: 18px; padding: 12px 15px; border: 1px dashed oklch(0.3 0.012 265); border-radius: 9px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: oklch(0.6 0.012 265); flex: 0 0 auto;">i</span>
+                <p style="margin: 0; font-size: 12.5px; line-height: 1.55; color: oklch(0.64 0.012 265); text-wrap: pretty;">This portal owns no state. Every row is a real Gitea pull request and a real Woodpecker pipeline result — the merge decision is made by the gate, not here.</p>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isPR }}">
+            <div style="padding: 22px 30px 56px; max-width: 1240px;">
+              <button onClick="{{ goQueue }}" style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: oklch(0.74 0.12 258); background: none; border: none; padding: 0; cursor: pointer; margin-bottom: 14px;">← automated PRs</button>
+
+              <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 18px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+                  <h1 style="font-size: 23px; font-weight: 600; letter-spacing: -0.025em; margin: 0;">Bump pyyaml 5.3.1 → 5.4</h1>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 19px; color: oklch(0.58 0.012 265);">payments-api #418</span>
+                </div>
+                <button style="{{ ghostBtn }}">Export report</button>
+              </div>
+              <div style="display: flex; align-items: center; gap: 9px; margin: 11px 0 20px; flex-wrap: wrap;">
+                <span style="font-size: 11.5px; font-weight: 600; color: oklch(0.15 0.03 152); background: oklch(0.72 0.15 152); border-radius: 999px; padding: 4px 11px;">Open</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: oklch(0.66 0.012 265);">{{ botLogin }} wants to merge 1 commit into <b style="color: oklch(0.88 0.008 265);">main</b> from <b style="color: oklch(0.88 0.008 265);">gate/sca/pyyaml-5.4</b></span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.68 0.012 265); background: oklch(0.22 0.013 265); border: 1px solid oklch(0.29 0.012 265); border-radius: 4px; padding: 2px 7px;">head 4f2462f</span>
+              </div>
+
+              <div style="display: flex; gap: 2px; border-bottom: 1px solid oklch(0.27 0.012 265); margin-bottom: 22px;">
+                <button onClick="{{ tabConv }}" style="{{ tabConvStyle }}">Conversation</button>
+                <button onClick="{{ tabFiles }}" style="{{ tabFilesStyle }}">Files changed</button>
+                <button onClick="{{ tabChecks }}" style="{{ tabChecksStyle }}">Checks</button>
+              </div>
+
+              <div style="display: grid; grid-template-columns: minmax(0, 1fr) 296px; gap: 26px; align-items: start;">
+                <div style="min-width: 0;">
+
+                  <sc-if value="{{ isConv }}" hint-placeholder-val="{{ true }}">
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                      <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow: hidden; background: oklch(0.198 0.013 265);">
+                        <div style="display: flex; align-items: center; gap: 9px; padding: 10px 16px; background: oklch(0.225 0.016 262); border-bottom: 1px solid oklch(0.27 0.012 265); flex-wrap: wrap;">
+                          <div style="{{ botAvatar }}">GB</div>
+                          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 500;">{{ botLogin }}</span>
+                          <span style="font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: oklch(0.75 0.01 265); background: oklch(0.29 0.012 265); border-radius: 3px; padding: 2px 6px;">bot</span>
+                          <span style="font-size: 12px; color: oklch(0.62 0.012 265);">opened this pull request · 18 minutes ago</span>
+                        </div>
+                        <div style="padding: 17px 20px 20px;">
+                          <p style="margin: 0 0 15px; font-size: 13.5px; line-height: 1.62; color: oklch(0.86 0.008 265); text-wrap: pretty;">The fast gate blocked <b>#414</b> on a new Critical dependency finding. <code style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; background: oklch(0.245 0.013 265); border-radius: 3px; padding: 1px 5px;">pyyaml 5.3.1</code> is affected by <b>CVE-2020-14343</b> — arbitrary code execution via <code style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; background: oklch(0.245 0.013 265); border-radius: 3px; padding: 1px 5px;">full_load</code> on untrusted YAML, an incomplete fix for CVE-2020-1747. The advisory names <b>5.4</b> as the first fixed version, so this branch moves the pin and nothing else.</p>
+
+                          <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 7px; overflow: hidden; margin-bottom: 17px;">
+                            <sc-for list="{{ findingFacts }}" as="f" hint-placeholder-count="5">
+                              <div style="display: grid; grid-template-columns: 168px 1fr; border-bottom: 1px solid oklch(0.24 0.012 265);">
+                                <div style="padding: 8px 14px; font-size: 12px; color: oklch(0.62 0.012 265); background: oklch(0.213 0.013 265);">{{ f.k }}</div>
+                                <div style="padding: 8px 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; overflow: hidden; text-overflow: ellipsis;">{{ f.v }}</div>
+                              </div>
+                            </sc-for>
+                          </div>
+
+                          <div style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(0.6 0.012 265); margin-bottom: 9px;">Why this is safe to take</div>
+                          <ul style="margin: 0 0 17px; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.55; color: oklch(0.82 0.008 265);">
+                            <li>Patch release — no public API removals between 5.3.1 and 5.4.</li>
+                            <li>Branch test suite green: 214 passed, 0 failed, 3 skipped.</li>
+                            <li>No other pinned dependency resolves against <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;">pyyaml &lt; 5.4</span>.</li>
+                            <li>Re-scan at head clears the finding and introduces no new Critical or High.</li>
+                          </ul>
+
+                          <div style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(0.6 0.012 265); margin-bottom: 9px;">policy-eval trace at head</div>
+                          <pre style="margin: 0 0 17px; padding: 13px 15px; background: oklch(0.145 0.012 265); border: 1px solid oklch(0.25 0.012 265); color: oklch(0.8 0.01 265); border-radius: 7px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.75; overflow-x: auto;">{{ traceText }}</pre>
+
+                          <div style="display: flex; align-items: flex-start; gap: 10px; background: oklch(0.24 0.045 78); border: 1px solid oklch(0.36 0.07 78); border-radius: 7px; padding: 11px 14px;">
+                            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; color: oklch(0.82 0.13 78); flex: 0 0 auto;">!</span>
+                            <p style="margin: 0; font-size: 12.5px; line-height: 1.55; color: oklch(0.86 0.05 82); text-wrap: pretty;">The gate raised this branch; the gate does not merge it. A distinct non-author human approval on the current head is still required, and any new commit dismisses both votes.</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style="display: flex; gap: 11px; align-items: flex-start;">
+                        <div style="width: 26px; height: 26px; border-radius: 50%; background: oklch(0.72 0.15 152); color: oklch(0.15 0.03 152); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 auto;">✓</div>
+                        <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; background: oklch(0.198 0.013 265); padding: 12px 15px; flex: 1 1 auto;">
+                          <div style="font-size: 13px; color: oklch(0.86 0.008 265);"><b style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;">{{ botLogin }}</b> approved these changes <span style="color: oklch(0.62 0.012 265);">· 11 minutes ago · commit 4f2462f</span></div>
+                          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: oklch(0.68 0.012 265); margin-top: 6px;">Automated: fast-gate scanning steps passed for this commit.</div>
+                        </div>
+                      </div>
+
+                      <div style="display: flex; gap: 11px; align-items: flex-start;">
+                        <div style="width: 26px; height: 26px; border-radius: 50%; background: oklch(0.28 0.012 265); color: oklch(0.78 0.01 265); display: flex; align-items: center; justify-content: center; font-size: 12px; flex: 0 0 auto;">↺</div>
+                        <div style="flex: 1 1 auto; padding-top: 4px; font-size: 12.5px; color: oklch(0.64 0.012 265);">Reconciliation loop nudged head <span style="font-family: 'IBM Plex Mono', monospace;">4f2462f</span> through the real webhook path after a missed delivery — nudge 1 of max 3.</div>
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ isFiles }}">
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: oklch(0.64 0.012 265);">2 files changed · <span style="color: oklch(0.75 0.15 152);">+2</span> <span style="color: oklch(0.7 0.16 22);">−2</span></div>
+
+                      <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow: hidden; background: oklch(0.198 0.013 265);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; background: oklch(0.218 0.013 265); border-bottom: 1px solid oklch(0.27 0.012 265);">
+                          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 500;">requirements.txt</span>
+                          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: oklch(0.64 0.012 265);">+1 −1</span>
+                        </div>
+                        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.9;">
+                          <div style="display: grid; grid-template-columns: 46px 46px 1fr; background: oklch(0.225 0.02 258); color: oklch(0.68 0.04 258); border-bottom: 1px solid oklch(0.25 0.012 265);"><span></span><span></span><span style="padding-left: 12px;">@@ -1,4 +1,4 @@</span></div>
+                          <div style="display: grid; grid-template-columns: 46px 46px 1fr; background: oklch(0.27 0.06 22);"><span style="text-align: right; padding-right: 10px; color: oklch(0.68 0.08 22);">1</span><span></span><span style="padding-left: 12px; color: oklch(0.88 0.06 22);">- pyyaml==5.3.1</span></div>
+                          <div style="display: grid; grid-template-columns: 46px 46px 1fr; background: oklch(0.27 0.06 152);"><span></span><span style="text-align: right; padding-right: 10px; color: oklch(0.7 0.08 152);">1</span><span style="padding-left: 12px; color: oklch(0.88 0.07 152);">+ pyyaml==5.4</span></div>
+                          <div style="display: grid; grid-template-columns: 46px 46px 1fr; color: oklch(0.76 0.008 265);"><span style="text-align: right; padding-right: 10px; color: oklch(0.5 0.012 265);">2</span><span style="text-align: right; padding-right: 10px; color: oklch(0.5 0.012 265);">2</span><span style="padding-left: 12px;">&nbsp; requests==2.32.3</span></div>
+                          <div style="display: grid; grid-template-columns: 46px 46px 1fr; color: oklch(0.76 0.008 265);"><span style="text-align: right; padding-right: 10px; color: oklch(0.5 0.012 265);">3</span><span style="text-align: right; padding-right: 10px; color: oklch(0.5 0.012 265);">3</span><span style="padding-left: 12px;">&nbsp; flask==3.0.3</span></div>
+                        </div>
+                      </div>
+
+                      <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow: hidden; background: oklch(0.198 0.013 265);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 9px 14px; background: oklch(0.218 0.013 265); border-bottom: 1px solid oklch(0.27 0.012 265);">
+                          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 500;">poetry.lock</span>
+                          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: oklch(0.64 0.012 265);">+1 −1</span>
+                        </div>
+                        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.9;">
+                          <div style="display: grid; grid-template-columns: 46px 46px 1fr; background: oklch(0.225 0.02 258); color: oklch(0.68 0.04 258); border-bottom: 1px solid oklch(0.25 0.012 265);"><span></span><span></span><span style="padding-left: 12px;">@@ -812,7 +812,7 @@ name = "pyyaml"</span></div>
+                          <div style="display: grid; grid-template-columns: 46px 46px 1fr; background: oklch(0.27 0.06 22);"><span style="text-align: right; padding-right: 10px; color: oklch(0.68 0.08 22);">812</span><span></span><span style="padding-left: 12px; color: oklch(0.88 0.06 22);">- version = "5.3.1"</span></div>
+                          <div style="display: grid; grid-template-columns: 46px 46px 1fr; background: oklch(0.27 0.06 152);"><span></span><span style="text-align: right; padding-right: 10px; color: oklch(0.7 0.08 152);">812</span><span style="padding-left: 12px; color: oklch(0.88 0.07 152);">+ version = "5.4"</span></div>
+                        </div>
+                      </div>
+
+                      <div style="border: 1px dashed oklch(0.3 0.012 265); border-radius: 9px; padding: 12px 15px; font-size: 12.5px; line-height: 1.6; color: oklch(0.64 0.012 265);">
+                        Gate-managed paths — <span style="font-family: 'IBM Plex Mono', monospace;">policy/</span>, <span style="font-family: 'IBM Plex Mono', monospace;">normalise/</span>, <span style="font-family: 'IBM Plex Mono', monospace;">gate-contract/</span>, <span style="font-family: 'IBM Plex Mono', monospace;">.ssdlc/baseline.json</span> — are byte-identical to <span style="font-family: 'IBM Plex Mono', monospace;">main</span>. A PR that touches them, including one the gate raised itself, loses the bot vote.
+                      </div>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ isChecks }}">
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                      <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; background: oklch(0.198 0.013 265); overflow-x: auto;">
+                        <div style="min-width: 560px; display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid oklch(0.27 0.012 265); background: oklch(0.235 0.045 152);">
+                          <span style="width: 20px; height: 20px; border-radius: 50%; background: oklch(0.72 0.15 152); color: oklch(0.15 0.03 152); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 auto;">✓</span>
+                          <div style="flex: 1 1 auto;">
+                            <div style="font-size: 13.5px; font-weight: 600;">Required check passed — no new Critical or High findings</div>
+                            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: oklch(0.8 0.06 152); margin-top: 3px;">ssdlc/security-gate/pr/policy-eval-findings · pipeline #1187 · 2m 41s</div>
+                          </div>
+                          <button style="{{ ghostBtn }}">Re-run</button>
+                        </div>
+                        <sc-for list="{{ checks }}" as="c" hint-placeholder-count="6">
+                          <div style="min-width: 560px; display: grid; grid-template-columns: 12px 1fr 118px 62px; gap: 13px; align-items: center; padding: 11px 18px; border-bottom: 1px solid oklch(0.24 0.012 265);">
+                            <span style="{{ c.dotStyle }}"></span>
+                            <div style="min-width: 0;">
+                              <div style="font-size: 13px; font-weight: 500;">{{ c.name }}</div>
+                              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: oklch(0.62 0.012 265); margin-top: 2px;">{{ c.detail }}</div>
+                            </div>
+                            <span style="{{ c.stateStyle }}">{{ c.state }}</span>
+                            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: oklch(0.58 0.012 265); text-align: right;">{{ c.time }}</span>
+                          </div>
+                        </sc-for>
+                      </div>
+
+                      <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow: hidden; background: oklch(0.198 0.013 265);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid oklch(0.27 0.012 265);">
+                          <span style="font-size: 12.5px; font-weight: 600;">policy-eval output</span>
+                          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.62 0.012 265);">exit 0</span>
+                        </div>
+                        <pre style="margin: 0; padding: 14px 16px; background: oklch(0.145 0.012 265); color: oklch(0.8 0.01 265); font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.75; overflow-x: auto;">{{ traceText }}</pre>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+
+                <aside style="display: flex; flex-direction: column; gap: 14px; position: sticky; top: 68px;">
+                  <div style="{{ mergeBoxStyle }}">
+                    <div style="font-size: 13px; font-weight: 600; margin-bottom: 6px;">{{ mergeTitle }}</div>
+                    <p style="margin: 0 0 12px; font-size: 12px; line-height: 1.55; color: oklch(0.66 0.012 265); text-wrap: pretty;">{{ mergeNote }}</p>
+                    <div style="display: flex; flex-direction: column; gap: 7px;">
+                      <button onClick="{{ approve }}" style="{{ mergeBtnStyle }}">{{ mergeBtnLabel }}</button>
+                      <div style="display: flex; gap: 7px;">
+                        <button style="{{ ghostBtnWide }}">Request changes</button>
+                        <button style="{{ ghostBtnWide }}">Exception</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; background: oklch(0.198 0.013 265); padding: 14px 15px;">
+                    <div style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(0.6 0.012 265); margin-bottom: 11px;">Approvals · {{ approvalCount }} of 2</div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                      <div style="display: flex; align-items: center; gap: 9px;">
+                        <div style="{{ botAvatarSm }}">GB</div>
+                        <div style="flex: 1 1 auto; min-width: 0;">
+                          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">{{ botLogin }}</div>
+                          <div style="font-size: 11px; color: oklch(0.62 0.012 265);">bot vote · current head</div>
+                        </div>
+                        <span style="color: oklch(0.75 0.15 152); font-size: 13px; font-weight: 700;">✓</span>
+                      </div>
+                      <div style="display: flex; align-items: center; gap: 9px;">
+                        <div style="{{ humanAvatar }}">{{ humanInitials }}</div>
+                        <div style="flex: 1 1 auto; min-width: 0;">
+                          <div style="font-size: 12px;">{{ humanName }}</div>
+                          <div style="font-size: 11px; color: oklch(0.62 0.012 265);">{{ humanNote }}</div>
+                        </div>
+                        <span style="{{ humanMarkStyle }}">{{ humanMark }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; background: oklch(0.198 0.013 265); padding: 14px 15px;">
+                    <div style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(0.6 0.012 265); margin-bottom: 11px;">Gate contract</div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                      <sc-for list="{{ contractRows }}" as="c" hint-placeholder-count="4">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: oklch(0.7 0.01 265); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ c.k }}</span>
+                          <span style="{{ c.valStyle }}">{{ c.v }}</span>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="border-top: 1px solid oklch(0.25 0.012 265); margin-top: 12px; padding-top: 10px; font-size: 11.5px; line-height: 1.5; color: oklch(0.62 0.012 265); text-wrap: pretty;">{{ contractNote }}</div>
+                  </div>
+
+                  <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; background: oklch(0.198 0.013 265); padding: 14px 15px;">
+                    <div style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(0.6 0.012 265); margin-bottom: 10px;">Labels</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.82 0.09 258); background: oklch(0.27 0.05 258); border-radius: 999px; padding: 3px 9px;">automated</span>
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.82 0.09 258); background: oklch(0.27 0.05 258); border-radius: 999px; padding: 3px 9px;">security</span>
+                      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.82 0.09 258); background: oklch(0.27 0.05 258); border-radius: 999px; padding: 3px 9px;">dependencies</span>
+                    </div>
+                  </div>
+
+                  <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; background: oklch(0.198 0.013 265); padding: 14px 15px;">
+                    <div style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(0.6 0.012 265); margin-bottom: 10px;">Open elsewhere</div>
+                    <div style="display: flex; flex-direction: column; gap: 7px; font-size: 12.5px;">
+                      <a href="#gitea">Gitea pull request</a>
+                      <a href="#woodpecker">Woodpecker pipeline #1187</a>
+                      <a href="#advisory">GHSA-8q59-q68h-6hv4</a>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isPolicy }}">
+            <div style="padding: 26px 30px 56px; max-width: 900px;">
+              <h1 style="font-size: 21px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px;">Gate policy</h1>
+              <p style="font-size: 13px; line-height: 1.55; color: oklch(0.66 0.012 265); margin: 0 0 22px; max-width: 66ch; text-wrap: pretty;">Which findings raise an automated PR, and which block a merge outright. Changing anything here changes the contract digest — every watched repo re-evaluates on its next pipeline, and the bot stops voting until operators set the new expected digest.</p>
+
+              <div style="background: oklch(0.198 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow: hidden; margin-bottom: 18px;">
+                <div style="padding: 13px 18px; border-bottom: 1px solid oklch(0.27 0.012 265); font-size: 13px; font-weight: 600;">Severity thresholds</div>
+                <sc-for list="{{ thresholds }}" as="t" hint-placeholder-count="4">
+                  <div style="display: grid; grid-template-columns: 110px 1fr 200px; gap: 16px; align-items: center; padding: 12px 18px; border-bottom: 1px solid oklch(0.24 0.012 265);">
+                    <span style="{{ t.sevStyle }}">{{ t.sev }}</span>
+                    <span style="font-size: 12.5px; color: oklch(0.8 0.008 265);">{{ t.desc }}</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: oklch(0.72 0.01 265); text-align: right;">{{ t.action }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="background: oklch(0.198 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow: hidden; margin-bottom: 18px;">
+                <div style="padding: 13px 18px; border-bottom: 1px solid oklch(0.27 0.012 265); font-size: 13px; font-weight: 600;">When the gate raises a PR</div>
+                <sc-for list="{{ rules }}" as="r" hint-placeholder-count="4">
+                  <div onClick="{{ r.toggle }}" style="display: flex; align-items: flex-start; gap: 13px; padding: 13px 18px; border-bottom: 1px solid oklch(0.24 0.012 265); cursor: pointer;" style-hover="background: oklch(0.222 0.014 262);">
+                    <span style="{{ r.trackStyle }}"><span style="{{ r.knobStyle }}"></span></span>
+                    <div style="flex: 1 1 auto; min-width: 0;">
+                      <div style="font-size: 13px; font-weight: 500;">{{ r.name }}</div>
+                      <div style="font-size: 12px; line-height: 1.5; color: oklch(0.64 0.012 265); margin-top: 3px; text-wrap: pretty;">{{ r.desc }}</div>
+                    </div>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: oklch(0.6 0.012 265); flex: 0 0 auto;">{{ r.tool }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="background: oklch(0.198 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; padding: 16px 18px;">
+                <div style="font-size: 13px; font-weight: 600; margin-bottom: 10px;">Contract digest</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: oklch(0.74 0.01 265); background: oklch(0.155 0.012 265); border: 1px solid oklch(0.26 0.012 265); border-radius: 7px; padding: 10px 12px; overflow-x: auto; white-space: nowrap;">sha256:9e7aa3dd8ac3f0b41c2e5d77a1938bb2c40e6f18d5a9c7e3b0146f2ad9c8551e</div>
+                <p style="margin: 11px 0 0; font-size: 12px; line-height: 1.55; color: oklch(0.64 0.012 265); text-wrap: pretty;">Required scanners: secrets, sast, dependencies. A missing or malformed report fails closed — no verdict is not a pass.</p>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isExceptions }}">
+            <div style="padding: 26px 30px 56px; max-width: 1000px;">
+              <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 18px;">
+                <div>
+                  <h1 style="font-size: 21px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px;">Exceptions</h1>
+                  <p style="font-size: 13px; line-height: 1.55; color: oklch(0.66 0.012 265); margin: 0; max-width: 66ch; text-wrap: pretty;">Two-party risk acceptance for a genuinely new finding &mdash; accepted debt only, never a secret. Neither approver can be the requester, and both must be distinct people even if one holds both roles.</p>
+                </div>
+                <button style="{{ primaryBtn }}">Request exception</button>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-bottom: 18px;">
+                <span style="{{ excTabActive }}">Needs my vote &middot; 2</span>
+                <span style="{{ excTabIdle }}">All pending &middot; 4</span>
+                <span style="{{ excTabIdle }}">Active &middot; 6</span>
+                <span style="{{ excTabIdle }}">Expired &middot; 11</span>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 14px;">
+                <sc-for list="{{ exceptions }}" as="e" hint-placeholder-count="2">
+                  <div style="border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow: hidden; background: oklch(0.198 0.013 265);">
+                    <div style="padding: 15px 18px 13px; border-bottom: 1px solid oklch(0.24 0.012 265); display: flex; align-items: flex-start; justify-content: space-between; gap: 18px;">
+                      <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                          <span style="{{ e.sevStyle }}">{{ e.sev }}</span>
+                          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 600;">{{ e.rule }}</span>
+                          <span style="font-size: 12px; color: oklch(0.58 0.012 265);">{{ e.location }}</span>
+                        </div>
+                        <p style="margin: 0; font-size: 13px; line-height: 1.55; color: oklch(0.82 0.008 265); max-width: 640px;">{{ e.justification }}</p>
+                        <div style="display: flex; align-items: center; gap: 12px; font-size: 11.5px; color: oklch(0.58 0.012 265);">
+                          <span>requested by <b style="color: oklch(0.8 0.008 265); font-weight: 600;">{{ e.requester }}</b></span>
+                          <span>&middot;</span>
+                          <span>expiry {{ e.expiry }}</span>
+                          <span>&middot;</span>
+                          <span>ticket {{ e.ticket }}</span>
+                        </div>
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex: 0 0 auto;">
+                        <span style="{{ e.officerStyle }}">Security Officer {{ e.officerState }}</span>
+                        <span style="{{ e.leadStyle }}">Eng Lead {{ e.leadState }}</span>
+                      </div>
+                    </div>
+                    <div style="padding: 11px 18px; display: flex; align-items: center; gap: 10px; background: oklch(0.185 0.013 265);">
+                      <span style="font-size: 12px; color: oklch(0.6 0.012 265); flex: 1;">{{ e.voteNote }}</span>
+                      <button style="{{ ghostBtn }}">View finding</button>
+                      <button style="{{ declineBtn }}">Decline</button>
+                      <button style="{{ approveExcBtn }}">Approve &middot; {{ e.expiryDays }}</button>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="display: flex; align-items: flex-start; gap: 11px; margin-top: 18px; padding: 12px 15px; border: 1px dashed oklch(0.3 0.012 265); border-radius: 9px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: oklch(0.6 0.012 265); flex: 0 0 auto;">i</span>
+                <p style="margin: 0; font-size: 12.5px; line-height: 1.55; color: oklch(0.64 0.012 265); text-wrap: pretty;">Every approval here is checked against Gitea team membership server-side. Expiry is enforced automatically &mdash; an expired record simply stops matching on the next evaluation, and the gate blocks again with no separate job required.</p>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isOnboarding }}">
+            <div style="padding: 26px 30px 56px; max-width: 1080px;">
+              <h1 style="font-size: 21px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px;">Onboard a repository</h1>
+              <p style="font-size: 13px; line-height: 1.55; color: oklch(0.66 0.012 265); margin: 0 0 22px; max-width: 66ch; text-wrap: pretty;">Platform-admin action &mdash; scripts/onboard-repo.sh. Runs once per repository; re-running it is safe and refreshes the baseline rather than starting over.</p>
+
+              <div style="display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start;">
+                <div style="background: oklch(0.198 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; padding: 18px; display: flex; flex-direction: column;">
+                  <div style="font-size: 12.5px; font-weight: 600; margin-bottom: 2px;">internal-booking-platform</div>
+                  <div style="font-size: 11.5px; color: oklch(0.58 0.012 265); margin-bottom: 18px;">owner/repo confirmed via Gitea API &middot; id 118</div>
+                  <sc-for list="{{ onboardingSteps }}" as="st" hint-placeholder-count="6">
+                    <div style="display: flex; gap: 12px;">
+                      <div style="display: flex; flex-direction: column; align-items: center;">
+                        <div style="{{ st.dotStyle }}">{{ st.dotLabel }}</div>
+                        <span style="{{ st.lineStyle }}"></span>
+                      </div>
+                      <div style="padding-bottom: 20px; flex: 1;">
+                        <div style="{{ st.titleStyle }}">{{ st.title }}</div>
+                        <p style="margin: 4px 0 0; font-size: 11.5px; line-height: 1.5; color: oklch(0.55 0.012 265);">{{ st.desc }}</p>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                  <div style="background: oklch(0.198 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow: hidden;">
+                    <div style="padding: 12px 16px; border-bottom: 1px solid oklch(0.24 0.012 265); display: flex; align-items: center; gap: 9px;">
+                      <span style="{{ onboardSpinnerStyle }}"></span>
+                      <span style="font-size: 13.5px; font-weight: 600;">Step 3 of 6 &mdash; generating the differential-gating baseline</span>
+                    </div>
+                    <pre style="margin: 0; padding: 14px 16px; background: oklch(0.145 0.012 265); color: oklch(0.8 0.01 265); font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; line-height: 1.8; overflow-x: auto;">{{ onboardTrace }}</pre>
+                  </div>
+
+                  <div style="background: oklch(0.198 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="font-size: 13.5px; font-weight: 600;">What this baseline means</div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
+                      <div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 700;">9</div><div style="font-size: 11.5px; color: oklch(0.6 0.012 265); margin-top: 2px;">pre-existing findings become tracked debt, not PR blockers</div></div>
+                      <div><div style="{{ onboardZeroStyle }}">0</div><div style="font-size: 11.5px; color: oklch(0.6 0.012 265); margin-top: 2px;">secrets baselined &mdash; never accepted, per D7</div></div>
+                      <div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 700;">shrink-only</div><div style="font-size: 11.5px; color: oklch(0.6 0.012 265); margin-top: 2px;">a refresh can only remove entries, never add new ones</div></div>
+                    </div>
+                  </div>
+
+                  <div style="border: 1px solid oklch(0.36 0.07 78); background: oklch(0.24 0.045 78); border-radius: 9px; padding: 14px 16px; display: flex; gap: 12px;">
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; color: oklch(0.82 0.13 78); flex: 0 0 auto;">!</span>
+                    <p style="margin: 0; font-size: 12.5px; line-height: 1.55; color: oklch(0.86 0.05 82);">Before step 6 enables branch protection: <b>bot-approver.py</b> must already be running against this repo. required_approvals: 2 with nothing casting the bot's half makes every PR permanently unmergeable, not safer.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isPosture }}">
+            <div style="padding: 26px 30px 56px; max-width: 1240px;">
+              <h1 style="font-size: 21px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px;">Posture</h1>
+              <p style="font-size: 13px; line-height: 1.55; color: oklch(0.66 0.012 265); margin: 0 0 22px; max-width: 66ch; text-wrap: pretty;">Security posture across every onboarded repository — aggregated from real gate decisions, not a separate scoring system.</p>
+
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 22px;">
+                <sc-for list="{{ postureStats }}" as="s" hint-placeholder-count="4">
+                  <div style="background: oklch(0.205 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; padding: 13px 15px;">
+                    <div style="font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: oklch(0.6 0.012 265); margin-bottom: 9px;">{{ s.label }}</div>
+                    <div style="{{ s.valueStyle }}">{{ s.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="background: oklch(0.198 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow: hidden; margin-bottom: 18px;">
+                <div style="padding: 13px 18px; border-bottom: 1px solid oklch(0.27 0.012 265); font-size: 13px; font-weight: 600;">Repositories</div>
+                <div style="display: grid; grid-template-columns: 1fr 90px 90px 90px 130px; gap: 14px; padding: 9px 18px; background: oklch(0.215 0.013 265); border-bottom: 1px solid oklch(0.27 0.012 265); font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: oklch(0.6 0.012 265);">
+                  <div>Repository</div><div>Critical</div><div>High</div><div>Baselined</div><div>Last scan</div>
+                </div>
+                <sc-for list="{{ postureRepos }}" as="r" hint-placeholder-count="4">
+                  <div style="display: grid; grid-template-columns: 1fr 90px 90px 90px 130px; gap: 14px; align-items: center; padding: 12px 18px; border-bottom: 1px solid oklch(0.24 0.012 265);">
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;">{{ r.name }}</span>
+                    <span style="{{ r.critStyle }}">{{ r.crit }}</span>
+                    <span style="{{ r.highStyle }}">{{ r.high }}</span>
+                    <span style="font-size: 12.5px; color: oklch(0.68 0.012 265);">{{ r.baselined }}</span>
+                    <span style="font-size: 12px; color: oklch(0.58 0.012 265);">{{ r.lastScan }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="border: 1px dashed oklch(0.3 0.012 265); border-radius: 9px; padding: 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: oklch(0.55 0.012 265); text-transform: uppercase;">Embedded Grafana</span>
+                <p style="margin: 0; font-size: 12.5px; line-height: 1.6; color: oklch(0.58 0.012 265); max-width: 46ch;">Prometheus/Grafana are not deployed in this profile yet (docs/what_next.md item 7). This panel is where trend dashboards — gate latency, exception age, remediation time — would embed once they exist.</p>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isAdminHealth }}">
+            <div style="padding: 26px 30px 56px; max-width: 1000px;">
+              <h1 style="font-size: 21px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 6px;">Admin health</h1>
+              <p style="font-size: 13px; line-height: 1.55; color: oklch(0.66 0.012 265); margin: 0 0 22px; max-width: 66ch; text-wrap: pretty;">Standing services, preflight checks, and pinned versions — the same facts scripts/doctor.sh checks read-only, surfaced here.</p>
+
+              <div style="background: oklch(0.198 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow: hidden; margin-bottom: 18px;">
+                <div style="padding: 13px 18px; border-bottom: 1px solid oklch(0.27 0.012 265); font-size: 13px; font-weight: 600;">Standing services</div>
+                <sc-for list="{{ healthServices }}" as="h" hint-placeholder-count="6">
+                  <div style="display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid oklch(0.24 0.012 265);">
+                    <span style="{{ h.dotStyle }}"></span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; flex: 1;">{{ h.name }}</span>
+                    <span style="font-size: 12px; color: oklch(0.62 0.012 265);">{{ h.detail }}</span>
+                    <span style="{{ h.stateStyle }}">{{ h.state }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="background: oklch(0.198 0.013 265); border: 1px solid oklch(0.27 0.012 265); border-radius: 9px; overflow: hidden; margin-bottom: 18px;">
+                <div style="padding: 13px 18px; border-bottom: 1px solid oklch(0.27 0.012 265); font-size: 13px; font-weight: 600;">Pinned versions</div>
+                <sc-for list="{{ pinnedVersions }}" as="v" hint-placeholder-count="5">
+                  <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; border-bottom: 1px solid oklch(0.24 0.012 265);">
+                    <span style="font-size: 12.5px; color: oklch(0.78 0.008 265);">{{ v.name }}</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: oklch(0.68 0.012 265);">{{ v.pinned }}</span>
+                  </div>
+                </sc-for>
+              </div>
+
+              <div style="border: 1px dashed oklch(0.3 0.012 265); border-radius: 9px; padding: 14px 16px; font-size: 12.5px; line-height: 1.6; color: oklch(0.6 0.012 265);">
+                Known gaps, stated plainly rather than hidden: no monitoring stack, no automated backup/restore, evidence storage not built. See docs/what_next.md for the current priority order.
+              </div>
+            </div>
+          </sc-if>
+
+        </main>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1440, &quot;height&quot;: 940}, &quot;botLogin&quot;: {&quot;editor&quot;: &quot;text&quot;, &quot;default&quot;: &quot;gate-bot&quot;, &quot;tsType&quot;: &quot;string&quot;}, &quot;contractRelease&quot;: {&quot;editor&quot;: &quot;text&quot;, &quot;default&quot;: &quot;pilot-2026-08-26&quot;, &quot;tsType&quot;: &quot;string&quot;}, &quot;gateMode&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;transitional&quot;, &quot;attestation&quot;], &quot;default&quot;: &quot;transitional&quot;, &quot;tsType&quot;: &quot;'transitional' | 'attestation'&quot;}, &quot;accentColor&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;oklch(0.68 0.14 258)&quot;, &quot;options&quot;: [&quot;oklch(0.68 0.14 258)&quot;, &quot;oklch(0.72 0.13 195)&quot;, &quot;oklch(0.7 0.13 300)&quot;], &quot;tsType&quot;: &quot;string&quot;}}">
+const SEV = {
+  CRITICAL: ['oklch(0.95 0.04 22)', 'oklch(0.42 0.14 22)'],
+  HIGH: ['oklch(0.92 0.08 78)', 'oklch(0.42 0.09 68)'],
+  MEDIUM: ['oklch(0.82 0.008 265)', 'oklch(0.3 0.012 265)'],
+  LOW: ['oklch(0.72 0.008 265)', 'oklch(0.27 0.012 265)'],
+};
+const sevStyle = (s) => `font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.05em; color: ${SEV[s][0]}; background: ${SEV[s][1]}; border-radius: 3px; padding: 2px 6px; justify-self: start;`;
+const dot = (c) => `width: 8px; height: 8px; border-radius: 50%; background: ${c}; flex: 0 0 auto;`;
+const SPINNER = "width: 8px; height: 8px; border-radius: 50%; border: 2px solid oklch(0.7 0.13 258); border-top-color: transparent; animation: spin 0.9s linear infinite; flex: 0 0 auto;";
+const mono = (c) => `font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: ${c};`;
+const GREEN = 'oklch(0.72 0.15 152)';
+const RED = 'oklch(0.66 0.17 22)';
+const AMBER = 'oklch(0.78 0.13 78)';
+const GHOST = "font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 500; color: oklch(0.86 0.008 265); background: oklch(0.235 0.013 265); border: 1px solid oklch(0.31 0.012 265); border-radius: 7px; padding: 7px 12px; cursor: pointer;";
+
+const TRACE = `policy-eval: 3 finding(s) normalized -- critical=0 high=0 medium=2 low=1
+policy-eval: 2 finding(s) match the baseline (.ssdlc/baseline.json) -- pre-existing debt, not evaluated for blocking
+  BASELINE  [semgrep/subprocess-shell-true] service.py:118 -- shell=True propagates current shell settings
+  BASELINE  [semgrep/avoid-pickle] cache.py:44 -- pickle can lead to code execution on untrusted input
+  WARN      [trivy/CVE-2024-6221] requirements.txt:? -- medium, logged not blocking
+policy-eval: PASS -- no new Critical/High findings`;
+
+class Component extends DCLogic {
+  state = { screen: 'login', tab: 'conv', approved: false, rules: [true, true, true, false] };
+
+  accent() { return this.props.accentColor ?? 'oklch(0.68 0.14 258)'; }
+
+  nav(active) {
+    return `display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: left; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: ${active ? 600 : 500}; color: ${active ? 'oklch(0.97 0 0)' : 'oklch(0.72 0.01 265)'}; background: ${active ? 'oklch(0.26 0.03 258)' : 'transparent'}; border: none; border-radius: 6px; padding: 7px 10px; cursor: pointer;`;
+  }
+  tab(active) {
+    return `display: flex; align-items: center; gap: 7px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: ${active ? 600 : 500}; color: ${active ? 'oklch(0.96 0 0)' : 'oklch(0.65 0.012 265)'}; background: none; border: none; border-bottom: 2px solid ${active ? this.accent() : 'transparent'}; padding: 9px 14px; margin-bottom: -1px; cursor: pointer;`;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const accent = this.accent();
+    const bot = this.props.botLogin ?? 'gate-bot';
+    const attested = (this.props.gateMode ?? 'transitional') === 'attestation';
+    const set = (k, v) => () => this.setState({ [k]: v });
+    const done = s.approved;
+
+    const mkPR = (title, meta, trigger, severity, state, dotStyle, age, open) =>
+      ({ title, meta, trigger, severity, state, dotStyle, age, open, sevStyle: sevStyle(severity) });
+
+    const check = (name, detail, state, time) => ({
+      name, detail, state, time,
+      dotStyle: state === 'running' ? SPINNER : dot(state === 'success' ? GREEN : 'oklch(0.42 0.012 265)'),
+      stateStyle: mono(state === 'success' ? GREEN : 'oklch(0.62 0.012 265)'),
+    });
+
+    const cval = (ok) => `font-size: 11px; font-weight: 500; color: ${ok ? GREEN : 'oklch(0.66 0.012 265)'}; flex: 0 0 auto;`;
+
+    return {
+      accent,
+      botLogin: bot,
+      contractRelease: this.props.contractRelease ?? 'pilot-2026-08-26',
+      gateModeLabel: attested ? 'attestation required' : 'contract enforced',
+      runnerState: attested ? 'attesting' : 'not deployed',
+      traceText: TRACE,
+
+      isLogin: s.screen === 'login',
+      isApp: s.screen !== 'login',
+      isQueue: s.screen === 'queue',
+      isPR: s.screen === 'pr',
+      isPolicy: s.screen === 'policy',
+      isExceptions: s.screen === 'exceptions',
+      isOnboarding: s.screen === 'onboarding',
+      isPosture: s.screen === 'posture',
+      isAdminHealth: s.screen === 'admin-health',
+      isConv: s.tab === 'conv',
+      isFiles: s.tab === 'files',
+      isChecks: s.tab === 'checks',
+      signIn: set('screen', 'queue'),
+      signOut: set('screen', 'login'),
+      goQueue: set('screen', 'queue'),
+      goPolicy: set('screen', 'policy'),
+      goExceptions: set('screen', 'exceptions'),
+      goOnboarding: set('screen', 'onboarding'),
+      goPosture: set('screen', 'posture'),
+      goAdminHealth: set('screen', 'admin-health'),
+      tabConv: set('tab', 'conv'),
+      tabFiles: set('tab', 'files'),
+      tabChecks: set('tab', 'checks'),
+      navQueueStyle: this.nav(s.screen === 'queue' || s.screen === 'pr'),
+      navPolicyStyle: this.nav(s.screen === 'policy'),
+      navExceptionsStyle: this.nav(s.screen === 'exceptions'),
+      navOnboardingStyle: this.nav(s.screen === 'onboarding'),
+      navPostureStyle: this.nav(s.screen === 'posture'),
+      navAdminHealthStyle: this.nav(s.screen === 'admin-health'),
+      tabConvStyle: this.tab(s.tab === 'conv'),
+      tabFilesStyle: this.tab(s.tab === 'files'),
+      tabChecksStyle: this.tab(s.tab === 'checks'),
+
+      loginFacts: [
+        { n: '01', t: 'The finding, normalised to one severity vocabulary regardless of which scanner produced it.' },
+        { n: '02', t: 'The policy-eval trace at the exact head SHA — not a summary of it.' },
+        { n: '03', t: 'Two distinct approvals: the bot vote, and a human who did not author the branch.' },
+      ],
+      ssoBtn: `display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px; font-weight: 600; color: oklch(0.16 0.02 265); background: ${accent}; border: none; border-radius: 8px; padding: 12px 16px; cursor: pointer;`,
+      secondaryBtn: "font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500; color: oklch(0.9 0.008 265); background: oklch(0.235 0.013 265); border: 1px solid oklch(0.31 0.012 265); border-radius: 8px; padding: 10px 16px; cursor: pointer; margin-top: 4px;",
+      inputStyle: "font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: oklch(0.92 0.005 265); background: oklch(0.205 0.013 265); border: 1px solid oklch(0.3 0.012 265); border-radius: 7px; padding: 10px 12px; width: 100%; box-sizing: border-box;",
+      ghostBtn: GHOST,
+      ghostBtnWide: GHOST + ' flex: 1 1 0;',
+      primaryBtn: `font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; color: oklch(0.16 0.02 265); background: ${accent}; border: 1px solid ${accent}; border-radius: 7px; padding: 7px 12px; cursor: pointer;`,
+      botAvatar: `width: 21px; height: 21px; border-radius: 5px; background: ${accent}; color: oklch(0.16 0.02 265); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 700;`,
+      botAvatarSm: `width: 22px; height: 22px; border-radius: 50%; background: ${accent}; color: oklch(0.16 0.02 265); display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700; flex: 0 0 auto;`,
+
+      repos: [
+        { name: 'payments-api', count: 2, color: RED },
+        { name: 'ledger-worker', count: 1, color: AMBER },
+        { name: 'identity-svc', count: 1, color: AMBER },
+        { name: 'infra-terraform', count: 1, color: 'oklch(0.6 0.012 265)' },
+      ],
+      stats: [
+        { label: 'Open', value: '5', valueStyle: "font-family: 'IBM Plex Mono', monospace; font-size: 25px; font-weight: 600; letter-spacing: -0.03em;" },
+        // Found live: this said 3/2 but only two PRs in the list below are
+        // ever in a "needs human" state (#418, #241) -- approving #418
+        // (done=true) leaves exactly one, not two. Corrected to 2/1.
+        { label: 'Awaiting human', value: done ? '1' : '2', valueStyle: `font-family: 'IBM Plex Mono', monospace; font-size: 25px; font-weight: 600; letter-spacing: -0.03em; color: ${accent};` },
+        { label: 'Gate blocked', value: '1', valueStyle: `font-family: 'IBM Plex Mono', monospace; font-size: 25px; font-weight: 600; letter-spacing: -0.03em; color: ${RED};` },
+        { label: 'Median to merge', value: '4h 12m', valueStyle: "font-family: 'IBM Plex Mono', monospace; font-size: 25px; font-weight: 600; letter-spacing: -0.03em;" },
+      ],
+      // docs/adr/0025-class verification: found live -- only prs[0] carried a
+      // real onClick (open: () => ...), the other four rows passed
+      // open: null despite the row itself having cursor:pointer + a hover
+      // state, so clicking any PR but the first one silently did nothing.
+      // All five now open the same detail view (this mockup's single
+      // worked example, pyyaml/CVE-2020-14343); a real build would resolve
+      // each row's own PR content instead of one shared example.
+      prs: [
+        mkPR('Bump pyyaml 5.3.1 → 5.4 (CVE-2020-14343)', `payments-api #418 · gate/sca/pyyaml-5.4 · ${bot}`, 'trivy · SCA', 'CRITICAL',
+          done ? 'Approved · merging' : 'Bot approved · needs human',
+          dot(done ? GREEN : accent), '18 min ago', () => this.setState({ screen: 'pr', tab: 'conv' })),
+        mkPR('Revoke leaked AWS access key in app.py', `payments-api #417 · gate/secret/aws-access-key-id · ${bot}`, 'gitleaks · secret', 'CRITICAL', 'Blocked · key still live', dot(RED), '1 hour ago', () => this.setState({ screen: 'pr', tab: 'conv' })),
+        mkPR('Replace pickle.loads with json.loads in deserialise()', `ledger-worker #96 · gate/sast/avoid-pickle · ${bot}`, 'semgrep · SAST', 'HIGH', 'Fast gate running', SPINNER, '2 hours ago', () => this.setState({ screen: 'pr', tab: 'conv' })),
+        mkPR('Pin container to an immutable digest', `identity-svc #241 · gate/iac/image-tag-mutable · ${bot}`, 'trivy · IaC', 'HIGH', 'Bot approved · needs human', dot(accent), '5 hours ago', () => this.setState({ screen: 'pr', tab: 'conv' })),
+        mkPR('Drop GPL-3.0 transitive dependency pyxdg', `infra-terraform #77 · gate/licence/gpl-3.0 · ${bot}`, 'trivy · licence', 'MEDIUM', 'Advisory · does not block', dot('oklch(0.45 0.012 265)'), 'yesterday', () => this.setState({ screen: 'pr', tab: 'conv' })),
+      ],
+
+      findingFacts: [
+        { k: 'Finding', v: 'trivy / CVE-2020-14343' },
+        { k: 'Normalised severity', v: 'critical  (raw CRITICAL · CVSS 9.8 · ghsa)' },
+        { k: 'Location', v: 'requirements.txt:1' },
+        { k: 'Baseline', v: 'not in baseline — evaluated as new' },
+        { k: 'Fingerprint', v: '2d709bcaf30791cd1418fc0acf4edb3b' },
+      ],
+      checks: [
+        check('secrets — gitleaks 8.30.1', '0 findings · required scanner', 'success', '18s'),
+        check('sast — semgrep, vendored ruleset', '2 medium, both baselined · warn only', 'success', '1m 04s'),
+        check('dependencies — trivy 0.74.0', 'CVE-2020-14343 cleared at head', 'success', '47s'),
+        check('policy-eval-findings', 'exit 0 · no new critical/high', 'success', '6s'),
+        check('gate-contract match', 'managed paths byte-identical to base', 'success', '3s'),
+        check('approval-check', done ? 'bot + t-mokoena, current head' : 'waiting on second, non-author approval', done ? 'success' : 'pending', done ? '4s' : '—'),
+      ],
+      contractRows: [
+        { k: 'Managed files', v: 'match base', valStyle: cval(true) },
+        { k: 'policy/vendored-rules/', v: 'match base', valStyle: cval(true) },
+        { k: '.ssdlc/baseline.json', v: 'match base', valStyle: cval(true) },
+        { k: 'Attestation', v: attested ? 'required' : 'transitional', valStyle: cval(attested) },
+      ],
+      contractNote: attested
+        ? 'The bot ignores pipeline results and votes only on a signed attestation from the isolated runner, bound to this head SHA, contract digest and policy digest.'
+        : 'Transitional mode: the bot trusts the pipeline result, but only after every gate-managed file byte-matches the protected base.',
+
+      approvalCount: done ? 2 : 1,
+      humanInitials: done ? 'TM' : '?',
+      humanName: done ? 't-mokoena' : 'Human, non-author',
+      humanNote: done ? 'human · current head' : 'not yet submitted',
+      humanMark: done ? '✓' : '—',
+      humanMarkStyle: done ? `color: ${GREEN}; font-size: 13px; font-weight: 700;` : 'color: oklch(0.5 0.012 265); font-size: 12px;',
+      humanAvatar: `width: 22px; height: 22px; border-radius: 50%; background: ${done ? 'oklch(0.55 0.11 300)' : 'oklch(0.28 0.012 265)'}; color: ${done ? 'oklch(0.98 0 0)' : 'oklch(0.7 0.012 265)'}; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex: 0 0 auto;`,
+
+      mergeBoxStyle: `border: 1px solid ${done ? 'oklch(0.42 0.1 152)' : 'oklch(0.27 0.012 265)'}; border-radius: 9px; background: ${done ? 'oklch(0.225 0.04 152)' : 'oklch(0.198 0.013 265)'}; padding: 14px 15px;`,
+      mergeTitle: done ? 'Ready to merge' : 'Merge blocked — one human approval short',
+      mergeNote: done
+        ? 'Both required approvals are on head 4f2462f. Branch protection is satisfied; merging squashes the single gate commit.'
+        : 'The required check has passed on this head. Merge still needs a second approval from someone other than the branch author — the bot vote alone never satisfies it.',
+      mergeBtnLabel: done ? 'Merge pull request' : 'Approve as non-author',
+      mergeBtnStyle: `font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; font-weight: 600; color: oklch(0.15 0.03 152); background: ${GREEN}; border: none; border-radius: 7px; padding: 9px 12px; cursor: pointer; width: 100%;`,
+      approve: () => this.setState({ approved: !s.approved }),
+
+      thresholds: [
+        { sev: 'CRITICAL', sevStyle: sevStyle('CRITICAL'), desc: 'Verified secret, or CVSS ≥ 9.0 with a fixed version available', action: 'deny · raise PR' },
+        { sev: 'HIGH', sevStyle: sevStyle('HIGH'), desc: 'Exploitable finding with a deterministic upstream fix', action: 'deny · raise PR' },
+        { sev: 'MEDIUM', sevStyle: sevStyle('MEDIUM'), desc: 'Reported inline on the PR, never blocking', action: 'warn' },
+        { sev: 'LOW', sevStyle: sevStyle('LOW'), desc: 'Recorded in the run log only', action: 'log only' },
+      ],
+      rules: [
+        'Dependency upgrade with a fixed version',
+        'Secret revocation branch',
+        'IaC misconfiguration with a single-line fix',
+        'SAST auto-fix from a vendored rule',
+      ].map((name, i) => {
+        const on = s.rules[i];
+        const descs = [
+          'Trivy reports a fixed version and no other pin conflicts with it.',
+          'Gitleaks match at head. Never baselined, never exempted — the branch removes the literal and swaps in a secret reference.',
+          'Mutable image tags, public ingress, missing encryption-at-rest.',
+          'Only rules marked auto-fixable in policy/vendored-rules/ — everything else comments inline instead.',
+        ];
+        const tools = ['trivy', 'gitleaks', 'trivy', 'semgrep'];
+        return {
+          name, desc: descs[i], tool: tools[i],
+          trackStyle: `width: 30px; height: 18px; border-radius: 999px; background: ${on ? accent : 'oklch(0.32 0.012 265)'}; display: flex; align-items: center; padding: 2px; flex: 0 0 auto; margin-top: 1px; transition: background 0.15s;`,
+          knobStyle: `width: 14px; height: 14px; border-radius: 50%; background: oklch(0.97 0 0); transform: translateX(${on ? '12px' : '0'}); transition: transform 0.15s;`,
+          toggle: () => this.setState((st) => {
+            const next = st.rules.slice();
+            next[i] = !next[i];
+            return { rules: next };
+          }),
+        };
+      }),
+
+      excTabActive: `font-size: 12.5px; font-weight: 600; color: oklch(0.16 0.02 265); background: ${accent}; border-radius: 7px; padding: 7px 14px;`,
+      excTabIdle: "font-size: 12.5px; font-weight: 500; color: oklch(0.72 0.01 265); background: oklch(0.21 0.013 265); border: 1px solid oklch(0.29 0.012 265); border-radius: 7px; padding: 7px 14px;",
+      declineBtn: "font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 500; color: oklch(0.78 0.1 22); background: oklch(0.198 0.013 265); border: 1px solid oklch(0.35 0.08 22); border-radius: 7px; padding: 7px 12px; cursor: pointer;",
+      approveExcBtn: `font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 600; color: oklch(0.16 0.02 265); background: ${accent}; border: none; border-radius: 7px; padding: 7px 14px; cursor: pointer;`,
+      exceptions: [
+        {
+          sev: 'CRITICAL', sevStyle: sevStyle('CRITICAL'),
+          rule: 'trivy / CVE-2020-14343', location: 'pilot-app · requirements.txt',
+          justification: 'Patched pyyaml requires a Django major-version bump we can\u2019t land this sprint. full_load is never called on untrusted input in this service — confirmed via code search, ticket PILOT-881 tracks the real fix.',
+          requester: 'j-naidoo', expiry: '30 days requested (max for Critical: 90)', ticket: 'PILOT-881',
+          officerState: 'waiting', officerStyle: `font-size: 11.5px; color: ${AMBER};`,
+          leadState: 't-mokoena approved', leadStyle: `font-size: 11.5px; color: ${GREEN};`,
+          voteNote: 'You are voting as Security Officer — the second, distinct approval this needs.',
+          expiryDays: '30 days',
+        },
+        {
+          sev: 'HIGH', sevStyle: sevStyle('HIGH'),
+          rule: 'semgrep / insecure-hash', location: 'HR_system · legacy/checksum.py',
+          justification: 'MD5 used for a non-security file-integrity check on internal exports only, never for passwords or tokens. Rework scheduled with the storage-layer migration.',
+          requester: 'a-vermeulen', expiry: '14 days requested (max for High: 30)', ticket: 'HRS-2210',
+          officerState: 'waiting', officerStyle: `font-size: 11.5px; color: ${AMBER};`,
+          leadState: 'waiting', leadStyle: `font-size: 11.5px; color: ${AMBER};`,
+          voteNote: 'You are voting as Security Officer — the first approval on this request.',
+          expiryDays: '14 days',
+        },
+      ],
+
+      onboardTrace: '--> [3/6] Generating the differential-gating baseline (docs/adr/0024)\n    cloning internal-booking-platform@main into a scratch workspace\u2026\n    checking .ssdlc/baseline.json on the default branch \u2014 HTTP 404, genuinely absent\n    running semgrep (vendored ruleset) + trivy against the current tree\u2026\n    generate-baseline: no existing baseline \u2014 creating a fresh one (9 findings)',
+      onboardSpinnerStyle: SPINNER,
+      onboardZeroStyle: `font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 700; color: ${RED};`,
+      onboardingSteps: [
+        { title: '1/6 · Repo lookup', desc: 'Forge-internal id resolved from the owner/repo pair.', status: 'done' },
+        { title: '2/6 · Activate in Woodpecker', desc: 'POST /api/repos — already-active (409) is treated as success.', status: 'done' },
+        { title: '3/6 · Generate baseline', desc: 'Scanning current default-branch state before any platform file lands — docs/adr/0024/0025.', status: 'active' },
+        { title: '4/6 · Commit pipeline + dependencies', desc: '.woodpecker.yml, policy-eval/, normalise/, policy/, vendored rules.', status: 'pending' },
+        { title: '5/6 · Add gate-bot collaborator', desc: 'Write permission — needed for the bot\u2019s half of 2 required approvals.', status: 'pending' },
+        { title: '6/6 · Set branch protection', desc: 'Status glob, required_approvals: 2, push whitelist for this tool.', status: 'pending' },
+      ].map((st, i, arr) => ({
+        ...st,
+        dotStyle: st.status === 'done'
+          ? `width: 22px; height: 22px; border-radius: 999px; background: ${GREEN}; color: oklch(0.15 0.03 152); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 auto;`
+          : st.status === 'active'
+          ? `width: 22px; height: 22px; border-radius: 999px; background: ${accent}; box-shadow: 0 0 0 4px oklch(0.27 0.05 258); display: flex; align-items: center; justify-content: center; flex: 0 0 auto;`
+          : 'width: 22px; height: 22px; border-radius: 999px; background: oklch(0.198 0.013 265); border: 2px solid oklch(0.32 0.012 265); flex: 0 0 auto;',
+        dotLabel: st.status === 'done' ? '\u2713' : '',
+        lineStyle: i === arr.length - 1 ? '' : 'width: 2px; flex: 1; min-height: 20px; background: ' + (st.status === 'done' ? GREEN : 'oklch(0.27 0.012 265)') + ';',
+        titleStyle: `font-size: 13px; font-weight: 600; color: ${st.status === 'pending' ? 'oklch(0.5 0.012 265)' : st.status === 'active' ? accent : 'oklch(0.9 0.008 265)'};`,
+      })),
+
+      postureStats: [
+        { label: 'Repos onboarded', value: '4', valueStyle: "font-family: 'IBM Plex Mono', monospace; font-size: 25px; font-weight: 600; letter-spacing: -0.03em;" },
+        { label: 'Open Critical', value: '2', valueStyle: `font-family: 'IBM Plex Mono', monospace; font-size: 25px; font-weight: 600; letter-spacing: -0.03em; color: ${RED};` },
+        { label: 'Open High', value: '2', valueStyle: `font-family: 'IBM Plex Mono', monospace; font-size: 25px; font-weight: 600; letter-spacing: -0.03em; color: ${AMBER};` },
+        { label: 'Baselined debt', value: '14', valueStyle: "font-family: 'IBM Plex Mono', monospace; font-size: 25px; font-weight: 600; letter-spacing: -0.03em;" },
+      ],
+      postureRepos: [
+        { name: 'payments-api', crit: '1', high: '1', critStyle: `font-size: 12.5px; font-weight: 600; color: ${RED};`, highStyle: `font-size: 12.5px; font-weight: 600; color: ${AMBER};`, baselined: '3', lastScan: '18 min ago' },
+        { name: 'ledger-worker', crit: '0', high: '1', critStyle: 'font-size: 12.5px; color: oklch(0.68 0.012 265);', highStyle: `font-size: 12.5px; font-weight: 600; color: ${AMBER};`, baselined: '6', lastScan: '2 hours ago' },
+        { name: 'identity-svc', crit: '0', high: '0', critStyle: 'font-size: 12.5px; color: oklch(0.68 0.012 265);', highStyle: 'font-size: 12.5px; color: oklch(0.68 0.012 265);', baselined: '5', lastScan: '5 hours ago' },
+        { name: 'infra-terraform', crit: '1', high: '0', critStyle: `font-size: 12.5px; font-weight: 600; color: ${RED};`, highStyle: 'font-size: 12.5px; color: oklch(0.68 0.012 265);', baselined: '0', lastScan: 'yesterday' },
+      ],
+
+      healthServices: [
+        { name: 'Gitea', detail: '1.27.2 — API 200', state: 'healthy' },
+        { name: 'Woodpecker server', detail: 'v3.18.0', state: 'healthy' },
+        { name: 'Woodpecker agent', detail: 'v3.18.0 — 2 workflows max', state: 'healthy' },
+        { name: 'Postgres', detail: '18.6-alpine', state: 'healthy' },
+        { name: 'bot-approver.py', detail: 'polling every 30s', state: 'running' },
+        { name: 'reconciliation-loop.py', detail: 'last cycle 41s ago', state: 'running' },
+        { name: 'trusted-gate-runner.py', detail: 'no isolated runner host provisioned', state: 'not-deployed' },
+      ].map((h) => ({
+        ...h,
+        dotStyle: dot(h.state === 'healthy' || h.state === 'running' ? GREEN : 'oklch(0.42 0.012 265)'),
+        stateStyle: mono(h.state === 'healthy' || h.state === 'running' ? GREEN : 'oklch(0.55 0.012 265)'),
+      })),
+      pinnedVersions: [
+        { name: 'Gitea', pinned: '1.27.2' },
+        { name: 'Woodpecker CI', pinned: 'v3.18.0' },
+        { name: 'postgres (compose base image)', pinned: '18.6-alpine' },
+        { name: 'Gitleaks', pinned: 'v8.30.1' },
+        { name: 'Semgrep OSS', pinned: 'v1.174.0' },
+        { name: 'Trivy', pinned: 'v0.74.0' },
+      ],
+    };
+  }
+}
+
+</script>
+</body>
+</html>

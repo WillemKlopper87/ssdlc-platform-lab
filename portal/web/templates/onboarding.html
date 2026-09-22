@@ -1,0 +1,36 @@
+<!-- portal/web/templates/onboarding.html -->
+{{define "content"}}
+<h1 style="font-weight:600;">Onboard a repository</h1>
+<div class="ssdlc-card">
+  <form id="onboard-form">
+    <label style="display:block; margin-bottom:8px;">Owner <input name="owner" required style="margin-left:8px;"></label>
+    <label style="display:block; margin-bottom:8px;">Repository <input name="repo" required style="margin-left:8px;"></label>
+    <button type="submit" class="ssdlc-btn ssdlc-btn-primary">Start onboarding</button>
+  </form>
+  <pre id="log" class="ssdlc-mono" style="margin-top:16px; background:var(--ssdlc-bg); padding:12px; border-radius:6px; min-height:200px; white-space:pre-wrap;"></pre>
+</div>
+<script>
+document.getElementById('onboard-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const log = document.getElementById('log');
+  log.textContent = '';
+  const body = new URLSearchParams(new FormData(e.target));
+  const resp = await fetch('/onboarding/start', { method: 'POST', body });
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n\n');
+    buffer = lines.pop();
+    for (const chunk of lines) {
+      if (chunk.startsWith('data: ')) {
+        log.textContent += chunk.slice(6) + '\n';
+      }
+    }
+  }
+});
+</script>
+{{end}}

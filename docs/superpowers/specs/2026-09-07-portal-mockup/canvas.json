@@ -1,0 +1,110 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Home",
+      "expand": "fit",
+      "page": "page-1"
+    },
+    {
+      "file": "PRReport.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "PR security report",
+      "expand": "fit",
+      "page": "page-1"
+    },
+    {
+      "file": "Exceptions.dc.html",
+      "x": 3120,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Exception queue",
+      "expand": "fit",
+      "page": "page-1"
+    },
+    {
+      "file": "Onboarding.dc.html",
+      "x": 4680,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Onboarding wizard",
+      "expand": "fit",
+      "page": "page-1"
+    },
+    {
+      "file": "AutomatedPR.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 940,
+      "title": "Automated PR flow",
+      "expand": "fit",
+      "page": "page-2",
+      "is_interactive": true
+    },
+    {
+      "file": "AutomatedPRDark.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 940,
+      "title": "Automated PR flow (dark)",
+      "expand": "fit",
+      "page": "page-3",
+      "is_interactive": true
+    }
+  ],
+  "annotations": [
+    {
+      "id": "brief-summary",
+      "x": 0,
+      "y": -140,
+      "w": 1440,
+      "text": "SSDLC-Platform-Lab portal (DESIGN.md D10, Milestone 8 — not yet built)\nStyle reference: SENTECH Homepage v2 Proposal + SENTECH Intranet Design Spec (IBM Plex, navy #003d7a / blue #1668C1, 24px rhythm)\nAll content grounded in the platform's real gate steps, SADRs and onboard-repo.sh flow — not generic placeholder.",
+      "page": "page-1"
+    },
+    {
+      "id": "v2-summary",
+      "x": 0,
+      "y": -140,
+      "w": 1440,
+      "text": "Automated-remediation direction: the gate itself raises fix PRs for deterministic findings (dependency bumps, secret revocation). Interactive — click through queue → PR detail (Conversation/Files/Checks tabs) → policy. Grounded directly in gate-contract.json, bot-approver.py, policy-eval/evaluate-findings.py.",
+      "page": "page-2"
+    },
+    {
+      "id": "v3-summary",
+      "x": 0,
+      "y": -140,
+      "w": 1440,
+      "text": "Selected direction. Same automated-remediation flow as V2, dark theme, plus a login screen. Extended past V2's original scope with a working Exceptions screen (two-party approval, wired to the sidebar) and a 6-step Onboarding wizard matching the real onboard-repo.sh sequence. Two bugs found and fixed here: only the first PR row in the queue was clickable (others had a null handler), and the \"Awaiting human\" stat didn't match the actual PR list (said 3/2, corrected to 2/1).",
+      "page": "page-3"
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-3"
+  },
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "V1 (alternate)"
+    },
+    {
+      "id": "page-2",
+      "name": "V2 (light)"
+    },
+    {
+      "id": "page-3",
+      "name": "V3 — selected direction"
+    }
+  ]
+}

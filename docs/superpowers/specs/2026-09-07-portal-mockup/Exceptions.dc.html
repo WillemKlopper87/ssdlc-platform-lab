@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@0.363.0/dist/umd/lucide.js"></script>
+<style>
+:root {
+  --page:#F7F8FA; --page-alt:#EEF1F6; --surface:#FFFFFF; --surface-alt:#F9FAFB;
+  --border:#E5E7EB; --border-subtle:#F1F3F7;
+  --text-1:#111827; --text-2:#374151; --text-3:#4b5563; --text-4:#6b7280; --text-5:#9ca3af;
+  --tint:#EFF5FC; --tint-border:#DBE9F8;
+  --warning-bg:#FDECD2; --warning-text:#92400e;
+  --success-bg:#DCF1E6; --success-text:#1E6B4A;
+}
+[data-theme="dark"] {
+  --page:#0B1220; --page-alt:#0B1220; --surface:#131B2C; --surface-alt:#1A2438;
+  --border:#263047; --border-subtle:#1D2743;
+  --text-1:#F3F4F6; --text-2:#D1D5DB; --text-3:#B4BCC9; --text-4:#93A0B4; --text-5:#6D7A90;
+  --tint:#16283F; --tint-border:#1F3A5C;
+  --warning-bg:#3B2A11; --warning-text:#FBBF6B;
+  --success-bg:#123626; --success-text:#6EE7B0;
+}
+  body { margin:0; background:#EEF1F6; font-family:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#1668C1; text-decoration:none; }
+  a:hover { color:#0A4E96; text-decoration:underline; }
+</style>
+</helmet>
+
+<div data-theme="{{theme}}" style="width:1440px; height:900px; margin:0; display:flex; flex-direction:column; background:var(--page); color:var(--text-1); box-sizing:border-box; overflow:hidden;">
+
+  <div style="height:64px; flex:none; background:#003d7a; display:flex; align-items:center; padding:0 24px; gap:16px; color:#FFFFFF;">
+    <i data-lucide="shield-alert" width="20" height="20" style="color:#9FC2E8;"></i>
+    <span style="font-size:16px; font-weight:700;">Exceptions</span>
+    <span style="font-size:12.5px; color:#9FC2E8;">Two-party risk acceptance · accepted debt only, never secrets — DESIGN.md D7</span>
+    <span style="margin-left:auto; display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#003d7a; background:var(--surface); border-radius:8px; padding:8px 14px;"><i data-lucide="plus" width="15" height="15" style="color:#003d7a;"></i>Request exception</span>
+  </div>
+
+  <div style="padding:20px 24px 0;">
+    <div style="display:flex; gap:8px;">
+      <span style="font-size:13px; font-weight:600; color:#FFFFFF; background:#1668C1; border-radius:8px; padding:8px 16px;">Needs my vote · 2</span>
+      <span style="font-size:13px; font-weight:500; color:var(--text-3); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 16px;">All pending · 4</span>
+      <span style="font-size:13px; font-weight:500; color:var(--text-3); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 16px;">Active · 6</span>
+      <span style="font-size:13px; font-weight:500; color:var(--text-3); background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 16px;">Expired · 11</span>
+    </div>
+  </div>
+
+  <div style="flex:1; overflow-y:auto; padding:20px 24px 24px; display:flex; flex-direction:column; gap:16px;">
+
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+      <div style="padding:16px 20px 14px; border-bottom:1px solid var(--border-subtle); display:flex; align-items:start; justify-content:space-between; gap:20px;">
+        <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:11.5px; font-weight:700; color:#FFFFFF; background:#D64545; border-radius:999px; padding:3px 10px;">CRITICAL</span>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600;">trivy / CVE-2020-14343</span>
+            <span style="font-size:12.5px; color:var(--text-5);">pilot-app · requirements.txt</span>
+          </div>
+          <p style="margin:0; font-size:13.5px; line-height:1.6; color:var(--text-2); max-width:700px;">“Patched pyyaml requires a Django major-version bump we can't land this sprint. Full_load is never called on untrusted input in this service — confirmed via code search, ticket PILOT-881 tracks the real fix.”</p>
+          <div style="display:flex; align-items:center; gap:14px; font-size:12px; color:var(--text-4);">
+            <span>requested by <strong style="color:var(--text-2); font-weight:600;">j-naidoo</strong></span>
+            <span>·</span>
+            <span>expiry requested <strong style="color:var(--text-2); font-weight:600;">30 days</strong> (max for Critical: 90)</span>
+            <span>·</span>
+            <span>ticket <a href="#">PILOT-881</a></span>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end; flex:none;">
+          <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-2);"><i data-lucide="shield" width="14" height="14" style="color:var(--text-5);"></i>Security Officer <span style="font-weight:600; color:var(--warning-text);">waiting</span></div>
+          <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-2);"><i data-lucide="user-check" width="14" height="14" style="color:#1E8E5A;"></i>Eng Lead <span style="font-weight:600; color:var(--success-text);">t-mokoena approved</span></div>
+        </div>
+      </div>
+      <div style="padding:12px 20px; display:flex; align-items:center; gap:10px; background:var(--surface-alt);">
+        <span style="font-size:12.5px; color:var(--text-4); flex:1;">You are voting as <strong style="color:var(--text-1);">Security Officer</strong> — the second, distinct approval this needs.</span>
+        <span style="font-size:12.5px; font-weight:500; color:var(--text-3); border:1px solid var(--border); border-radius:7px; padding:8px 14px; background:var(--surface);">View finding</span>
+        <span style="font-size:12.5px; font-weight:500; color:#B42318; border:1px solid #F3D0CC; border-radius:7px; padding:8px 14px; background:var(--surface);">Decline</span>
+        <span style="font-size:12.5px; font-weight:600; color:#FFFFFF; background:#1668C1; border-radius:7px; padding:8px 16px;">Approve · 30 days</span>
+      </div>
+    </div>
+
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden;">
+      <div style="padding:16px 20px 14px; border-bottom:1px solid var(--border-subtle); display:flex; align-items:start; justify-content:space-between; gap:20px;">
+        <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:11.5px; font-weight:700; color:var(--warning-text); background:var(--warning-bg); border-radius:999px; padding:3px 10px;">HIGH</span>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600;">semgrep / insecure-hash</span>
+            <span style="font-size:12.5px; color:var(--text-5);">HR_system · legacy/checksum.py</span>
+          </div>
+          <p style="margin:0; font-size:13.5px; line-height:1.6; color:var(--text-2); max-width:700px;">“MD5 used for a non-security file-integrity check on internal exports only, never for passwords or tokens. Rework scheduled with the storage-layer migration.”</p>
+          <div style="display:flex; align-items:center; gap:14px; font-size:12px; color:var(--text-4);">
+            <span>requested by <strong style="color:var(--text-2); font-weight:600;">a-vermeulen</strong></span>
+            <span>·</span>
+            <span>expiry requested <strong style="color:var(--text-2); font-weight:600;">14 days</strong> (max for High: 30)</span>
+            <span>·</span>
+            <span>ticket <a href="#">HRS-2210</a></span>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end; flex:none;">
+          <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-2);"><i data-lucide="shield" width="14" height="14" style="color:var(--text-5);"></i>Security Officer <span style="font-weight:600; color:var(--warning-text);">waiting</span></div>
+          <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-2);"><i data-lucide="user-check" width="14" height="14" style="color:var(--text-5);"></i>Eng Lead <span style="font-weight:600; color:var(--warning-text);">waiting</span></div>
+        </div>
+      </div>
+      <div style="padding:12px 20px; display:flex; align-items:center; gap:10px; background:var(--surface-alt);">
+        <span style="font-size:12.5px; color:var(--text-4); flex:1;">You are voting as <strong style="color:var(--text-1);">Security Officer</strong> — the first approval on this request.</span>
+        <span style="font-size:12.5px; font-weight:500; color:var(--text-3); border:1px solid var(--border); border-radius:7px; padding:8px 14px; background:var(--surface);">View finding</span>
+        <span style="font-size:12.5px; font-weight:500; color:#B42318; border:1px solid #F3D0CC; border-radius:7px; padding:8px 14px; background:var(--surface);">Decline</span>
+        <span style="font-size:12.5px; font-weight:600; color:#FFFFFF; background:#1668C1; border-radius:7px; padding:8px 16px;">Approve · 14 days</span>
+      </div>
+    </div>
+
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; display:flex; align-items:center; gap:16px; opacity:0.72;">
+      <span style="font-size:11.5px; font-weight:700; color:var(--warning-text); background:var(--warning-bg); border-radius:999px; padding:3px 10px;">HIGH</span>
+      <div style="display:flex; flex-direction:column; gap:2px; flex:1;">
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600;">semgrep / weak-random</span>
+        <span style="font-size:12px; color:var(--text-5);">edge_agent · sensor_id.py — requested by k-dlamini, awaiting Eng Lead's own vote (not yours)</span>
+      </div>
+      <span style="font-size:12px; font-weight:600; color:var(--text-2);">1 of 2 approved</span>
+    </div>
+
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; display:flex; align-items:center; gap:16px; opacity:0.72;">
+      <span style="font-size:11.5px; font-weight:700; color:var(--warning-text); background:var(--warning-bg); border-radius:999px; padding:3px 10px;">HIGH</span>
+      <div style="display:flex; flex-direction:column; gap:2px; flex:1;">
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600;">trivy / CVE-2025-9981</span>
+        <span style="font-size:12px; color:var(--text-5);">internal-collaboration-platform · package.json — requested by n-mahlangu, self-approval rejected, needs a distinct second vote</span>
+      </div>
+      <span style="font-size:12px; font-weight:600; color:#B42318;">0 of 2 approved</span>
+    </div>
+
+    <div style="background:#FBFBFC; border:1px dashed #D8DEE7; border-radius:12px; padding:16px 20px; display:flex; align-items:center; gap:12px;">
+      <i data-lucide="info" width="16" height="16" style="color:var(--text-5); flex:none;"></i>
+      <span style="font-size:12.5px; line-height:1.6; color:var(--text-4);">Every approval here is checked against Gitea team membership server-side: the requester's own vote never counts, both approvers must be two distinct people even if one holds both roles' team membership, and expiry is enforced automatically — an expired record simply stops matching on the next evaluation and the gate blocks again with no separate job required.</span>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script data-dc-script data-props='{"darkMode":{"editor":"boolean","default":false,"section":"Theme"}}'>
+class Component extends DCLogic {
+  paintIcons(tries) {
+    if (window.lucide && window.lucide.createIcons) { window.lucide.createIcons(); return; }
+    if ((tries || 0) < 40) setTimeout(() => this.paintIcons((tries || 0) + 1), 100);
+  }
+  componentDidMount() { this.paintIcons(0); }
+  componentDidUpdate() { this.paintIcons(0); }
+  renderVals() {
+    return { theme: this.props.darkMode ? 'dark' : 'light' };
+  }
+}
+</script>
+</body>
+</html>

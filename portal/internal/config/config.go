@@ -1,0 +1,119 @@
+// portal/internal/config/config.go
+package config
+
+import (
+	"fmt"
+	"os"
+	"strings"
+)
+
+type Config struct {
+	GiteaURL            string
+	WoodpeckerURL       string
+	WoodpeckerToken     string
+	GiteaAdminToken     string
+	OAuthClientID       string
+	OAuthClientSecret   string
+	SessionKey          []byte
+	ApproverTeam        string
+	ExceptionsRepoOwner string
+	ExceptionsRepoName  string
+	ListenAddr          string
+	// PublicURL, when set, is the portal's externally-reachable base URL
+	// (e.g. "https://portal.example.com"). It is optional: when unset, the
+	// OAuth redirect_uri is derived from the incoming request's Host header
+	// instead (see internal/auth). Setting it avoids trusting a
+	// proxy-forwarded Host header for the OAuth redirect_uri.
+	PublicURL string
+	// BotLogin is the Gitea username the gate's automated PRs are raised
+	// under (e.g. "gate-bot"). Used only to distinguish bot-authored PRs
+	// from human ones in the UI (the "automated/bot" accent) -- it is not
+	// a trust boundary and grants no privilege.
+	BotLogin string
+	// GiteaPublicURL / WoodpeckerPublicURL are the addresses shown to people
+	// in links that open in their browser. They default to the URLs the
+	// portal itself uses, and only need setting when those are internal names.
+	GiteaPublicURL      string
+	WoodpeckerPublicURL string
+	// SidecarURL / SidecarToken locate the reporting service. Optional: set
+	// both or neither.
+	SidecarURL   string
+	SidecarToken string
+}
+
+// Load reads the portal's configuration from the environment. It fails
+// closed: a missing required variable or a too-short session key is a
+// startup error, never a silent default, matching this platform's own
+// "missing/placeholder secret is fatal" discipline elsewhere in the repo.
+func Load() (Config, error) {
+	var problems []string
+
+	get := func(name string) string { return os.Getenv(name) }
+	required := func(name string) string {
+		v := get(name)
+		if v == "" {
+			problems = append(problems, fmt.Sprintf("%s is required", name))
+		}
+		return v
+	}
+
+	cfg := Config{
+		GiteaURL:            required("PORTAL_GITEA_URL"),
+		WoodpeckerURL:       required("PORTAL_WOODPECKER_URL"),
+		WoodpeckerToken:     required("PORTAL_WOODPECKER_TOKEN"),
+		GiteaAdminToken:     required("PORTAL_GITEA_ADMIN_TOKEN"),
+		OAuthClientID:       required("PORTAL_OAUTH_CLIENT_ID"),
+		OAuthClientSecret:   required("PORTAL_OAUTH_CLIENT_SECRET"),
+		ApproverTeam:        get("PORTAL_APPROVER_TEAM"),
+		ExceptionsRepoOwner: required("PORTAL_EXCEPTIONS_REPO_OWNER"),
+		ExceptionsRepoName:  get("PORTAL_EXCEPTIONS_REPO_NAME"),
+		ListenAddr:          get("PORTAL_LISTEN_ADDR"),
+		PublicURL:           get("PORTAL_PUBLIC_URL"),
+		BotLogin:            get("PORTAL_BOT_LOGIN"),
+	}
+	if cfg.ExceptionsRepoName == "" {
+		cfg.ExceptionsRepoName = "exceptions"
+	}
+	if cfg.BotLogin == "" {
+		cfg.BotLogin = "gate-bot"
+	}
+	if cfg.ListenAddr == "" {
+		cfg.ListenAddr = ":8181"
+	}
+
+	cfg.GiteaURL = strings.TrimRight(cfg.GiteaURL, "/")
+	cfg.WoodpeckerURL = strings.TrimRight(cfg.WoodpeckerURL, "/")
+	cfg.GiteaPublicURL = strings.TrimRight(get("PORTAL_GITEA_PUBLIC_URL"), "/")
+	if cfg.GiteaPublicURL == "" {
+		cfg.GiteaPublicURL = cfg.GiteaURL
+	}
+	cfg.WoodpeckerPublicURL = strings.TrimRight(get("PORTAL_WOODPECKER_PUBLIC_URL"), "/")
+	if cfg.WoodpeckerPublicURL == "" {
+		cfg.WoodpeckerPublicURL = cfg.WoodpeckerURL
+	}
+
+	sessionKey := required("PORTAL_SESSION_KEY")
+	if sessionKey != "" && len(sessionKey) < 32 {
+		problems = append(problems, "PORTAL_SESSION_KEY must be at least 32 bytes")
+	}
+	cfg.SessionKey = []byte(sessionKey)
+
+	cfg.SidecarURL = strings.TrimRight(get("PORTAL_SIDECAR_URL"), "/")
+	cfg.SidecarToken = get("PORTAL_SIDECAR_TOKEN")
+	if (cfg.SidecarURL == "") != (cfg.SidecarToken == "") {
+		problems = append(problems, "PORTAL_SIDECAR_URL and PORTAL_SIDECAR_TOKEN must be set together")
+	}
+
+	if cfg.SidecarURL != "" && !strings.HasPrefix(cfg.SidecarURL, "http://") && !strings.HasPrefix(cfg.SidecarURL, "https://") {
+		problems = append(problems, "PORTAL_SIDECAR_URL must start with http:// or https://")
+	}
+
+	if len(problems) > 0 {
+		msg := "portal configuration is invalid:"
+		for _, p := range problems {
+			msg += "\n  - " + p
+		}
+		return Config{}, fmt.Errorf("%s", msg)
+	}
+	return cfg, nil
+}

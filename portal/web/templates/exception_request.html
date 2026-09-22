@@ -1,0 +1,16 @@
+<!-- portal/web/templates/exception_request.html -->
+{{define "content"}}
+<h1 style="font-weight:600;">Request an exception</h1>
+<div class="ssdlc-card">
+  <form method="post" action="/exceptions/submit">
+    <input type="hidden" name="repo" value="{{.Repo}}">
+    <input type="hidden" name="fingerprint" value="{{.Fingerprint}}">
+    <input type="hidden" name="severity" value="{{.Severity}}">
+    <p><strong>{{.Repo}}</strong> · <span class="ssdlc-mono">{{.Fingerprint}}</span>{{if .Severity}} · <span class="ssdlc-sev ssdlc-sev-{{.Severity}}">{{.Severity}}</span>{{end}}</p>
+    <label style="display:block; margin-bottom:8px;">Justification <textarea name="justification" required style="display:block; width:100%; margin-top:4px;"></textarea></label>
+    <label style="display:block; margin-bottom:8px;">Ticket reference <input name="ticket" required></label>
+    <label style="display:block; margin-bottom:8px;">Expiry (max 90 days) <input type="date" name="expiry" required></label>
+    <button type="submit" class="ssdlc-btn ssdlc-btn-primary">Submit for approval</button>
+  </form>
+</div>
+{{end}}

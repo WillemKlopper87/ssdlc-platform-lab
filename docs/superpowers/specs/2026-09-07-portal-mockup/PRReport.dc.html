@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@0.363.0/dist/umd/lucide.js"></script>
+<style>
+:root {
+  --page:#F7F8FA; --surface:#FFFFFF; --surface-alt:#F9FAFB;
+  --border:#E5E7EB; --border-subtle:#F1F3F7;
+  --text-1:#111827; --text-2:#374151; --text-3:#4b5563; --text-4:#6b7280; --text-5:#9ca3af;
+  --tint:#EFF5FC; --tint-border:#DBE9F8;
+  --warning-bg:#FDECD2; --warning-text:#92400e;
+  --success-bg:#DCF1E6; --success-text:#1E6B4A;
+  --danger-bg:#FEF3F2; --danger-text:#B42318;
+}
+[data-theme="dark"] {
+  --page:#0B1220; --surface:#131B2C; --surface-alt:#1A2438;
+  --border:#263047; --border-subtle:#1D2743;
+  --text-1:#F3F4F6; --text-2:#D1D5DB; --text-3:#B4BCC9; --text-4:#93A0B4; --text-5:#6D7A90;
+  --tint:#16283F; --tint-border:#1F3A5C;
+  --warning-bg:#3B2A11; --warning-text:#FBBF6B;
+  --success-bg:#123626; --success-text:#6EE7B0;
+  --danger-bg:#3A1B1C; --danger-text:#FCA5A0;
+}
+  body { margin:0; background:#EEF1F6; font-family:'IBM Plex Sans','Helvetica Neue',Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#1668C1; text-decoration:none; }
+  a:hover { color:#0A4E96; text-decoration:underline; }
+  .tab { font-size:13.5px; font-weight:500; color:var(--text-4); padding:12px 4px; border-bottom:2px solid transparent; display:flex; align-items:center; gap:7px; }
+  .tab-active { color:var(--text-1); font-weight:600; border-bottom:2px solid #1668C1; }
+  .count-pill { font-size:11.5px; font-weight:600; color:var(--text-3); background:var(--surface-alt); border-radius:999px; padding:1px 8px; }
+</style>
+</helmet>
+
+<div data-theme="{{theme}}" style="width:1440px; height:900px; margin:0; display:flex; flex-direction:column; background:var(--page); color:var(--text-1); box-sizing:border-box; overflow:hidden;">
+
+  <div style="height:52px; flex:none; background:#003d7a; display:flex; align-items:center; padding:0 24px; gap:10px; color:#FFFFFF; font-size:13.5px;">
+    <i data-lucide="folder-git-2" width="16" height="16" style="color:#9FC2E8;"></i>
+    <a href="#" style="color:#CFE0F3;">gateadmin</a><span style="color:#5B7796;">/</span><a href="#" style="color:#FFFFFF; font-weight:600;">pilot-app</a>
+    <span style="margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#9FC2E8;">SSDLC Platform Portal · thin view over Gitea</span>
+  </div>
+
+  <div style="border-bottom:1px solid var(--border); background:var(--surface); padding:20px 24px 0;">
+    <div style="display:flex; align-items:flex-start; gap:14px; margin-bottom:14px;">
+      <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
+        <h1 style="margin:0; font-size:21px; font-weight:600; line-height:1.3;">fix: pin requests to patched version <span style="font-weight:400; color:var(--text-4);">#42</span></h1>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span style="display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:#FFFFFF; background:#1E8E5A; border-radius:999px; padding:4px 12px;"><i data-lucide="git-pull-request" width="14" height="14" style="color:#FFFFFF;"></i>Open</span>
+          <span style="font-size:13px; color:var(--text-4);"><strong style="color:var(--text-2); font-weight:600;">j-naidoo</strong> wants to merge 1 commit into <code style="font-family:'IBM Plex Mono',monospace; background:var(--surface-alt); border-radius:4px; padding:1px 6px;">main</code> from <code style="font-family:'IBM Plex Mono',monospace; background:var(--surface-alt); border-radius:4px; padding:1px 6px;">fix/pin-requests-version</code></span>
+        </div>
+      </div>
+      <span style="font-size:13px; font-weight:600; color:#003d7a; border:1px solid var(--tint-border); background:var(--tint); border-radius:8px; padding:8px 14px; display:flex; align-items:center; gap:8px; flex:none;"><i data-lucide="download" width="15" height="15" style="color:#003d7a;"></i>Export report</span>
+    </div>
+    <div style="display:flex; gap:24px;">
+      <span class="tab"><i data-lucide="message-square" width="15" height="15"></i>Conversation<span class="count-pill">3</span></span>
+      <span class="tab"><i data-lucide="git-commit-horizontal" width="15" height="15"></i>Commits<span class="count-pill">1</span></span>
+      <span class="tab"><i data-lucide="file-diff" width="15" height="15"></i>Files changed<span class="count-pill">1</span></span>
+      <span class="tab tab-active"><i data-lucide="shield" width="15" height="15" style="color:#1668C1;"></i>Checks<span class="count-pill" style="color:#FFFFFF; background:#D64545;">1 failing</span></span>
+    </div>
+  </div>
+
+  <div style="flex:1; overflow-y:auto; padding:20px 24px 24px; display:grid; grid-template-columns:1fr 300px; gap:20px; align-items:start;">
+
+    <div style="display:flex; flex-direction:column; gap:14px; min-width:0;">
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px 16px; display:flex; align-items:center; gap:12px;">
+        <div style="width:30px; height:30px; border-radius:999px; background:var(--danger-bg); display:flex; align-items:center; justify-content:center; flex:none;"><i data-lucide="x" width="16" height="16" style="color:#D64545;"></i></div>
+        <div style="display:flex; flex-direction:column; gap:1px; flex:1;">
+          <span style="font-size:14px; font-weight:600;">Merging is blocked</span>
+          <span style="font-size:12.5px; color:var(--text-4);">Required check <code style="font-family:'IBM Plex Mono',monospace; font-size:11.5px;">ssdlc/security-gate/pr/policy-eval-findings</code> is failing on this head commit.</span>
+        </div>
+      </div>
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+        <div style="display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--border-subtle);">
+          <div style="width:22px; height:22px; border-radius:999px; background:var(--danger-bg); display:flex; align-items:center; justify-content:center;"><i data-lucide="x-circle" width="13" height="13" style="color:#D64545;"></i></div>
+          <span style="font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; flex:1;">policy-eval-findings</span>
+          <span style="font-size:12.5px; color:var(--danger-text);">FAIL — 1 new Critical/High finding blocks the merge</span>
+          <span style="font-size:12.5px; font-weight:500; color:#1668C1;">Details</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border-subtle);">
+          <div style="width:22px; height:22px; border-radius:999px; background:var(--success-bg); display:flex; align-items:center; justify-content:center;"><i data-lucide="check-circle-2" width="13" height="13" style="color:#1E8E5A;"></i></div>
+          <span style="font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; flex:1;">secrets</span>
+          <span style="font-size:12.5px; color:var(--text-4);">gitleaks · 0 findings</span>
+          <span style="font-size:12.5px; font-weight:500; color:#1668C1;">Details</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border-subtle);">
+          <div style="width:22px; height:22px; border-radius:999px; background:var(--success-bg); display:flex; align-items:center; justify-content:center;"><i data-lucide="check-circle-2" width="13" height="13" style="color:#1E8E5A;"></i></div>
+          <span style="font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; flex:1;">sast</span>
+          <span style="font-size:12.5px; color:var(--text-4);">semgrep · 2 findings, both baselined</span>
+          <span style="font-size:12.5px; font-weight:500; color:#1668C1;">Details</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; padding:12px 16px;">
+          <div style="width:22px; height:22px; border-radius:999px; background:var(--success-bg); display:flex; align-items:center; justify-content:center;"><i data-lucide="check-circle-2" width="13" height="13" style="color:#1E8E5A;"></i></div>
+          <span style="font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; flex:1;">approval-check</span>
+          <span style="font-size:12.5px; color:var(--text-4);">bot + t-mokoena, current head</span>
+          <span style="font-size:12.5px; font-weight:500; color:#1668C1;">Details</span>
+        </div>
+      </div>
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+        <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; align-items:center; gap:9px;"><i data-lucide="terminal" width="15" height="15" style="color:#1668C1;"></i><span style="font-size:13.5px; font-weight:600;">policy-eval-findings — explain trace</span></div>
+        <div style="padding:16px; display:flex; flex-direction:column; gap:0; font-family:'IBM Plex Mono',monospace; font-size:12.5px; line-height:1.9; background:#0F1B2D; color:#CFE0F3;">
+          <span style="color:#7C93B5;">policy-eval: 3 finding(s) normalized -- critical=1 high=2 medium=0 low=0</span>
+          <span style="color:#7C93B5;">policy-eval: 2 finding(s) match the baseline (.ssdlc/baseline.json) -- pre-existing debt, not evaluated for blocking</span>
+          <span>&nbsp;&nbsp;BASELINE  [semgrep/subprocess-shell-true] service.py:118 -- shell=True propagates current shell settings</span>
+          <span>&nbsp;&nbsp;BASELINE  [semgrep/avoid-pickle] cache.py:44 -- pickle can lead to code execution on untrusted input</span>
+          <span style="color:#F5B563;">&nbsp;&nbsp;FAIL  CRITICAL [trivy/CVE-2020-14343] requirements.txt:? -- pyyaml 5.3.1: incomplete fix for CVE-2020-1747</span>
+          <span style="color:#F5B563;">policy-eval: FAIL -- 1 new Critical/High finding(s) block the merge</span>
+        </div>
+      </div>
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+        <div style="padding:12px 16px; border-bottom:1px solid var(--border-subtle); display:flex; align-items:center; gap:10px;">
+          <div style="display:flex; align-items:center; gap:9px; flex:1;"><i data-lucide="list-checks" width="15" height="15" style="color:#1668C1;"></i><span style="font-size:13.5px; font-weight:600;">Findings</span></div>
+        </div>
+        <div style="display:grid; grid-template-columns:90px 1fr 140px; gap:14px; align-items:center; padding:13px 16px; border-bottom:1px solid var(--border-subtle); background:var(--danger-bg);">
+          <span style="font-size:11px; font-weight:700; color:#FFFFFF; background:#D64545; border-radius:999px; padding:3px 9px; justify-self:start;">CRITICAL</span>
+          <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:600;">trivy / CVE-2020-14343</span>
+            <span style="font-size:12px; color:var(--text-3);">pyyaml 5.3.1 — incomplete fix for CVE-2020-1747, code execution via full_load</span>
+          </div>
+          <span style="font-size:11.5px; font-weight:600; color:var(--danger-text);">not in baseline</span>
+        </div>
+        <div style="display:grid; grid-template-columns:90px 1fr 140px; gap:14px; align-items:center; padding:13px 16px; border-bottom:1px solid var(--border-subtle);">
+          <span style="font-size:11px; font-weight:700; color:var(--warning-text); background:var(--warning-bg); border-radius:999px; padding:3px 9px; justify-self:start;">HIGH</span>
+          <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:600;">semgrep / subprocess-shell-true</span>
+            <span style="font-size:12px; color:var(--text-3);">service.py:118 — shell=True propagates current shell settings</span>
+          </div>
+          <span style="font-size:11.5px; font-weight:600; color:#1668C1;">baselined</span>
+        </div>
+        <div style="display:grid; grid-template-columns:90px 1fr 140px; gap:14px; align-items:center; padding:13px 16px;">
+          <span style="font-size:11px; font-weight:700; color:var(--warning-text); background:var(--warning-bg); border-radius:999px; padding:3px 9px; justify-self:start;">HIGH</span>
+          <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; font-weight:600;">semgrep / avoid-pickle</span>
+            <span style="font-size:12px; color:var(--text-3);">cache.py:44 — pickle deserialization of untrusted data</span>
+          </div>
+          <span style="font-size:11.5px; font-weight:600; color:#1668C1;">baselined</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:12.5px; font-weight:600; color:var(--text-4);">Reviewers</span><i data-lucide="settings" width="14" height="14" style="color:var(--text-5);"></i></div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:24px; height:24px; border-radius:999px; background:var(--tint); color:#003d7a; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center;">GB</div>
+          <span style="font-size:12.5px; flex:1;">gate-bot</span>
+          <i data-lucide="check" width="15" height="15" style="color:#1E8E5A;"></i>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:24px; height:24px; border-radius:999px; background:var(--tint); color:#003d7a; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center;">TM</div>
+          <span style="font-size:12.5px; flex:1;">t-mokoena</span>
+          <i data-lucide="check" width="15" height="15" style="color:#1E8E5A;"></i>
+        </div>
+        <div style="font-size:11px; color:var(--text-5); padding-top:6px; border-top:1px solid var(--border-subtle);">2 of 2 required — approval alone does not clear a failing check.</div>
+      </div>
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:10px;">
+        <span style="font-size:12.5px; font-weight:600; color:var(--text-4);">Labels</span>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <span style="font-size:11.5px; font-weight:600; color:var(--danger-text); background:var(--danger-bg); border-radius:999px; padding:3px 10px;">blocking</span>
+          <span style="font-size:11.5px; font-weight:600; color:#0A4E96; background:var(--tint); border-radius:999px; padding:3px 10px;">security</span>
+          <span style="font-size:11.5px; font-weight:600; color:var(--text-3); background:var(--surface-alt); border-radius:999px; padding:3px 10px;">dependencies</span>
+        </div>
+      </div>
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:10px;">
+        <span style="font-size:12.5px; font-weight:600; color:var(--text-4);">Gate contract</span>
+        <div style="display:flex; flex-direction:column; gap:7px; font-size:12.5px;">
+          <div style="display:flex; justify-content:space-between;"><span style="color:var(--text-4);">Managed files</span><span style="font-weight:600; color:var(--success-text);">match base</span></div>
+          <div style="display:flex; justify-content:space-between;"><span style="color:var(--text-4);">.ssdlc/baseline.json</span><span style="font-weight:600; color:var(--success-text);">match base</span></div>
+          <div style="display:flex; justify-content:space-between;"><span style="color:var(--text-4);">Attestation</span><span style="font-weight:600; color:var(--text-4);">transitional</span></div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface-alt); border:1px dashed var(--border); border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:10px;">
+        <span style="font-size:13px; font-weight:600; color:var(--text-5);">Merge pull request</span>
+        <span style="font-size:12px; color:var(--text-5); line-height:1.5;">Disabled — required check <code style="font-family:'IBM Plex Mono',monospace;">policy-eval-findings</code> has not passed on head 4c1a9e2.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script data-dc-script data-props='{"darkMode":{"editor":"boolean","default":false,"section":"Theme"}}'>
+class Component extends DCLogic {
+  paintIcons(tries) {
+    if (window.lucide && window.lucide.createIcons) { window.lucide.createIcons(); return; }
+    if ((tries || 0) < 40) setTimeout(() => this.paintIcons((tries || 0) + 1), 100);
+  }
+  componentDidMount() { this.paintIcons(0); }
+  componentDidUpdate() { this.paintIcons(0); }
+  renderVals() {
+    return { theme: this.props.darkMode ? 'dark' : 'light' };
+  }
+}
+</script>
+</body>
+</html>
